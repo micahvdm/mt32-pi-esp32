@@ -42,9 +42,8 @@ $(CIRCLE_STDLIB_CONFIG) $(CIRCLE_CONFIG)&:
 	$(CIRCLESTDLIBHOME)/configure --raspberrypi=$(RASPBERRYPI) --prefix=$(PREFIX)
 
 # Apply patches
-	@${APPLY_PATCH} $(CIRCLEHOME) patches/circle-45-minimal-usb-drivers.patch
-	@${APPLY_PATCH} $(CIRCLEHOME) patches/circle-45-cp210x-remove-partnum-check.patch
-	@${APPLY_PATCH} $(CIRCLEHOME) patches/circle-45-gzip-kernel.patch
+	@${APPLY_PATCH} $(CIRCLEHOME) patches/circle-49-minimal-usb-drivers.patch
+	@${APPLY_PATCH} $(CIRCLEHOME) patches/circle-49-cp210x-remove-partnum-check.patch
 
 ifeq ($(strip $(GC_SECTIONS)),1)
 # Enable function/data sections for circle-stdlib
@@ -97,14 +96,17 @@ $(MT32EMUBUILDDIR)/.done: $(CIRCLESTDLIBHOME)/.done
 fluidsynth: $(FLUIDSYNTHBUILDDIR)/.done
 
 $(FLUIDSYNTHBUILDDIR)/.done: $(CIRCLESTDLIBHOME)/.done
-	@${APPLY_PATCH} $(FLUIDSYNTHHOME) patches/fluidsynth-2.3.1-circle.patch
+	@${APPLY_PATCH} $(FLUIDSYNTHHOME) patches/fluidsynth-2.5.3-circle.patch
 
 	@CFLAGS="$(CFLAGS_EXTERNAL)" \
+	CXXFLAGS="$(CFLAGS_EXTERNAL)" \
 	cmake -B $(FLUIDSYNTHBUILDDIR) \
 		 $(CMAKE_TOOLCHAIN_FLAGS) \
 		 -DCMAKE_C_FLAGS_RELEASE="-Ofast -fopenmp-simd" \
+		 -DCMAKE_CXX_FLAGS_RELEASE="-Ofast -fopenmp-simd" \
 		 -DCMAKE_BUILD_TYPE=Release \
 		 -DBUILD_SHARED_LIBS=OFF \
+		 -Dosal=embedded \
 		 -Denable-aufile=OFF \
 		 -Denable-dbus=OFF \
 		 -Denable-dsound=OFF \
@@ -115,6 +117,7 @@ $(FLUIDSYNTHBUILDDIR)/.done: $(CIRCLESTDLIBHOME)/.done
 		 -Denable-libinstpatch=OFF \
 		 -Denable-libsndfile=OFF \
 		 -Denable-midishare=OFF \
+		 -Denable-native-dls=OFF \
 		 -Denable-network=OFF \
 		 -Denable-oboe=OFF \
 		 -Denable-openmp=OFF \
@@ -123,7 +126,7 @@ $(FLUIDSYNTHBUILDDIR)/.done: $(CIRCLESTDLIBHOME)/.done
 		 -Denable-pipewire=OFF \
 		 -Denable-pulseaudio=OFF \
 		 -Denable-readline=OFF \
-		 -Denable-sdl2=OFF \
+		 -Denable-sdl3=OFF \
 		 -Denable-threads=OFF \
 		 -Denable-waveout=OFF \
 		 -Denable-winmidi=OFF \
@@ -152,7 +155,7 @@ mrproper: clean
 	@${REVERSE_PATCH} $(CIRCLEHOME) patches/circle-45-gzip-kernel.patch
 	@${REVERSE_PATCH} $(CIRCLEHOME) patches/circle-45-cp210x-remove-partnum-check.patch
 	@${REVERSE_PATCH} $(CIRCLEHOME) patches/circle-45-minimal-usb-drivers.patch
-	@${REVERSE_PATCH} $(FLUIDSYNTHHOME) patches/fluidsynth-2.3.1-circle.patch
+	@${REVERSE_PATCH} $(FLUIDSYNTHHOME) patches/fluidsynth-2.5.3-circle.patch
 
 # Clean circle-stdlib
 	@if [ -f $(CIRCLE_STDLIB_CONFIG) ]; then $(MAKE) -C $(CIRCLESTDLIBHOME) mrproper; fi
