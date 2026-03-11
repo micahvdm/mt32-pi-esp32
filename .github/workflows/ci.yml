@@ -208,19 +208,12 @@ jobs:
         run: |
           mkdir -p sdcard/firmware
           make -C "$WLAN_HOME/firmware"
-          cp "$WLAN_HOME"/firmware/LICENCE.broadcom_bcm43xx \
-             "$WLAN_HOME"/firmware/brcmfmac43430-sdio.bin \
-             "$WLAN_HOME"/firmware/brcmfmac43430-sdio.txt \
-             "$WLAN_HOME"/firmware/brcmfmac43436-sdio.bin \
-             "$WLAN_HOME"/firmware/brcmfmac43436-sdio.txt \
-             "$WLAN_HOME"/firmware/brcmfmac43436-sdio.clm_blob \
-             "$WLAN_HOME"/firmware/brcmfmac43455-sdio.bin \
-             "$WLAN_HOME"/firmware/brcmfmac43455-sdio.txt \
-             "$WLAN_HOME"/firmware/brcmfmac43455-sdio.clm_blob \
-             "$WLAN_HOME"/firmware/brcmfmac43456-sdio.bin \
-             "$WLAN_HOME"/firmware/brcmfmac43456-sdio.txt \
-             "$WLAN_HOME"/firmware/brcmfmac43456-sdio.clm_blob \
-             sdcard/firmware
+          cp "$WLAN_HOME"/firmware/*.{bin,txt,clm_blob} sdcard/firmware/
+          # Circle Step50.1 WLAN firmware Makefile no longer provides LICENCE.broadcom_bcm43xx.
+          # Copy it only if present to stay compatible with older/newer revisions.
+          if [ -f "$WLAN_HOME/firmware/LICENCE.broadcom_bcm43xx" ]; then
+            cp "$WLAN_HOME/firmware/LICENCE.broadcom_bcm43xx" sdcard/firmware/
+          fi
 
       - name: Cache GeneralUser GS SoundFont
         id: cache-generaluser-gs
