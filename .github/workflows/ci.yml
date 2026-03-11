@@ -227,6 +227,8 @@ jobs:
         run: |
           set -e
           python -m pip install gdown
+          # TODO(ng): Replace Google Drive with a stable direct URL/mirror for GeneralUser GS v1.511.
+          # Current gdown source is flaky due to Drive permission/rate-limit changes.
           if python -m gdown -q https://drive.google.com/uc?id=1ypgJwuHqqXx-jeCXLRFqgBAEemJZnDrj; then
             unzip "GeneralUser GS v1.511.zip"
           else
