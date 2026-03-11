@@ -408,22 +408,27 @@ bool CSoundFontSynth::Reinitialize(const char* pSoundFontPath, const TFXProfile*
 
 	// Use values from effects profile if set, otherwise use defaults
 	m_bReverbActive   = pFXProfile->bReverbActive.ValueOr(pConfig->FluidSynthDefaultReverbActive);
+	m_nReverbDamping  = pFXProfile->nReverbDamping.ValueOr(pConfig->FluidSynthDefaultReverbDamping);
 	m_nReverbRoomSize = pFXProfile->nReverbRoomSize.ValueOr(pConfig->FluidSynthDefaultReverbRoomSize);
 	m_nReverbLevel    = pFXProfile->nReverbLevel.ValueOr(pConfig->FluidSynthDefaultReverbLevel);
+	m_nReverbWidth    = pFXProfile->nReverbWidth.ValueOr(pConfig->FluidSynthDefaultReverbWidth);
 	m_bChorusActive   = pFXProfile->bChorusActive.ValueOr(pConfig->FluidSynthDefaultChorusActive);
 	m_nChorusDepth    = pFXProfile->nChorusDepth.ValueOr(pConfig->FluidSynthDefaultChorusDepth);
+	m_nChorusLevel    = pFXProfile->nChorusLevel.ValueOr(pConfig->FluidSynthDefaultChorusLevel);
+	m_nChorusVoices   = pFXProfile->nChorusVoices.ValueOr(pConfig->FluidSynthDefaultChorusVoices);
+	m_nChorusSpeed    = pFXProfile->nChorusSpeed.ValueOr(pConfig->FluidSynthDefaultChorusSpeed);
 
 	fluid_synth_reverb_on(m_pSynth, -1, m_bReverbActive);
-	fluid_synth_set_reverb_group_damp(m_pSynth, -1, pFXProfile->nReverbDamping.ValueOr(pConfig->FluidSynthDefaultReverbDamping));
+	fluid_synth_set_reverb_group_damp(m_pSynth, -1, m_nReverbDamping);
 	fluid_synth_set_reverb_group_level(m_pSynth, -1, m_nReverbLevel);
 	fluid_synth_set_reverb_group_roomsize(m_pSynth, -1, m_nReverbRoomSize);
-	fluid_synth_set_reverb_group_width(m_pSynth, -1, pFXProfile->nReverbWidth.ValueOr(pConfig->FluidSynthDefaultReverbWidth));
+	fluid_synth_set_reverb_group_width(m_pSynth, -1, m_nReverbWidth);
 
 	fluid_synth_chorus_on(m_pSynth, -1, m_bChorusActive);
 	fluid_synth_set_chorus_group_depth(m_pSynth, -1, m_nChorusDepth);
-	fluid_synth_set_chorus_group_level(m_pSynth, -1, pFXProfile->nChorusLevel.ValueOr(pConfig->FluidSynthDefaultChorusLevel));
-	fluid_synth_set_chorus_group_nr(m_pSynth, -1, pFXProfile->nChorusVoices.ValueOr(pConfig->FluidSynthDefaultChorusVoices));
-	fluid_synth_set_chorus_group_speed(m_pSynth, -1, pFXProfile->nChorusSpeed.ValueOr(pConfig->FluidSynthDefaultChorusSpeed));
+	fluid_synth_set_chorus_group_level(m_pSynth, -1, m_nChorusLevel);
+	fluid_synth_set_chorus_group_nr(m_pSynth, -1, m_nChorusVoices);
+	fluid_synth_set_chorus_group_speed(m_pSynth, -1, m_nChorusSpeed);
 
 #ifndef NDEBUG
 	DumpFXSettings();
@@ -623,6 +628,15 @@ bool CSoundFontSynth::ParseYamahaSysEx(const u8* pData, size_t nSize)
 	return false;
 }
 
+void CSoundFontSynth::SetGain(float nGain)
+{
+	m_nInitialGain = nGain;
+	m_Lock.Acquire();
+	if (m_pSynth)
+		fluid_synth_set_gain(m_pSynth, m_nVolume / 100.0f * m_nInitialGain);
+	m_Lock.Release();
+}
+
 void CSoundFontSynth::SetReverbActive(bool bActive)
 {
 	m_bReverbActive = bActive;
@@ -650,6 +664,24 @@ void CSoundFontSynth::SetReverbLevel(float nLevel)
 	m_Lock.Release();
 }
 
+void CSoundFontSynth::SetReverbDamping(float nDamping)
+{
+	m_nReverbDamping = nDamping;
+	m_Lock.Acquire();
+	if (m_pSynth)
+		fluid_synth_set_reverb_group_damp(m_pSynth, -1, nDamping);
+	m_Lock.Release();
+}
+
+void CSoundFontSynth::SetReverbWidth(float nWidth)
+{
+	m_nReverbWidth = nWidth;
+	m_Lock.Acquire();
+	if (m_pSynth)
+		fluid_synth_set_reverb_group_width(m_pSynth, -1, nWidth);
+	m_Lock.Release();
+}
+
 void CSoundFontSynth::SetChorusActive(bool bActive)
 {
 	m_bChorusActive = bActive;
@@ -665,5 +697,32 @@ void CSoundFontSynth::SetChorusDepth(float nDepth)
 	m_Lock.Acquire();
 	if (m_pSynth)
 		fluid_synth_set_chorus_group_depth(m_pSynth, -1, nDepth);
+	m_Lock.Release();
+}
+
+void CSoundFontSynth::SetChorusLevel(float nLevel)
+{
+	m_nChorusLevel = nLevel;
+	m_Lock.Acquire();
+	if (m_pSynth)
+		fluid_synth_set_chorus_group_level(m_pSynth, -1, nLevel);
+	m_Lock.Release();
+}
+
+void CSoundFontSynth::SetChorusVoices(int nVoices)
+{
+	m_nChorusVoices = nVoices;
+	m_Lock.Acquire();
+	if (m_pSynth)
+		fluid_synth_set_chorus_group_nr(m_pSynth, -1, nVoices);
+	m_Lock.Release();
+}
+
+void CSoundFontSynth::SetChorusSpeed(float nSpeed)
+{
+	m_nChorusSpeed = nSpeed;
+	m_Lock.Acquire();
+	if (m_pSynth)
+		fluid_synth_set_chorus_group_speed(m_pSynth, -1, nSpeed);
 	m_Lock.Release();
 }

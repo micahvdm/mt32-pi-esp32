@@ -49,6 +49,15 @@ CMT32Synth::CMT32Synth(unsigned nSampleRate, float nGain, float nReverbGain, TRe
 
 	  m_nGain(nGain),
 	  m_nReverbGain(nReverbGain),
+	  m_bReverbEnabled(true),
+	  m_bNiceAmpRamp(true),
+	  m_bNicePanning(false),
+	  m_bNicePartialMixing(false),
+	  m_DACInputMode(MT32Emu::DACInputMode_NICE),
+	  m_MIDIDelayMode(MT32Emu::MIDIDelayMode_IMMEDIATE),
+	  m_AnalogOutputMode(MT32Emu::AnalogOutputMode_COARSE),
+	  m_RendererType(MT32Emu::RendererType_BIT16S),
+	  m_nPartialCount(MT32Emu::DEFAULT_MAX_PARTIALS),
 
 	  m_ResamplerQuality(ResamplerQuality),
 	  m_pSampleRateConverter(nullptr),
@@ -84,12 +93,19 @@ bool CMT32Synth::Initialize()
 		return false;
 
 	m_pSynth = new MT32Emu::Synth(this);
+	m_pSynth->selectRendererType(m_RendererType);
 
-	if (!m_pSynth->open(*m_pControlROMImage, *m_pPCMROMImage))
+	if (!m_pSynth->open(*m_pControlROMImage, *m_pPCMROMImage, m_nPartialCount, m_AnalogOutputMode))
 		return false;
 
 	m_pSynth->setOutputGain(m_nGain);
 	m_pSynth->setReverbOutputGain(m_nReverbGain);
+	m_pSynth->setReverbEnabled(m_bReverbEnabled);
+	m_pSynth->setNiceAmpRampEnabled(m_bNiceAmpRamp);
+	m_pSynth->setNicePanningEnabled(m_bNicePanning);
+	m_pSynth->setNicePartialMixingEnabled(m_bNicePartialMixing);
+	m_pSynth->setDACInputMode(m_DACInputMode);
+	m_pSynth->setMIDIDelayMode(m_MIDIDelayMode);
 
 	if (m_ResamplerQuality != TResamplerQuality::None)
 	{
@@ -218,6 +234,78 @@ void CMT32Synth::UpdateLCD(CLCD& LCD, unsigned int nTicks)
 	LCD.Print(m_LCDTextBuffer, 0, nStatusRow, true, false);
 }
 
+void CMT32Synth::SetOutputGain(float nGain)
+{
+	m_nGain = nGain;
+	m_Lock.Acquire();
+	if (m_pSynth)
+		m_pSynth->setOutputGain(nGain);
+	m_Lock.Release();
+}
+
+void CMT32Synth::SetReverbOutputGain(float nGain)
+{
+	m_nReverbGain = nGain;
+	m_Lock.Acquire();
+	if (m_pSynth)
+		m_pSynth->setReverbOutputGain(nGain);
+	m_Lock.Release();
+}
+
+void CMT32Synth::SetReverbEnabled(bool bEnabled)
+{
+	m_bReverbEnabled = bEnabled;
+	m_Lock.Acquire();
+	if (m_pSynth)
+		m_pSynth->setReverbEnabled(bEnabled);
+	m_Lock.Release();
+}
+
+void CMT32Synth::SetNiceAmpRamp(bool bEnabled)
+{
+	m_bNiceAmpRamp = bEnabled;
+	m_Lock.Acquire();
+	if (m_pSynth)
+		m_pSynth->setNiceAmpRampEnabled(bEnabled);
+	m_Lock.Release();
+}
+
+void CMT32Synth::SetNicePanning(bool bEnabled)
+{
+	m_bNicePanning = bEnabled;
+	m_Lock.Acquire();
+	if (m_pSynth)
+		m_pSynth->setNicePanningEnabled(bEnabled);
+	m_Lock.Release();
+}
+
+void CMT32Synth::SetNicePartialMixing(bool bEnabled)
+{
+	m_bNicePartialMixing = bEnabled;
+	m_Lock.Acquire();
+	if (m_pSynth)
+		m_pSynth->setNicePartialMixingEnabled(bEnabled);
+	m_Lock.Release();
+}
+
+void CMT32Synth::SetDACInputMode(MT32Emu::DACInputMode Mode)
+{
+	m_DACInputMode = Mode;
+	m_Lock.Acquire();
+	if (m_pSynth)
+		m_pSynth->setDACInputMode(Mode);
+	m_Lock.Release();
+}
+
+void CMT32Synth::SetMIDIDelayMode(MT32Emu::MIDIDelayMode Mode)
+{
+	m_MIDIDelayMode = Mode;
+	m_Lock.Acquire();
+	if (m_pSynth)
+		m_pSynth->setMIDIDelayMode(Mode);
+	m_Lock.Release();
+}
+
 void CMT32Synth::SetMIDIChannels(TMIDIChannels Channels)
 {
 	if (Channels == TMIDIChannels::Standard)
@@ -250,13 +338,128 @@ bool CMT32Synth::SwitchROMSet(TMT32ROMSet ROMSet)
 	// Reopen synth with new ROMs
 	m_Lock.Acquire();
 	m_pSynth->close();
-	assert(m_pSynth->open(*pControlROMImage, *pPCMROMImage));
+	m_pSynth->selectRendererType(m_RendererType);
+	assert(m_pSynth->open(*pControlROMImage, *pPCMROMImage, m_nPartialCount, m_AnalogOutputMode));
 	m_pSynth->setOutputGain(m_nGain);
 	m_pSynth->setReverbOutputGain(m_nReverbGain);
+	m_pSynth->setReverbEnabled(m_bReverbEnabled);
+	m_pSynth->setNiceAmpRampEnabled(m_bNiceAmpRamp);
+	m_pSynth->setNicePanningEnabled(m_bNicePanning);
+	m_pSynth->setNicePartialMixingEnabled(m_bNicePartialMixing);
+	m_pSynth->setDACInputMode(m_DACInputMode);
+	m_pSynth->setMIDIDelayMode(m_MIDIDelayMode);
 	m_Lock.Release();
 
 	m_pControlROMImage = pControlROMImage;
 	m_pPCMROMImage     = pPCMROMImage;
+
+	return true;
+}
+
+bool CMT32Synth::ReopenCurrentROMSet()
+{
+	if (!m_pSynth || !m_pControlROMImage || !m_pPCMROMImage)
+		return false;
+
+	m_Lock.Acquire();
+	m_pSynth->close();
+	m_pSynth->selectRendererType(m_RendererType);
+	const bool bOpened = m_pSynth->open(*m_pControlROMImage, *m_pPCMROMImage, m_nPartialCount, m_AnalogOutputMode);
+	if (bOpened)
+	{
+		m_pSynth->setOutputGain(m_nGain);
+		m_pSynth->setReverbOutputGain(m_nReverbGain);
+		m_pSynth->setReverbEnabled(m_bReverbEnabled);
+		m_pSynth->setNiceAmpRampEnabled(m_bNiceAmpRamp);
+		m_pSynth->setNicePanningEnabled(m_bNicePanning);
+		m_pSynth->setNicePartialMixingEnabled(m_bNicePartialMixing);
+		m_pSynth->setDACInputMode(m_DACInputMode);
+		m_pSynth->setMIDIDelayMode(m_MIDIDelayMode);
+	}
+	m_Lock.Release();
+
+	if (!bOpened)
+		return false;
+
+	if (m_pSampleRateConverter)
+	{
+		delete m_pSampleRateConverter;
+		m_pSampleRateConverter = nullptr;
+	}
+
+	if (m_ResamplerQuality != TResamplerQuality::None)
+	{
+		auto quality = MT32Emu::SamplerateConversionQuality_GOOD;
+		switch (m_ResamplerQuality)
+		{
+			case TResamplerQuality::Fastest:
+				quality = MT32Emu::SamplerateConversionQuality_FASTEST;
+				break;
+			case TResamplerQuality::Fast:
+				quality = MT32Emu::SamplerateConversionQuality_FAST;
+				break;
+			case TResamplerQuality::Good:
+				quality = MT32Emu::SamplerateConversionQuality_GOOD;
+				break;
+			case TResamplerQuality::Best:
+				quality = MT32Emu::SamplerateConversionQuality_BEST;
+				break;
+			default:
+				break;
+		}
+		m_pSampleRateConverter = new MT32Emu::SampleRateConverter(*m_pSynth, m_nSampleRate, quality);
+	}
+
+	return true;
+}
+
+bool CMT32Synth::SetAnalogOutputMode(MT32Emu::AnalogOutputMode Mode)
+{
+	if (Mode == m_AnalogOutputMode)
+		return true;
+
+	const auto OldMode = m_AnalogOutputMode;
+	m_AnalogOutputMode = Mode;
+	if (!ReopenCurrentROMSet())
+	{
+		m_AnalogOutputMode = OldMode;
+		ReopenCurrentROMSet();
+		return false;
+	}
+
+	return true;
+}
+
+bool CMT32Synth::SetRendererType(MT32Emu::RendererType Type)
+{
+	if (Type == m_RendererType)
+		return true;
+
+	const auto OldType = m_RendererType;
+	m_RendererType = Type;
+	if (!ReopenCurrentROMSet())
+	{
+		m_RendererType = OldType;
+		ReopenCurrentROMSet();
+		return false;
+	}
+
+	return true;
+}
+
+bool CMT32Synth::SetPartialCount(u32 nPartialCount)
+{
+	if (nPartialCount == m_nPartialCount)
+		return true;
+
+	const u32 OldCount = m_nPartialCount;
+	m_nPartialCount = nPartialCount;
+	if (!ReopenCurrentROMSet())
+	{
+		m_nPartialCount = OldCount;
+		ReopenCurrentROMSet();
+		return false;
+	}
 
 	return true;
 }

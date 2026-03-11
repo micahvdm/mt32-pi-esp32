@@ -74,6 +74,32 @@ public:
 
 	u8 GetMasterVolume() const;
 
+	// Real-time FX control
+	void SetOutputGain(float nGain);
+	float GetOutputGain() const { return m_nGain; }
+	void SetReverbOutputGain(float nGain);
+	float GetReverbOutputGain() const { return m_nReverbGain; }
+	void SetReverbEnabled(bool bEnabled);
+	bool GetReverbEnabled() const { return m_bReverbEnabled; }
+	void SetNiceAmpRamp(bool bEnabled);
+	bool GetNiceAmpRamp() const { return m_bNiceAmpRamp; }
+	void SetNicePanning(bool bEnabled);
+	bool GetNicePanning() const { return m_bNicePanning; }
+	void SetNicePartialMixing(bool bEnabled);
+	bool GetNicePartialMixing() const { return m_bNicePartialMixing; }
+	void SetDACInputMode(MT32Emu::DACInputMode Mode);
+	MT32Emu::DACInputMode GetDACInputMode() const { return m_DACInputMode; }
+	void SetMIDIDelayMode(MT32Emu::MIDIDelayMode Mode);
+	MT32Emu::MIDIDelayMode GetMIDIDelayMode() const { return m_MIDIDelayMode; }
+
+	// Reopen-required parameters
+	bool SetAnalogOutputMode(MT32Emu::AnalogOutputMode Mode);
+	MT32Emu::AnalogOutputMode GetAnalogOutputMode() const { return m_AnalogOutputMode; }
+	bool SetRendererType(MT32Emu::RendererType Type);
+	MT32Emu::RendererType GetRendererType() const { return m_RendererType; }
+	bool SetPartialCount(u32 nPartialCount);
+	u32 GetPartialCount() const { return m_nPartialCount; }
+
 private:
 	static constexpr size_t MT32ChannelCount = 9;
 
@@ -95,6 +121,19 @@ private:
 
 	float m_nGain;
 	float m_nReverbGain;
+
+	// Cached live FX state
+	bool  m_bReverbEnabled;
+	bool  m_bNiceAmpRamp;
+	bool  m_bNicePanning;
+	bool  m_bNicePartialMixing;
+	MT32Emu::DACInputMode  m_DACInputMode;
+	MT32Emu::MIDIDelayMode m_MIDIDelayMode;
+	MT32Emu::AnalogOutputMode m_AnalogOutputMode;
+	MT32Emu::RendererType m_RendererType;
+	u32 m_nPartialCount;
+
+	bool ReopenCurrentROMSet();
 
 	TResamplerQuality m_ResamplerQuality;
 	MT32Emu::SampleRateConverter* m_pSampleRateConverter;
