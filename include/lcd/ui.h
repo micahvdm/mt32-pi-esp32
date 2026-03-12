@@ -121,12 +121,29 @@ bool    m_bMenuEditing;
 
 // Cached values for menu items (float/int/bool mirrors)
 bool  m_bMenuReverbActive;
+float m_fMenuReverbDamping;
 float m_fMenuReverbRoomSize;
 float m_fMenuReverbLevel;
+float m_fMenuReverbWidth;
 bool  m_bMenuChorusActive;
 float m_fMenuChorusDepth;
+float m_fMenuChorusLevel;
+int   m_nMenuChorusVoices;
+float m_fMenuChorusSpeed;
+float m_fMenuGain;
 int   m_nMenuROMSet;     // MT-32 only
 int   m_nMenuSoundFont;  // SF only
+float m_fMenuMT32Gain;
+float m_fMenuMT32ReverbGain;
+bool  m_bMenuMT32ReverbEnabled;
+bool  m_bMenuMT32NiceAmpRamp;
+bool  m_bMenuMT32NicePanning;
+bool  m_bMenuMT32NicePartMix;
+int   m_nMenuMT32DACMode;   // 0=NICE 1=PURE 2=GEN1 3=GEN2
+int   m_nMenuMT32MIDIDelay; // 0=IMMEDIATE 1=SHORT 2=ALL
+int   m_nMenuMT32AnalogMode;   // 0=DIGITAL 1=COARSE 2=ACCURATE 3=OVERSAMPLED
+int   m_nMenuMT32RendererType; // 0=BIT16S 1=FLOAT
+int   m_nMenuMT32PartialCount;
 };
 
 #endif

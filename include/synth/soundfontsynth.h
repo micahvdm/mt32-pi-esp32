@@ -54,16 +54,28 @@ public:
 	CSoundFontManager& GetSoundFontManager() { return m_SoundFontManager; }
 
 	// Real-time FX control
+	void SetGain(float nGain);
+	float GetGain() const { return m_nInitialGain; }
 	void SetReverbActive(bool bActive);
 	bool GetReverbActive() const { return m_bReverbActive; }
+	void SetReverbDamping(float nDamping);
+	float GetReverbDamping() const { return m_nReverbDamping; }
 	void SetReverbRoomSize(float nRoomSize);
 	float GetReverbRoomSize() const { return m_nReverbRoomSize; }
 	void SetReverbLevel(float nLevel);
 	float GetReverbLevel() const { return m_nReverbLevel; }
+	void SetReverbWidth(float nWidth);
+	float GetReverbWidth() const { return m_nReverbWidth; }
 	void SetChorusActive(bool bActive);
 	bool GetChorusActive() const { return m_bChorusActive; }
 	void SetChorusDepth(float nDepth);
 	float GetChorusDepth() const { return m_nChorusDepth; }
+	void SetChorusLevel(float nLevel);
+	float GetChorusLevel() const { return m_nChorusLevel; }
+	void SetChorusVoices(int nVoices);
+	int GetChorusVoices() const { return m_nChorusVoices; }
+	void SetChorusSpeed(float nSpeed);
+	float GetChorusSpeed() const { return m_nChorusSpeed; }
 
 private:
 	bool Reinitialize(const char* pSoundFontPath, const TFXProfile* pFXProfile);
@@ -83,10 +95,15 @@ private:
 
 	// Cached FX state (kept in sync with FluidSynth)
 	bool  m_bReverbActive;
+	float m_nReverbDamping;
 	float m_nReverbRoomSize;
 	float m_nReverbLevel;
+	float m_nReverbWidth;
 	bool  m_bChorusActive;
 	float m_nChorusDepth;
+	float m_nChorusLevel;
+	int   m_nChorusVoices;
+	float m_nChorusSpeed;
 
 	u16 m_nPercussionMask;
 	size_t m_nCurrentSoundFontIndex;
