@@ -86,8 +86,21 @@ public:
 	const char* GetCurrentSoundFontName() const;
 	const char* GetCurrentSoundFontPath() const;
 	size_t GetCurrentSoundFontIndex() const;
+	const char* GetSoundFontName(size_t nIndex) const;
 	size_t GetSoundFontCount() const;
+	int GetMasterVolume() const { return static_cast<int>(m_nMasterVolume); }
+	int GetMT32ROMSetIndex() const;
+	bool GetSoundFontFXState(bool& bReverbActive, float& nReverbRoomSize, float& nReverbLevel, bool& bChorusActive, float& nChorusDepth) const;
 	void GetMIDIChannelLevels(float* pOutLevels, float* pOutPeaks) const;
+	bool SetActiveSynth(TSynth Synth);
+	bool SetMT32ROMSet(TMT32ROMSet ROMSet);
+	bool SetSoundFontIndex(size_t nIndex);
+	bool SetMasterVolumePercent(int nVolume);
+	bool SetSoundFontReverbActive(bool bActive);
+	bool SetSoundFontReverbRoomSize(float nRoomSize);
+	bool SetSoundFontReverbLevel(float nLevel);
+	bool SetSoundFontChorusActive(bool bActive);
+	bool SetSoundFontChorusDepth(float nDepth);
 	void RequestReboot() { m_bRunning = false; }
 	bool HasMT32Synth() const { return m_pMT32Synth != nullptr; }
 	bool HasSoundFontSynth() const { return m_pSoundFontSynth != nullptr; }
