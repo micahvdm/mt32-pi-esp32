@@ -457,9 +457,120 @@ size_t CMT32Pi::GetCurrentSoundFontIndex() const
 	return m_pSoundFontSynth ? m_pSoundFontSynth->GetSoundFontIndex() : 0;
 }
 
+const char* CMT32Pi::GetSoundFontName(size_t nIndex) const
+{
+	return m_pSoundFontSynth ? m_pSoundFontSynth->GetSoundFontManager().GetSoundFontName(nIndex) : nullptr;
+}
+
 size_t CMT32Pi::GetSoundFontCount() const
 {
 	return m_pSoundFontSynth ? m_pSoundFontSynth->GetSoundFontManager().GetSoundFontCount() : 0;
+}
+
+int CMT32Pi::GetMT32ROMSetIndex() const
+{
+	return m_pMT32Synth ? static_cast<int>(m_pMT32Synth->GetROMSet()) : -1;
+}
+
+bool CMT32Pi::GetSoundFontFXState(bool& bReverbActive, float& nReverbRoomSize, float& nReverbLevel, bool& bChorusActive, float& nChorusDepth) const
+{
+	if (!m_pSoundFontSynth)
+		return false;
+
+	bReverbActive = m_pSoundFontSynth->GetReverbActive();
+	nReverbRoomSize = m_pSoundFontSynth->GetReverbRoomSize();
+	nReverbLevel = m_pSoundFontSynth->GetReverbLevel();
+	bChorusActive = m_pSoundFontSynth->GetChorusActive();
+	nChorusDepth = m_pSoundFontSynth->GetChorusDepth();
+	return true;
+}
+
+bool CMT32Pi::SetActiveSynth(TSynth Synth)
+{
+	SwitchSynth(Synth);
+
+	if (Synth == TSynth::MT32)
+		return m_pCurrentSynth == m_pMT32Synth;
+	if (Synth == TSynth::SoundFont)
+		return m_pCurrentSynth == m_pSoundFontSynth;
+
+	return false;
+}
+
+bool CMT32Pi::SetMT32ROMSet(TMT32ROMSet ROMSet)
+{
+	if (!m_pMT32Synth)
+		return false;
+
+	if (ROMSet >= TMT32ROMSet::Any)
+		return false;
+
+	SwitchMT32ROMSet(ROMSet);
+	return m_pMT32Synth->GetROMSet() == ROMSet;
+}
+
+bool CMT32Pi::SetSoundFontIndex(size_t nIndex)
+{
+	if (!m_pSoundFontSynth)
+		return false;
+
+	const size_t nSoundFontCount = m_pSoundFontSynth->GetSoundFontManager().GetSoundFontCount();
+	if (nIndex >= nSoundFontCount)
+		return false;
+
+	SwitchSoundFont(nIndex);
+	return m_pSoundFontSynth->GetSoundFontIndex() == nIndex;
+}
+
+bool CMT32Pi::SetMasterVolumePercent(int nVolume)
+{
+	SetMasterVolume(Utility::Clamp(nVolume, 0, 100));
+	return true;
+}
+
+bool CMT32Pi::SetSoundFontReverbActive(bool bActive)
+{
+	if (!m_pSoundFontSynth)
+		return false;
+
+	m_pSoundFontSynth->SetReverbActive(bActive);
+	return true;
+}
+
+bool CMT32Pi::SetSoundFontReverbRoomSize(float nRoomSize)
+{
+	if (!m_pSoundFontSynth)
+		return false;
+
+	m_pSoundFontSynth->SetReverbRoomSize(Utility::Clamp(nRoomSize, 0.0f, 1.0f));
+	return true;
+}
+
+bool CMT32Pi::SetSoundFontReverbLevel(float nLevel)
+{
+	if (!m_pSoundFontSynth)
+		return false;
+
+	m_pSoundFontSynth->SetReverbLevel(Utility::Clamp(nLevel, 0.0f, 1.0f));
+	return true;
+}
+
+bool CMT32Pi::SetSoundFontChorusActive(bool bActive)
+{
+	if (!m_pSoundFontSynth)
+		return false;
+
+	m_pSoundFontSynth->SetChorusActive(bActive);
+	return true;
+}
+
+bool CMT32Pi::SetSoundFontChorusDepth(float nDepth)
+{
+	if (!m_pSoundFontSynth)
+		return false;
+
+	m_pSoundFontSynth->SetChorusDepth(Utility::Clamp(nDepth, 0.0f, 20.0f));
+	return true;
 }
 
 void CMT32Pi::GetMIDIChannelLevels(float* pOutLevels, float* pOutPeaks) const

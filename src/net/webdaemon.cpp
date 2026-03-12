@@ -26,6 +26,7 @@
 #include <circle/string.h>
 
 #include <cctype>
+#include <cstdlib>
 #include <cstring>
 
 #include <fatfs/ff.h>
@@ -345,6 +346,48 @@ namespace
 			Out += ",";
 	}
 
+	bool ParseIntStrict(const char* pText, int& nOut)
+	{
+		if (!pText || !*pText)
+			return false;
+
+		char* pEnd = nullptr;
+		const long nValue = std::strtol(pText, &pEnd, 10);
+		if (pEnd == pText)
+			return false;
+
+		while (pEnd && *pEnd)
+		{
+			if (!std::isspace(static_cast<unsigned char>(*pEnd)))
+				return false;
+			++pEnd;
+		}
+
+		nOut = static_cast<int>(nValue);
+		return true;
+	}
+
+	bool ParseFloatStrict(const char* pText, float& nOut)
+	{
+		if (!pText || !*pText)
+			return false;
+
+		char* pEnd = nullptr;
+		const float nValue = std::strtof(pText, &pEnd);
+		if (pEnd == pText)
+			return false;
+
+		while (pEnd && *pEnd)
+		{
+			if (!std::isspace(static_cast<unsigned char>(*pEnd)))
+				return false;
+			++pEnd;
+		}
+
+		nOut = nValue;
+		return true;
+	}
+
 	const char* SkipSpaces(const char* pText)
 	{
 		while (pText && *pText && std::isspace(static_cast<unsigned char>(*pText)))
@@ -647,9 +690,10 @@ THTTPStatus CWebDaemon::GetContent(const char* pPath,
 	const bool bIsStatusAPIPath = strcmp(pPath, "/api/status") == 0;
 	const bool bIsMIDIAPIPath = strcmp(pPath, "/api/midi") == 0;
  	const bool bIsConfigSavePath = strcmp(pPath, "/api/config/save") == 0;
+	const bool bIsRuntimeSetPath = strcmp(pPath, "/api/runtime/set") == 0;
 	const bool bIsSystemRebootPath = strcmp(pPath, "/api/system/reboot") == 0;
 
-	if (!bIsIndexPath && !bIsConfigPagePath && !bIsStatusAPIPath && !bIsMIDIAPIPath && !bIsConfigSavePath && !bIsSystemRebootPath)
+	if (!bIsIndexPath && !bIsConfigPagePath && !bIsStatusAPIPath && !bIsMIDIAPIPath && !bIsConfigSavePath && !bIsRuntimeSetPath && !bIsSystemRebootPath)
 		return HTTPNotFound;
 
 	if (!m_pMT32Pi)
@@ -821,6 +865,112 @@ THTTPStatus CWebDaemon::GetContent(const char* pPath,
 		return HTTPOK;
 	}
 
+	if (bIsRuntimeSetPath)
+	{
+		if (!pFormData || !*pFormData)
+			return HTTPBadRequest;
+
+		char Param[64];
+		char Value[128];
+		if (!GetFormValue(pFormData, "param", Param, sizeof(Param))
+		 || !GetFormValue(pFormData, "value", Value, sizeof(Value)))
+		{
+			return HTTPBadRequest;
+		}
+
+		bool bApplied = false;
+		if (std::strcmp(Param, "active_synth") == 0)
+		{
+			if (std::strcmp(Value, "mt32") == 0)
+				bApplied = m_pMT32Pi->SetActiveSynth(TSynth::MT32);
+			else if (std::strcmp(Value, "soundfont") == 0)
+				bApplied = m_pMT32Pi->SetActiveSynth(TSynth::SoundFont);
+		}
+		else if (std::strcmp(Param, "mt32_rom_set") == 0)
+		{
+			if (std::strcmp(Value, "mt32_old") == 0)
+				bApplied = m_pMT32Pi->SetMT32ROMSet(TMT32ROMSet::MT32Old);
+			else if (std::strcmp(Value, "mt32_new") == 0)
+				bApplied = m_pMT32Pi->SetMT32ROMSet(TMT32ROMSet::MT32New);
+			else if (std::strcmp(Value, "cm32l") == 0)
+				bApplied = m_pMT32Pi->SetMT32ROMSet(TMT32ROMSet::CM32L);
+		}
+		else if (std::strcmp(Param, "soundfont_index") == 0)
+		{
+			int nIndex = 0;
+			if (ParseIntStrict(Value, nIndex) && nIndex >= 0)
+				bApplied = m_pMT32Pi->SetSoundFontIndex(static_cast<size_t>(nIndex));
+		}
+		else if (std::strcmp(Param, "master_volume") == 0)
+		{
+			int nVolume = 0;
+			if (ParseIntStrict(Value, nVolume))
+				bApplied = m_pMT32Pi->SetMasterVolumePercent(nVolume);
+		}
+		else if (std::strcmp(Param, "sf_reverb_active") == 0)
+		{
+			bool bEnabled = false;
+			if (CConfig::ParseOption(Value, &bEnabled))
+				bApplied = m_pMT32Pi->SetSoundFontReverbActive(bEnabled);
+		}
+		else if (std::strcmp(Param, "sf_reverb_room") == 0)
+		{
+			float nRoom = 0.0f;
+			if (ParseFloatStrict(Value, nRoom))
+				bApplied = m_pMT32Pi->SetSoundFontReverbRoomSize(nRoom);
+		}
+		else if (std::strcmp(Param, "sf_reverb_level") == 0)
+		{
+			float nLevel = 0.0f;
+			if (ParseFloatStrict(Value, nLevel))
+				bApplied = m_pMT32Pi->SetSoundFontReverbLevel(nLevel);
+		}
+		else if (std::strcmp(Param, "sf_chorus_active") == 0)
+		{
+			bool bEnabled = false;
+			if (CConfig::ParseOption(Value, &bEnabled))
+				bApplied = m_pMT32Pi->SetSoundFontChorusActive(bEnabled);
+		}
+		else if (std::strcmp(Param, "sf_chorus_depth") == 0)
+		{
+			float nDepth = 0.0f;
+			if (ParseFloatStrict(Value, nDepth))
+				bApplied = m_pMT32Pi->SetSoundFontChorusDepth(nDepth);
+		}
+
+		bool bReverbActive = false;
+		float nReverbRoom = 0.0f;
+		float nReverbLevel = 0.0f;
+		bool bChorusActive = false;
+		float nChorusDepth = 0.0f;
+		const bool bHasSoundFontFX = m_pMT32Pi->GetSoundFontFXState(bReverbActive, nReverbRoom, nReverbLevel, bChorusActive, nChorusDepth);
+
+		CString JSON;
+		JSON += "{";
+		AppendJSONPairBool(JSON, "ok", bApplied);
+		AppendJSONPair(JSON, "active_synth", m_pMT32Pi->GetActiveSynthName());
+		AppendJSONPairInt(JSON, "mt32_rom_set", m_pMT32Pi->GetMT32ROMSetIndex());
+		AppendJSONPairInt(JSON, "soundfont_index", static_cast<int>(m_pMT32Pi->GetCurrentSoundFontIndex()));
+		AppendJSONPairInt(JSON, "soundfont_count", static_cast<int>(m_pMT32Pi->GetSoundFontCount()));
+		AppendJSONPairInt(JSON, "master_volume", m_pMT32Pi->GetMasterVolume());
+		AppendJSONPairBool(JSON, "sf_available", bHasSoundFontFX);
+		AppendJSONPairBool(JSON, "sf_reverb_active", bHasSoundFontFX ? bReverbActive : false);
+		AppendJSONPairFloat(JSON, "sf_reverb_room", bHasSoundFontFX ? nReverbRoom : 0.0f);
+		AppendJSONPairFloat(JSON, "sf_reverb_level", bHasSoundFontFX ? nReverbLevel : 0.0f);
+		AppendJSONPairBool(JSON, "sf_chorus_active", bHasSoundFontFX ? bChorusActive : false);
+		AppendJSONPairFloat(JSON, "sf_chorus_depth", bHasSoundFontFX ? nChorusDepth : 0.0f, false);
+		JSON += "}";
+
+		const unsigned nBodyLength = JSON.GetLength();
+		if (*pLength < nBodyLength)
+			return HTTPInternalServerError;
+
+		memcpy(pBuffer, static_cast<const char*>(JSON), nBodyLength);
+		*pLength = nBodyLength;
+		*ppContentType = "application/json; charset=utf-8";
+		return bApplied ? HTTPOK : HTTPBadRequest;
+	}
+
 	if (bIsStatusAPIPath)
 	{
 		CString IPAddress;
@@ -866,6 +1016,92 @@ THTTPStatus CWebDaemon::GetContent(const char* pPath,
 		HTML += "</style></head><body><main>";
 		HTML += "<h1>Configurar mt32-pi</h1><p>Guarda cambios en <code>mt32-pi.cfg</code> y crea copia de seguridad <code>mt32-pi.cfg.bak</code>.</p>";
 		HTML += "<form id='cfgForm'>";
+
+		const bool bMT32Active = std::strcmp(m_pMT32Pi->GetActiveSynthName(), "MT-32") == 0;
+		const int nROMSetIndex = m_pMT32Pi->GetMT32ROMSetIndex();
+		const int nMasterVolume = m_pMT32Pi->GetMasterVolume();
+		const size_t nCurrentSoundFontIndex = m_pMT32Pi->GetCurrentSoundFontIndex();
+		const size_t nSoundFontCount = m_pMT32Pi->GetSoundFontCount();
+		bool bReverbActive = false;
+		float nReverbRoom = 0.0f;
+		float nReverbLevel = 0.0f;
+		bool bChorusActive = false;
+		float nChorusDepth = 0.0f;
+		const bool bHasSoundFontFX = m_pMT32Pi->GetSoundFontFXState(bReverbActive, nReverbRoom, nReverbLevel, bChorusActive, nChorusDepth);
+
+		CString MasterVolume; MasterVolume.Format("%d", nMasterVolume);
+		CString ReverbRoom; ReverbRoom.Format("%.1f", bHasSoundFontFX ? nReverbRoom : 0.0f);
+		CString ReverbLevel; ReverbLevel.Format("%.1f", bHasSoundFontFX ? nReverbLevel : 0.0f);
+		CString ChorusDepth; ChorusDepth.Format("%.0f", bHasSoundFontFX ? nChorusDepth : 0.0f);
+
+		HTML += "<section><h2>Control en vivo</h2><p>Cambios instantaneos, sin reiniciar.</p><div class='grid'>";
+		HTML += "<label>Sintetizador activo<select id='rt_active_synth'><option value='mt32'";
+		HTML += SelectedAttr(bMT32Active);
+		HTML += ">MT-32</option><option value='soundfont'";
+		HTML += SelectedAttr(!bMT32Active);
+		HTML += ">SoundFont</option></select></label>";
+
+		HTML += "<label>ROM set MT-32<select id='rt_mt32_rom_set'><option value='mt32_old'";
+		HTML += SelectedAttr(nROMSetIndex == static_cast<int>(TMT32ROMSet::MT32Old));
+		HTML += ">MT-32 old</option><option value='mt32_new'";
+		HTML += SelectedAttr(nROMSetIndex == static_cast<int>(TMT32ROMSet::MT32New));
+		HTML += ">MT-32 new</option><option value='cm32l'";
+		HTML += SelectedAttr(nROMSetIndex == static_cast<int>(TMT32ROMSet::CM32L));
+		HTML += ">CM-32L</option></select></label>";
+
+		HTML += "<label>SoundFont<select id='rt_soundfont_index'>";
+		for (size_t i = 0; i < nSoundFontCount; ++i)
+		{
+			CString Index; Index.Format("%d", static_cast<int>(i));
+			HTML += "<option value='";
+			HTML += Index;
+			HTML += "'";
+			HTML += SelectedAttr(i == nCurrentSoundFontIndex);
+			HTML += ">";
+			const char* pSoundFontName = m_pMT32Pi->GetSoundFontName(i);
+			AppendEscaped(HTML, pSoundFontName ? pSoundFontName : "(sin nombre)");
+			HTML += "</option>";
+		}
+		if (nSoundFontCount == 0)
+			HTML += "<option value='0'>No SoundFonts</option>";
+		HTML += "</select></label>";
+
+		HTML += "<label>Volumen master <input id='rt_master_volume' type='range' min='0' max='100' step='1' value='";
+		AppendEscaped(HTML, MasterVolume);
+		HTML += "'><span id='rt_master_volume_val'>";
+		AppendEscaped(HTML, MasterVolume);
+		HTML += "</span></label>";
+
+		HTML += "<label>Reverb<select id='rt_sf_reverb_active'><option value='off'";
+		HTML += SelectedAttr(!bReverbActive);
+		HTML += ">off</option><option value='on'";
+		HTML += SelectedAttr(bReverbActive);
+		HTML += ">on</option></select></label>";
+
+		HTML += "<label>Reverb room <input id='rt_sf_reverb_room' type='range' min='0' max='1' step='0.1' value='";
+		AppendEscaped(HTML, ReverbRoom);
+		HTML += "'><span id='rt_sf_reverb_room_val'>";
+		AppendEscaped(HTML, ReverbRoom);
+		HTML += "</span></label>";
+
+		HTML += "<label>Reverb level <input id='rt_sf_reverb_level' type='range' min='0' max='1' step='0.1' value='";
+		AppendEscaped(HTML, ReverbLevel);
+		HTML += "'><span id='rt_sf_reverb_level_val'>";
+		AppendEscaped(HTML, ReverbLevel);
+		HTML += "</span></label>";
+
+		HTML += "<label>Chorus<select id='rt_sf_chorus_active'><option value='off'";
+		HTML += SelectedAttr(!bChorusActive);
+		HTML += ">off</option><option value='on'";
+		HTML += SelectedAttr(bChorusActive);
+		HTML += ">on</option></select></label>";
+
+		HTML += "<label>Chorus depth <input id='rt_sf_chorus_depth' type='range' min='0' max='20' step='1' value='";
+		AppendEscaped(HTML, ChorusDepth);
+		HTML += "'><span id='rt_sf_chorus_depth_val'>";
+		AppendEscaped(HTML, ChorusDepth);
+		HTML += "</span></label>";
+		HTML += "</div><div id='rtStatus' style='margin-top:10px;color:#86efac;'></div></section>";
 
 		HTML += "<section><h2>Sistema y control</h2><div class='grid'>";
 		HTML += "<label>Default synth<select name='default_synth'>";
@@ -944,7 +1180,23 @@ THTTPStatus CWebDaemon::GetContent(const char* pPath,
 
 		HTML += "<button class='primary' type='submit'>Guardar config</button> <button class='warn' type='button' id='rebootBtn'>Reiniciar Pi</button> <span id='status'></span>";
 		HTML += "</form><p><a href='/'>Volver al estado</a></p>";
-		HTML += "<script>const f=document.getElementById('cfgForm');const s=document.getElementById('status');const rb=document.getElementById('rebootBtn');f.addEventListener('submit',async(e)=>{e.preventDefault();s.textContent='Guardando...';const body=new URLSearchParams(new FormData(f));try{const r=await fetch('/api/config/save',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body.toString()});const j=await r.json();s.textContent=j.message||'OK';}catch(err){s.textContent='Error guardando config';}});rb.addEventListener('click',async()=>{if(!confirm('Reiniciar mt32-pi ahora?'))return;try{await fetch('/api/system/reboot',{method:'POST'});s.textContent='Reinicio solicitado';}catch(err){s.textContent='Error solicitando reinicio';}});</script>";
+		HTML += "<script>const f=document.getElementById('cfgForm');const s=document.getElementById('status');const rb=document.getElementById('rebootBtn');const rs=document.getElementById('rtStatus');";
+		HTML += "const setText=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};";
+		HTML += "const rtApply=async(param,value)=>{if(!rs)return;rs.textContent='Aplicando...';const body=new URLSearchParams({param,value:String(value)});";
+		HTML += "try{const r=await fetch('/api/runtime/set',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body.toString()});";
+		HTML += "const j=await r.json();if(!r.ok||!j.ok){rs.textContent='No se pudo aplicar '+param;return;}";
+		HTML += "rs.textContent='Aplicado: '+param;setText('rt_master_volume_val',j.master_volume);";
+		HTML += "setText('rt_sf_reverb_room_val',Number(j.sf_reverb_room).toFixed(1));setText('rt_sf_reverb_level_val',Number(j.sf_reverb_level).toFixed(1));setText('rt_sf_chorus_depth_val',Math.round(Number(j.sf_chorus_depth)));";
+		HTML += "}catch(err){rs.textContent='Error aplicando '+param;}};";
+		HTML += "const bindChange=(id,param)=>{const el=document.getElementById(id);if(!el)return;el.addEventListener('change',()=>rtApply(param,el.value));};";
+		HTML += "const bindRange=(id,param,formatter)=>{const el=document.getElementById(id);if(!el)return;el.addEventListener('input',()=>{if(formatter)formatter(el.value);});el.addEventListener('change',()=>rtApply(param,el.value));};";
+		HTML += "bindChange('rt_active_synth','active_synth');bindChange('rt_mt32_rom_set','mt32_rom_set');bindChange('rt_soundfont_index','soundfont_index');bindChange('rt_sf_reverb_active','sf_reverb_active');bindChange('rt_sf_chorus_active','sf_chorus_active');";
+		HTML += "bindRange('rt_master_volume','master_volume',(v)=>setText('rt_master_volume_val',v));";
+		HTML += "bindRange('rt_sf_reverb_room','sf_reverb_room',(v)=>setText('rt_sf_reverb_room_val',Number(v).toFixed(1)));";
+		HTML += "bindRange('rt_sf_reverb_level','sf_reverb_level',(v)=>setText('rt_sf_reverb_level_val',Number(v).toFixed(1)));";
+		HTML += "bindRange('rt_sf_chorus_depth','sf_chorus_depth',(v)=>setText('rt_sf_chorus_depth_val',Math.round(Number(v))));";
+		HTML += "f.addEventListener('submit',async(e)=>{e.preventDefault();s.textContent='Guardando...';const body=new URLSearchParams(new FormData(f));try{const r=await fetch('/api/config/save',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body.toString()});const j=await r.json();s.textContent=j.message||'OK';}catch(err){s.textContent='Error guardando config';}});";
+		HTML += "rb.addEventListener('click',async()=>{if(!confirm('Reiniciar mt32-pi ahora?'))return;try{await fetch('/api/system/reboot',{method:'POST'});s.textContent='Reinicio solicitado';}catch(err){s.textContent='Error solicitando reinicio';}});</script>";
 		HTML += "</main></body></html>";
 
 		const unsigned nBodyLength = HTML.GetLength();
