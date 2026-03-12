@@ -691,10 +691,11 @@ THTTPStatus CWebDaemon::GetContent(const char* pPath,
 	const bool bIsStatusAPIPath = strcmp(pPath, "/api/status") == 0;
 	const bool bIsMIDIAPIPath = strcmp(pPath, "/api/midi") == 0;
  	const bool bIsConfigSavePath = strcmp(pPath, "/api/config/save") == 0;
+	const bool bIsRuntimeStatusPath = strcmp(pPath, "/api/runtime/status") == 0;
 	const bool bIsRuntimeSetPath = strcmp(pPath, "/api/runtime/set") == 0;
 	const bool bIsSystemRebootPath = strcmp(pPath, "/api/system/reboot") == 0;
 
-	if (!bIsIndexPath && !bIsConfigPagePath && !bIsSoundPagePath && !bIsStatusAPIPath && !bIsMIDIAPIPath && !bIsConfigSavePath && !bIsRuntimeSetPath && !bIsSystemRebootPath)
+	if (!bIsIndexPath && !bIsConfigPagePath && !bIsSoundPagePath && !bIsStatusAPIPath && !bIsMIDIAPIPath && !bIsConfigSavePath && !bIsRuntimeStatusPath && !bIsRuntimeSetPath && !bIsSystemRebootPath)
 		return HTTPNotFound;
 
 	if (!m_pMT32Pi)
@@ -950,6 +951,8 @@ THTTPStatus CWebDaemon::GetContent(const char* pPath,
 		JSON += "{";
 		AppendJSONPairBool(JSON, "ok", bApplied);
 		AppendJSONPair(JSON, "active_synth", m_pMT32Pi->GetActiveSynthName());
+		AppendJSONPair(JSON, "mt32_rom_name", m_pMT32Pi->GetCurrentMT32ROMName());
+		AppendJSONPair(JSON, "soundfont_name", m_pMT32Pi->GetCurrentSoundFontName());
 		AppendJSONPairInt(JSON, "mt32_rom_set", m_pMT32Pi->GetMT32ROMSetIndex());
 		AppendJSONPairInt(JSON, "soundfont_index", static_cast<int>(m_pMT32Pi->GetCurrentSoundFontIndex()));
 		AppendJSONPairInt(JSON, "soundfont_count", static_cast<int>(m_pMT32Pi->GetSoundFontCount()));
@@ -970,6 +973,42 @@ THTTPStatus CWebDaemon::GetContent(const char* pPath,
 		*pLength = nBodyLength;
 		*ppContentType = "application/json; charset=utf-8";
 		return bApplied ? HTTPOK : HTTPBadRequest;
+	}
+
+	if (bIsRuntimeStatusPath)
+	{
+		bool bReverbActive = false;
+		float nReverbRoom = 0.0f;
+		float nReverbLevel = 0.0f;
+		bool bChorusActive = false;
+		float nChorusDepth = 0.0f;
+		const bool bHasSoundFontFX = m_pMT32Pi->GetSoundFontFXState(bReverbActive, nReverbRoom, nReverbLevel, bChorusActive, nChorusDepth);
+
+		CString JSON;
+		JSON += "{";
+		AppendJSONPair(JSON, "active_synth", m_pMT32Pi->GetActiveSynthName());
+		AppendJSONPair(JSON, "mt32_rom_name", m_pMT32Pi->GetCurrentMT32ROMName());
+		AppendJSONPair(JSON, "soundfont_name", m_pMT32Pi->GetCurrentSoundFontName());
+		AppendJSONPairInt(JSON, "mt32_rom_set", m_pMT32Pi->GetMT32ROMSetIndex());
+		AppendJSONPairInt(JSON, "soundfont_index", static_cast<int>(m_pMT32Pi->GetCurrentSoundFontIndex()));
+		AppendJSONPairInt(JSON, "soundfont_count", static_cast<int>(m_pMT32Pi->GetSoundFontCount()));
+		AppendJSONPairInt(JSON, "master_volume", m_pMT32Pi->GetMasterVolume());
+		AppendJSONPairBool(JSON, "sf_available", bHasSoundFontFX);
+		AppendJSONPairBool(JSON, "sf_reverb_active", bHasSoundFontFX ? bReverbActive : false);
+		AppendJSONPairFloat(JSON, "sf_reverb_room", bHasSoundFontFX ? nReverbRoom : 0.0f);
+		AppendJSONPairFloat(JSON, "sf_reverb_level", bHasSoundFontFX ? nReverbLevel : 0.0f);
+		AppendJSONPairBool(JSON, "sf_chorus_active", bHasSoundFontFX ? bChorusActive : false);
+		AppendJSONPairFloat(JSON, "sf_chorus_depth", bHasSoundFontFX ? nChorusDepth : 0.0f, false);
+		JSON += "}";
+
+		const unsigned nBodyLength = JSON.GetLength();
+		if (*pLength < nBodyLength)
+			return HTTPInternalServerError;
+
+		memcpy(pBuffer, static_cast<const char*>(JSON), nBodyLength);
+		*pLength = nBodyLength;
+		*ppContentType = "application/json; charset=utf-8";
+		return HTTPOK;
 	}
 
 	if (bIsStatusAPIPath)
@@ -1012,7 +1051,7 @@ THTTPStatus CWebDaemon::GetContent(const char* pPath,
 		HTML += "p{margin:0 0 16px;color:#94a3b8;}section{background:#111827;border:1px solid #334155;border-radius:14px;padding:16px;margin-bottom:14px;}";
 		HTML += ".grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;}label{display:flex;flex-direction:column;gap:4px;color:#cbd5e1;}";
 		HTML += "input,select,button{background:#0b1220;color:#e2e8f0;border:1px solid #334155;border-radius:8px;padding:8px;}";
-		HTML += "a{color:#93c5fd;}nav{display:flex;gap:12px;margin:0 0 16px;}";
+		HTML += "input:disabled,select:disabled{opacity:.45;cursor:not-allowed;}a{color:#93c5fd;}nav{display:flex;gap:12px;margin:0 0 16px;}.statusbar{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:14px;}.pill{background:#0b1220;border:1px solid #334155;border-radius:999px;padding:10px 12px;color:#cbd5e1;}";
 		HTML += "</style></head><body><main>";
 
 		const bool bMT32Active = std::strcmp(m_pMT32Pi->GetActiveSynthName(), "MT-32") == 0;
@@ -1034,6 +1073,13 @@ THTTPStatus CWebDaemon::GetContent(const char* pPath,
 
 		HTML += "<h1>Control de sonido</h1><p>Ajustes en vivo para los motores de sintesis y efectos, sin reiniciar.</p>";
 		HTML += "<nav><a href='/'>Estado</a><a href='/config'>Configuracion</a></nav>";
+		HTML += "<div class='statusbar'><div class='pill'>Motor activo: <strong id='rt_active_synth_label'>";
+		AppendEscaped(HTML, m_pMT32Pi->GetActiveSynthName());
+		HTML += "</strong></div><div class='pill'>ROM MT-32: <strong id='rt_mt32_rom_name'>";
+		AppendEscaped(HTML, m_pMT32Pi->GetCurrentMT32ROMName());
+		HTML += "</strong></div><div class='pill'>SoundFont: <strong id='rt_soundfont_name'>";
+		AppendEscaped(HTML, m_pMT32Pi->GetCurrentSoundFontName());
+		HTML += "</strong></div></div>";
 		HTML += "<section><h2>Motor y banco</h2><div class='grid'>";
 		HTML += "<label>Sintetizador activo<select id='rt_active_synth'><option value='mt32'";
 		HTML += SelectedAttr(bMT32Active);
@@ -1097,11 +1143,13 @@ THTTPStatus CWebDaemon::GetContent(const char* pPath,
 		AppendEscaped(HTML, ChorusDepth);
 		HTML += "</span></label>";
 		HTML += "</div><div id='rtStatus' style='margin-top:10px;color:#86efac;'></div></section>";
-		HTML += "<script>const rs=document.getElementById('rtStatus');const setText=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};";
-		HTML += "const rtApply=async(param,value)=>{if(!rs)return;rs.textContent='Aplicando...';const body=new URLSearchParams({param,value:String(value)});try{const r=await fetch('/api/runtime/set',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body.toString()});const j=await r.json();if(!r.ok||!j.ok){rs.textContent='No se pudo aplicar '+param;return;}rs.textContent='Aplicado: '+param;setText('rt_master_volume_val',j.master_volume);setText('rt_sf_reverb_room_val',Number(j.sf_reverb_room).toFixed(1));setText('rt_sf_reverb_level_val',Number(j.sf_reverb_level).toFixed(1));setText('rt_sf_chorus_depth_val',Math.round(Number(j.sf_chorus_depth)));}catch(err){rs.textContent='Error aplicando '+param;}};";
+		HTML += "<script>const rs=document.getElementById('rtStatus');const setText=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};const setDisabled=(id,b)=>{const e=document.getElementById(id);if(e)e.disabled=!!b;};";
+		HTML += "const applyRuntimeState=(j)=>{const mt32=j.active_synth==='MT-32';const sf=j.active_synth==='SoundFont';setText('rt_active_synth_label',j.active_synth||'-');setText('rt_mt32_rom_name',j.mt32_rom_name||'-');setText('rt_soundfont_name',j.soundfont_name||'-');setText('rt_master_volume_val',j.master_volume);setText('rt_sf_reverb_room_val',Number(j.sf_reverb_room).toFixed(1));setText('rt_sf_reverb_level_val',Number(j.sf_reverb_level).toFixed(1));setText('rt_sf_chorus_depth_val',Math.round(Number(j.sf_chorus_depth)));const rom=document.getElementById('rt_mt32_rom_set');if(rom&&j.mt32_rom_set>=0)rom.value=j.mt32_rom_set===0?'mt32_old':(j.mt32_rom_set===1?'mt32_new':'cm32l');const sfSel=document.getElementById('rt_soundfont_index');if(sfSel&&j.soundfont_index>=0)sfSel.value=String(j.soundfont_index);const vol=document.getElementById('rt_master_volume');if(vol)vol.value=j.master_volume;const rta=document.getElementById('rt_sf_reverb_active');if(rta)rta.value=j.sf_reverb_active?'on':'off';const rtr=document.getElementById('rt_sf_reverb_room');if(rtr)rtr.value=Number(j.sf_reverb_room).toFixed(1);const rtl=document.getElementById('rt_sf_reverb_level');if(rtl)rtl.value=Number(j.sf_reverb_level).toFixed(1);const cta=document.getElementById('rt_sf_chorus_active');if(cta)cta.value=j.sf_chorus_active?'on':'off';const ctd=document.getElementById('rt_sf_chorus_depth');if(ctd)ctd.value=Math.round(Number(j.sf_chorus_depth));setDisabled('rt_mt32_rom_set',!mt32);setDisabled('rt_soundfont_index',!sf);setDisabled('rt_sf_reverb_active',!sf);setDisabled('rt_sf_reverb_room',!sf);setDisabled('rt_sf_reverb_level',!sf);setDisabled('rt_sf_chorus_active',!sf);setDisabled('rt_sf_chorus_depth',!sf);};";
+		HTML += "const rtRefresh=async()=>{try{const r=await fetch('/api/runtime/status',{cache:'no-store'});if(!r.ok)throw new Error('http');const j=await r.json();applyRuntimeState(j);}catch(err){if(rs)rs.textContent='Error leyendo estado runtime';}};";
+		HTML += "const rtApply=async(param,value)=>{if(!rs)return;rs.textContent='Aplicando...';const body=new URLSearchParams({param,value:String(value)});try{const r=await fetch('/api/runtime/set',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body.toString()});const j=await r.json();if(!r.ok||!j.ok){rs.textContent='No se pudo aplicar '+param;return;}applyRuntimeState(j);rs.textContent='Aplicado: '+param;}catch(err){rs.textContent='Error aplicando '+param;}};";
 		HTML += "const bindChange=(id,param)=>{const el=document.getElementById(id);if(!el)return;el.addEventListener('change',()=>rtApply(param,el.value));};const bindRange=(id,param,formatter)=>{const el=document.getElementById(id);if(!el)return;el.addEventListener('input',()=>{if(formatter)formatter(el.value);});el.addEventListener('change',()=>rtApply(param,el.value));};";
 		HTML += "bindChange('rt_active_synth','active_synth');bindChange('rt_mt32_rom_set','mt32_rom_set');bindChange('rt_soundfont_index','soundfont_index');bindChange('rt_sf_reverb_active','sf_reverb_active');bindChange('rt_sf_chorus_active','sf_chorus_active');";
-		HTML += "bindRange('rt_master_volume','master_volume',(v)=>setText('rt_master_volume_val',v));bindRange('rt_sf_reverb_room','sf_reverb_room',(v)=>setText('rt_sf_reverb_room_val',Number(v).toFixed(1)));bindRange('rt_sf_reverb_level','sf_reverb_level',(v)=>setText('rt_sf_reverb_level_val',Number(v).toFixed(1)));bindRange('rt_sf_chorus_depth','sf_chorus_depth',(v)=>setText('rt_sf_chorus_depth_val',Math.round(Number(v))));</script>";
+		HTML += "bindRange('rt_master_volume','master_volume',(v)=>setText('rt_master_volume_val',v));bindRange('rt_sf_reverb_room','sf_reverb_room',(v)=>setText('rt_sf_reverb_room_val',Number(v).toFixed(1)));bindRange('rt_sf_reverb_level','sf_reverb_level',(v)=>setText('rt_sf_reverb_level_val',Number(v).toFixed(1)));bindRange('rt_sf_chorus_depth','sf_chorus_depth',(v)=>setText('rt_sf_chorus_depth_val',Math.round(Number(v))));rtRefresh();setInterval(rtRefresh,3000);</script>";
 		HTML += "</main></body></html>";
 
 		const unsigned nBodyLength = HTML.GetLength();
