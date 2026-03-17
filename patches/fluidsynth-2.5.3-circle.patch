@@ -182,3 +182,71 @@ index fbbbef6b..d2a08856 100644
  
  /* File access */
  #define FLUID_FOPEN(_f,_m)           fluid_fopen(_f,_m)
+diff --git a/src/midi/fluid_midi.h b/src/midi/fluid_midi.h
+index 7dbdc741..30859388 100644
+--- a/src/midi/fluid_midi.h
++++ b/src/midi/fluid_midi.h
+@@ -339,6 +339,10 @@ struct _fluid_player_t
+ 
+ void fluid_player_settings(fluid_settings_t *settings);
+ 
++/* Manual tick for baremetal: drive player from a specific core */
++int fluid_player_tick(fluid_player_t *player, unsigned int msec);
++void fluid_player_remove_timer(fluid_player_t *player, fluid_synth_t *synth);
++
+ 
+ /*
+  * fluid_midi_file
+diff --git a/src/midi/fluid_midi.c b/src/midi/fluid_midi.c
+index 6a501b27..0ed5a15c 100644
+--- a/src/midi/fluid_midi.c
++++ b/src/midi/fluid_midi.c
+@@ -2884,3 +2884,30 @@ fluid_midi_event_length(unsigned char event)
+ 
+     return 1;
+ }
++
++/*
++ * fluid_player_tick - manual tick function for baremetal use.
++ * Allows driving the player from a specific core (e.g., Core 0) instead
++ * of relying on the synth's sample timer (which runs on the audio render core).
++ * This avoids cross-core linked list race conditions in embedded environments.
++ */
++int
++fluid_player_tick(fluid_player_t *player, unsigned int msec)
++{
++    return fluid_player_callback(player, msec);
++}
++
++/*
++ * fluid_player_remove_timer - remove the player's sample timer from the synth.
++ * Used in baremetal to detach the automatic timer so the player can be driven
++ * manually via fluid_player_tick() from a specific core.
++ */
++void
++fluid_player_remove_timer(fluid_player_t *player, fluid_synth_t *synth)
++{
++    if(player->sample_timer)
++    {
++        delete_fluid_sample_timer(synth, player->sample_timer);
++        player->sample_timer = NULL;
++    }
++}
+diff --git a/src/utils/fluid_sys_embedded.c b/src/utils/fluid_sys_embedded.c
+index 8160b104..46eff7e0 100644
+--- a/src/utils/fluid_sys_embedded.c
++++ b/src/utils/fluid_sys_embedded.c
+@@ -18,3 +18,13 @@
+  */
+ 
+ /* This file was intentionally left blank */
++
++/* fluid_fopen: required by fluid_midi.c (fluid_player_load).
++ * On baremetal (circle-stdlib / newlib), fopen maps to FatFS via the
++ * circle-stdlib POSIX layer - no Win32 widechar handling needed. */
++#include <stdio.h>
++
++FILE *fluid_fopen(const char *filename, const char *mode)
++{
++    return fopen(filename, mode);
++}
