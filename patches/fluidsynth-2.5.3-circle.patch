@@ -23,8 +23,8 @@ index 388e8484..7d3ecd2a 100644
      synth/fluid_tuning.h
      synth/fluid_voice.c
      synth/fluid_voice.h
--    midi/fluid_midi.c
--    midi/fluid_midi.h
+     midi/fluid_midi.c
+     midi/fluid_midi.h
 -    midi/fluid_midi_router.c
 -    midi/fluid_midi_router.h
 -    midi/fluid_seqbind.c
@@ -40,8 +40,6 @@ index 388e8484..7d3ecd2a 100644
 -    bindings/fluid_filerenderer.c
 -    bindings/fluid_ladspa.c
 -    bindings/fluid_ladspa.h
-+    # midi/fluid_midi.c
-+    # midi/fluid_midi.h
 +    # midi/fluid_midi_router.c
 +    # midi/fluid_midi_router.h
 +    # midi/fluid_seqbind.c
