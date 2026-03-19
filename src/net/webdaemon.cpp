@@ -698,9 +698,41 @@ THTTPStatus CWebDaemon::GetContent(const char* pPath,
 		return HTTPOK;
 	}
 
-	const bool bIsIndexPath = strcmp(pPath, "/") == 0 || strcmp(pPath, "/index.html") == 0;
-	const bool bIsConfigPagePath = strcmp(pPath, "/config") == 0;
-	const bool bIsSoundPagePath = strcmp(pPath, "/sound") == 0;
+	if (!m_pMT32Pi)
+		return HTTPInternalServerError;
+
+	// Static assets
+	if (!strcmp(pPath, "/app.css"))
+		return BuildStylesheet(pBuffer, pLength, ppContentType);
+	if (!strcmp(pPath, "/app.js"))
+		return BuildScript(pBuffer, pLength, ppContentType);
+
+	// HTML pages
+	if (!strcmp(pPath, "/") || !strcmp(pPath, "/index.html"))
+		return BuildStatusPage(pBuffer, pLength, ppContentType);
+	if (!strcmp(pPath, "/sound"))
+		return BuildSoundPage(pBuffer, pLength, ppContentType);
+	if (!strcmp(pPath, "/sequencer"))
+		return BuildSequencerPage(pBuffer, pLength, ppContentType);
+	if (!strcmp(pPath, "/mixer"))
+		return BuildMixerPage(pBuffer, pLength, ppContentType);
+	if (!strcmp(pPath, "/config"))
+		return BuildConfigPage(pBuffer, pLength, ppContentType);
+
+	// API endpoints
+	if (strncmp(pPath, "/api/", 5) == 0)
+		return HandleAPIRequest(pPath, pParams, pFormData, pBuffer, pLength, ppContentType);
+
+	return HTTPNotFound;
+}
+
+THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
+	const char* pParams,
+	const char* pFormData,
+	u8* pBuffer,
+	unsigned* pLength,
+	const char** ppContentType)
+{
 	const bool bIsStatusAPIPath = strcmp(pPath, "/api/status") == 0;
 	const bool bIsMIDIAPIPath = strcmp(pPath, "/api/midi") == 0;
  	const bool bIsConfigSavePath = strcmp(pPath, "/api/config/save") == 0;
@@ -716,21 +748,11 @@ THTTPStatus CWebDaemon::GetContent(const char* pPath,
 	const bool bIsSeqTempoPath      = strcmp(pPath, "/api/sequencer/tempo") == 0;
 	const bool bIsMidiNotePath      = strcmp(pPath, "/api/midi/note")        == 0;
 	const bool bIsMidiRawPath       = strcmp(pPath, "/api/midi/raw")         == 0;
-	const bool bIsSequencerPagePath = strcmp(pPath, "/sequencer") == 0;
-	const bool bIsAppCSSPath        = strcmp(pPath, "/app.css")       == 0;
-	const bool bIsAppJSPath         = strcmp(pPath, "/app.js")        == 0;
 	const bool bIsWifiReadPath      = strcmp(pPath, "/api/wifi/read") == 0;
 	const bool bIsWifiSavePath      = strcmp(pPath, "/api/wifi/save") == 0;
 	const bool bIsMixerStatusPath   = strcmp(pPath, "/api/mixer/status") == 0;
 	const bool bIsMixerSetPath      = strcmp(pPath, "/api/mixer/set") == 0;
 	const bool bIsMixerPresetPath   = strcmp(pPath, "/api/mixer/preset") == 0;
-	const bool bIsMixerPagePath     = strcmp(pPath, "/mixer") == 0;
-
-	if (!bIsIndexPath && !bIsConfigPagePath && !bIsSoundPagePath && !bIsStatusAPIPath && !bIsMIDIAPIPath && !bIsConfigSavePath && !bIsRuntimeStatusPath && !bIsRuntimeSetPath && !bIsSystemRebootPath && !bIsSeqStatusPath && !bIsSeqPlayPath && !bIsSeqStopPath && !bIsSeqFilesPath && !bIsSeqLoopPath && !bIsSeqSeekPath && !bIsSeqTempoPath && !bIsMidiNotePath && !bIsMidiRawPath && !bIsSequencerPagePath && !bIsAppCSSPath && !bIsAppJSPath && !bIsWifiReadPath && !bIsWifiSavePath && !bIsMixerStatusPath && !bIsMixerSetPath && !bIsMixerPresetPath && !bIsMixerPagePath)
-		return HTTPNotFound;
-
-	if (!m_pMT32Pi)
-		return HTTPInternalServerError;
 
 	// ---- GET /api/sequencer/status ----
 	if (bIsSeqStatusPath)
@@ -1981,8 +2003,46 @@ THTTPStatus CWebDaemon::GetContent(const char* pPath,
 		return HTTPOK;
 	}
 
-	if (bIsAppCSSPath)
+	if (bIsMIDIAPIPath)
 	{
+		float Levels[16];
+		float Peaks[16];
+		m_pMT32Pi->GetMIDIChannelLevels(Levels, Peaks);
+
+		CString JSON;
+		JSON += "{\"active_synth\":\"";
+		AppendJSONEscaped(JSON, m_pMT32Pi->GetActiveSynthName());
+		JSON += "\",\"channels\":[";
+
+		for (int nChannel = 0; nChannel < 16; ++nChannel)
+		{
+			if (nChannel > 0)
+				JSON += ",";
+
+			JSON += "{";
+			AppendJSONPairInt(JSON, "channel", nChannel + 1);
+			AppendJSONPairFloat(JSON, "level", Levels[nChannel]);
+			AppendJSONPairFloat(JSON, "peak", Peaks[nChannel], false);
+			JSON += "}";
+		}
+
+		JSON += "]}";
+
+		const unsigned nBodyLength = JSON.GetLength();
+		if (*pLength < nBodyLength)
+			return HTTPInternalServerError;
+
+		memcpy(pBuffer, static_cast<const char*>(JSON), nBodyLength);
+		*pLength = nBodyLength;
+		*ppContentType = "application/json; charset=utf-8";
+		return HTTPOK;
+	}
+
+	return HTTPNotFound;
+}
+
+THTTPStatus CWebDaemon::BuildStylesheet(u8* pBuffer, unsigned* pLength, const char** ppContentType)
+{
 		static const char pCSS[] =
 			"body{font:14px/1.45 system-ui,sans-serif;margin:0;background:#0f172a;color:#e2e8f0;}"
 			"main{max-width:1040px;margin:0 auto;padding:24px;}"
@@ -2036,10 +2096,10 @@ THTTPStatus CWebDaemon::GetContent(const char* pPath,
 		*pLength = nLen;
 		*ppContentType = "text/css; charset=utf-8";
 		return HTTPOK;
-	}
+}
 
-	if (bIsAppJSPath)
-	{
+THTTPStatus CWebDaemon::BuildScript(u8* pBuffer, unsigned* pLength, const char** ppContentType)
+{
 		// Shared JS: serial queue helper _qs(), fmt(), WS connect with reconnect
 		static const char pJS[] =
 			"var _q=[],_qb=false;"
@@ -2062,10 +2122,10 @@ THTTPStatus CWebDaemon::GetContent(const char* pPath,
 		*pLength = nLen;
 		*ppContentType = "application/javascript; charset=utf-8";
 		return HTTPOK;
-	}
+}
 
-	if (bIsSequencerPagePath)
-	{
+THTTPStatus CWebDaemon::BuildSequencerPage(u8* pBuffer, unsigned* pLength, const char** ppContentType)
+{
 		CString HTML;
 		HTML += "<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>";
 		HTML += "<title>mt32-pi sequencer</title><link rel='stylesheet' href='/app.css'>";
@@ -2212,10 +2272,10 @@ THTTPStatus CWebDaemon::GetContent(const char* pPath,
 		*pLength = nBodyLength;
 		*ppContentType = "text/html; charset=utf-8";
 		return HTTPOK;
-	}
+}
 
-	if (bIsMixerPagePath)
-	{
+THTTPStatus CWebDaemon::BuildMixerPage(u8* pBuffer, unsigned* pLength, const char** ppContentType)
+{
 		CString HTML;
 		HTML += "<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>";
 		HTML += "<title>mt32-pi mixer</title><link rel='stylesheet' href='/app.css'></head><body><main>";
@@ -2365,10 +2425,10 @@ THTTPStatus CWebDaemon::GetContent(const char* pPath,
 		*pLength = nMixerLen;
 		*ppContentType = "text/html; charset=utf-8";
 		return HTTPOK;
-	}
+}
 
-	if (bIsSoundPagePath)
-	{
+THTTPStatus CWebDaemon::BuildSoundPage(u8* pBuffer, unsigned* pLength, const char** ppContentType)
+{
 		CString HTML;
 		HTML += "<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>";
 		HTML += "<title>mt32-pi sound</title><link rel='stylesheet' href='/app.css'></head><body><main>";
@@ -2630,10 +2690,14 @@ THTTPStatus CWebDaemon::GetContent(const char* pPath,
 		*pLength = nBodyLength;
 		*ppContentType = "text/html; charset=utf-8";
 		return HTTPOK;
-	}
+}
 
-	if (bIsConfigPagePath)
-	{
+THTTPStatus CWebDaemon::BuildConfigPage(u8* pBuffer, unsigned* pLength, const char** ppContentType)
+{
+		const CConfig* pConfig = m_pMT32Pi->GetConfig();
+		if (!pConfig)
+			return HTTPInternalServerError;
+
 		CString HTML;
 		HTML += "<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>";
 		HTML += "<title>mt32-pi config</title><link rel='stylesheet' href='/app.css'></head><body><main>";
@@ -2834,42 +2898,13 @@ THTTPStatus CWebDaemon::GetContent(const char* pPath,
 		*pLength = nBodyLength;
 		*ppContentType = "text/html; charset=utf-8";
 		return HTTPOK;
-	}
+}
 
-	if (bIsMIDIAPIPath)
-	{
-		float Levels[16];
-		float Peaks[16];
-		m_pMT32Pi->GetMIDIChannelLevels(Levels, Peaks);
-
-		CString JSON;
-		JSON += "{\"active_synth\":\"";
-		AppendJSONEscaped(JSON, m_pMT32Pi->GetActiveSynthName());
-		JSON += "\",\"channels\":[";
-
-		for (int nChannel = 0; nChannel < 16; ++nChannel)
-		{
-			if (nChannel > 0)
-				JSON += ",";
-
-			JSON += "{";
-			AppendJSONPairInt(JSON, "channel", nChannel + 1);
-			AppendJSONPairFloat(JSON, "level", Levels[nChannel]);
-			AppendJSONPairFloat(JSON, "peak", Peaks[nChannel], false);
-			JSON += "}";
-		}
-
-		JSON += "]}";
-
-		const unsigned nBodyLength = JSON.GetLength();
-		if (*pLength < nBodyLength)
-			return HTTPInternalServerError;
-
-		memcpy(pBuffer, static_cast<const char*>(JSON), nBodyLength);
-		*pLength = nBodyLength;
-		*ppContentType = "application/json; charset=utf-8";
-		return HTTPOK;
-	}
+THTTPStatus CWebDaemon::BuildStatusPage(u8* pBuffer, unsigned* pLength, const char** ppContentType)
+{
+	const CConfig* pConfig = m_pMT32Pi->GetConfig();
+	if (!pConfig)
+		return HTTPInternalServerError;
 
 	CString IPAddress;
 	m_pMT32Pi->FormatIPAddress(IPAddress);
