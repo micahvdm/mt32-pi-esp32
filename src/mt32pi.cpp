@@ -953,6 +953,63 @@ void CMT32Pi::GetActiveNotes(u8 out[16][128]) const
 	memcpy(out, m_activeNotes, sizeof(m_activeNotes));
 }
 
+CMT32Pi::TSystemState CMT32Pi::GetSystemState() const
+{
+	TSystemState s;
+
+	s.Sequencer = GetSequencerStatus();
+	s.Mixer     = GetMixerStatus();
+
+	// Synth identity
+	s.pActiveSynthName  = GetActiveSynthName();
+	s.pMT32ROMName      = GetCurrentMT32ROMName();
+	s.nMT32ROMSetIndex  = GetMT32ROMSetIndex();
+	s.pSoundFontName    = GetCurrentSoundFontName();
+	s.pSoundFontPath    = GetCurrentSoundFontPath();
+	s.nSoundFontIndex   = GetCurrentSoundFontIndex();
+	s.nSoundFontCount   = GetSoundFontCount();
+	s.nMasterVolume     = GetMasterVolume();
+
+	// SoundFont FX
+	s.bSFFXAvailable = GetSoundFontFXState(
+		s.bSFReverbActive, s.fSFReverbRoom, s.fSFReverbLevel,
+		s.fSFReverbDamping, s.fSFReverbWidth,
+		s.bSFChorusActive, s.fSFChorusDepth, s.fSFChorusLevel,
+		s.nSFChorusVoices, s.fSFChorusSpeed, s.fSFGain);
+
+	s.nSFTuning       = GetSoundFontTuning();
+	s.pSFTuningName   = GetSoundFontTuningName();
+	s.nSFPolyphony    = GetSoundFontPolyphony();
+	s.nSFPercussionMask = GetSoundFontPercussionMask();
+
+	// MT-32 parameters
+	s.fMT32ReverbGain         = GetMT32ReverbOutputGain();
+	s.bMT32ReverbActive       = IsMT32ReverbActive();
+	s.bMT32NiceAmpRamp        = IsMT32NiceAmpRamp();
+	s.bMT32NicePanning        = IsMT32NicePanning();
+	s.bMT32NicePartialMixing  = IsMT32NicePartialMixing();
+	s.nMT32DACMode            = GetMT32DACMode();
+	s.nMT32MIDIDelayMode      = GetMT32MIDIDelayMode();
+	s.nMT32AnalogMode         = GetMT32AnalogMode();
+	s.nMT32RendererType       = GetMT32RendererType();
+	s.nMT32PartialCount       = GetMT32PartialCount();
+
+	// Network
+	s.bNetworkReady         = m_bNetworkReady;
+	s.pNetworkInterfaceName = GetNetworkDeviceShortName();
+	{
+		CString ip;
+		FormatIPAddress(ip);
+		strncpy(s.IPAddress, static_cast<const char*>(ip), sizeof(s.IPAddress) - 1);
+		s.IPAddress[sizeof(s.IPAddress) - 1] = '\0';
+	}
+
+	// MIDI activity levels
+	GetMIDIChannelLevels(s.MIDILevels, s.MIDIPeaks);
+
+	return s;
+}
+
 void CMT32Pi::MainTask()
 {
 	CScheduler* const pScheduler = CScheduler::Get();

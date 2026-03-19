@@ -122,15 +122,10 @@ static int ParseClientFrame(const u8* pBuf, size_t nLen, u8* pOpcode, u8* pPaylo
 // ──────────────────────────────────────────────────────────────────────────
 static int BuildStatusJSON(char* buf, size_t bufSize, CMT32Pi* pPi)
 {
-	CMT32Pi::TSequencerStatus s = pPi->GetSequencerStatus();
-
-	float levels[16], peaks[16];
-	pPi->GetMIDIChannelLevels(levels, peaks);
+	const CMT32Pi::TSystemState st = pPi->GetSystemState();
 
 	u8 activeNotes[16][128];
 	pPi->GetActiveNotes(activeNotes);
-
-	CMT32Pi::TMixerStatus ms = pPi->GetMixerStatus();
 
 	int n = snprintf(buf, bufSize,
 		"{\"playing\":%s,\"finished\":%s,\"loop_enabled\":%s,"
@@ -138,28 +133,28 @@ static int BuildStatusJSON(char* buf, size_t bufSize, CMT32Pi* pPi)
 		"\"bpm\":%d,\"current_tick\":%d,\"total_ticks\":%d,"
 		"\"division\":%d,\"tempo_multiplier\":%.3f,\"file_size_kb\":%u,"
 		"\"synth\":\"%s\",\"mixer\":%s,\"preset\":%d,\"channels\":[",
-		s.bPlaying     ? "true" : "false",
-		s.bFinished    ? "true" : "false",
-		s.bLoopEnabled ? "true" : "false",
-		s.pFile ? s.pFile : "",
-		s.nDurationMs, s.nElapsedMs,
-		s.nBPM, s.nCurrentTick, s.nTotalTicks,
-		s.nDivision, (float)s.nTempoMultiplier, s.nFileSizeKB,
-		pPi->GetActiveSynthName(),
-		ms.bEnabled ? "true" : "false",
-		ms.nPreset);
+		st.Sequencer.bPlaying     ? "true" : "false",
+		st.Sequencer.bFinished    ? "true" : "false",
+		st.Sequencer.bLoopEnabled ? "true" : "false",
+		st.Sequencer.pFile ? st.Sequencer.pFile : "",
+		st.Sequencer.nDurationMs, st.Sequencer.nElapsedMs,
+		st.Sequencer.nBPM, st.Sequencer.nCurrentTick, st.Sequencer.nTotalTicks,
+		st.Sequencer.nDivision, (float)st.Sequencer.nTempoMultiplier, st.Sequencer.nFileSizeKB,
+		st.pActiveSynthName,
+		st.Mixer.bEnabled ? "true" : "false",
+		st.Mixer.nPreset);
 
 	if (n <= 0 || (size_t)n >= bufSize) return -1;
 
 	// eng: 0=MT-32, 1=FluidSynth (derived from engine name string)
 	for (int i = 0; i < 16; i++)
 	{
-		const char* pEng = ms.pChannelEngine[i];
+		const char* pEng = st.Mixer.pChannelEngine[i];
 		int nEng = (pEng && pEng[0] == 'F') ? 1 : 0;  // "FluidSynth" vs "MT-32"
 		int added = snprintf(buf + n, bufSize - n,
 			"%s{\"ch\":%d,\"lv\":%.3f,\"pk\":%.3f,\"eng\":%d}",
 			i > 0 ? "," : "", i,
-			(double)levels[i], (double)peaks[i], nEng);
+			(double)st.MIDILevels[i], (double)st.MIDIPeaks[i], nEng);
 		if (added <= 0 || (size_t)(n + added) >= bufSize) return -1;
 		n += added;
 	}
@@ -216,7 +211,7 @@ static int BuildStatusJSON(char* buf, size_t bufSize, CMT32Pi* pPi)
 	{
 		int added = snprintf(buf + n, bufSize - n,
 			"],\"render_us\":%u,\"render_avg_us\":%u,\"cpu_load\":%u}",
-			ms.nRenderUs, ms.nRenderAvgUs, ms.nCpuLoadPercent);
+			st.Mixer.nRenderUs, st.Mixer.nRenderAvgUs, st.Mixer.nCpuLoadPercent);
 		if (added <= 0) return -1;
 		return n + added;
 	}
