@@ -481,6 +481,11 @@ const char* CMT32Pi::GetCurrentSoundFontPath() const
 	return m_pSoundFontSynth ? m_pSoundFontSynth->GetSoundFontManager().GetSoundFontPath(m_pSoundFontSynth->GetSoundFontIndex()) : "Unavailable";
 }
 
+const char* CMT32Pi::GetSoundFontPath(size_t nIndex) const
+{
+	return m_pSoundFontSynth ? m_pSoundFontSynth->GetSoundFontManager().GetSoundFontPath(nIndex) : nullptr;
+}
+
 size_t CMT32Pi::GetCurrentSoundFontIndex() const
 {
 	return m_pSoundFontSynth ? m_pSoundFontSynth->GetSoundFontIndex() : 0;
