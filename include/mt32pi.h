@@ -92,6 +92,7 @@ public:
 	const char* GetCurrentSoundFontPath() const;
 	size_t GetCurrentSoundFontIndex() const;
 	const char* GetSoundFontName(size_t nIndex) const;
+	const char* GetSoundFontPath(size_t nIndex) const;
 	size_t GetSoundFontCount() const;
 	int GetMasterVolume() const { return static_cast<int>(m_nMasterVolume); }
 	int GetMT32ROMSetIndex() const;
