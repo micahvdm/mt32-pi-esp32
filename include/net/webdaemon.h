@@ -44,6 +44,25 @@ public:
 private:
 	CWebDaemon(CNetSubSystem* pNetSubSystem, CMT32Pi* pMT32Pi, CSocket* pSocket, u16 nPort);
 
+	// Page builders — each returns a complete HTML document
+	THTTPStatus BuildStatusPage(u8* pBuffer, unsigned* pLength, const char** ppContentType);
+	THTTPStatus BuildSoundPage(u8* pBuffer, unsigned* pLength, const char** ppContentType);
+	THTTPStatus BuildSequencerPage(u8* pBuffer, unsigned* pLength, const char** ppContentType);
+	THTTPStatus BuildMixerPage(u8* pBuffer, unsigned* pLength, const char** ppContentType);
+	THTTPStatus BuildConfigPage(u8* pBuffer, unsigned* pLength, const char** ppContentType);
+
+	// Static assets
+	THTTPStatus BuildStylesheet(u8* pBuffer, unsigned* pLength, const char** ppContentType);
+	THTTPStatus BuildScript(u8* pBuffer, unsigned* pLength, const char** ppContentType);
+
+	// API dispatcher — handles all /api/* routes
+	THTTPStatus HandleAPIRequest(const char* pPath,
+		const char* pParams,
+		const char* pFormData,
+		u8* pBuffer,
+		unsigned* pLength,
+		const char** ppContentType);
+
 	CMT32Pi* m_pMT32Pi;
 	u16 m_nPort;
 };
