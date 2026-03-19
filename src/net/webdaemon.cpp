@@ -647,6 +647,48 @@ namespace
 
 		return true;
 	}
+
+	// Append all synth/mixer runtime fields to a JSON object (no leading '{', no trailing '}').
+	// Used by both /api/runtime/status and /api/runtime/set to produce identical payloads.
+	void AppendSynthStatusJSON(CString& JSON, const CMT32Pi::TSystemState& st)
+	{
+		AppendJSONPair(JSON, "active_synth",    st.pActiveSynthName);
+		AppendJSONPair(JSON, "mt32_rom_name",   st.pMT32ROMName);
+		AppendJSONPair(JSON, "soundfont_name",  st.pSoundFontName);
+		AppendJSONPairInt(JSON, "mt32_rom_set",     st.nMT32ROMSetIndex);
+		AppendJSONPairInt(JSON, "soundfont_index",  static_cast<int>(st.nSoundFontIndex));
+		AppendJSONPairInt(JSON, "soundfont_count",  static_cast<int>(st.nSoundFontCount));
+		AppendJSONPairInt(JSON, "master_volume",    st.nMasterVolume);
+		AppendJSONPairBool(JSON, "sf_available",    st.bSFFXAvailable);
+		AppendJSONPairFloat(JSON, "sf_gain",         st.bSFFXAvailable ? st.fSFGain          : 0.0f);
+		AppendJSONPairBool(JSON, "sf_reverb_active", st.bSFFXAvailable ? st.bSFReverbActive  : false);
+		AppendJSONPairFloat(JSON, "sf_reverb_room",  st.bSFFXAvailable ? st.fSFReverbRoom    : 0.0f);
+		AppendJSONPairFloat(JSON, "sf_reverb_level", st.bSFFXAvailable ? st.fSFReverbLevel   : 0.0f);
+		AppendJSONPairFloat(JSON, "sf_reverb_damping", st.bSFFXAvailable ? st.fSFReverbDamping : 0.0f);
+		AppendJSONPairFloat(JSON, "sf_reverb_width", st.bSFFXAvailable ? st.fSFReverbWidth   : 0.0f);
+		AppendJSONPairBool(JSON, "sf_chorus_active", st.bSFFXAvailable ? st.bSFChorusActive  : false);
+		AppendJSONPairFloat(JSON, "sf_chorus_depth", st.bSFFXAvailable ? st.fSFChorusDepth   : 0.0f);
+		AppendJSONPairFloat(JSON, "sf_chorus_level", st.bSFFXAvailable ? st.fSFChorusLevel   : 0.0f);
+		AppendJSONPairInt(JSON, "sf_chorus_voices",  st.bSFFXAvailable ? st.nSFChorusVoices  : 1);
+		AppendJSONPairFloat(JSON, "sf_chorus_speed", st.bSFFXAvailable ? st.fSFChorusSpeed   : 0.0f);
+		AppendJSONPairInt(JSON, "sf_tuning",         st.nSFTuning);
+		AppendJSONPair(JSON, "sf_tuning_name",       st.pSFTuningName);
+		AppendJSONPairInt(JSON, "sf_polyphony",      st.nSFPolyphony);
+		AppendJSONPairInt(JSON, "sf_percussion_mask", static_cast<int>(st.nSFPercussionMask));
+		AppendJSONPairFloat(JSON, "mt32_reverb_gain",  st.fMT32ReverbGain);
+		AppendJSONPairBool(JSON, "mt32_reverb_active", st.bMT32ReverbActive);
+		AppendJSONPairBool(JSON, "mt32_nice_amp",      st.bMT32NiceAmpRamp);
+		AppendJSONPairBool(JSON, "mt32_nice_pan",      st.bMT32NicePanning);
+		AppendJSONPairBool(JSON, "mt32_nice_mix",      st.bMT32NicePartialMixing);
+		AppendJSONPairInt(JSON, "mt32_dac_mode",       st.nMT32DACMode);
+		AppendJSONPairInt(JSON, "mt32_midi_delay",     st.nMT32MIDIDelayMode);
+		AppendJSONPairInt(JSON, "mt32_analog_mode",    st.nMT32AnalogMode);
+		AppendJSONPairInt(JSON, "mt32_renderer_type",  st.nMT32RendererType);
+		AppendJSONPairInt(JSON, "mt32_partial_count",  st.nMT32PartialCount);
+		AppendJSONPairBool(JSON, "mixer_enabled",  st.Mixer.bEnabled);
+		AppendJSONPairInt(JSON, "mixer_preset",    st.Mixer.nPreset);
+		AppendJSONPairBool(JSON, "mixer_dual_mode", st.Mixer.bDualMode, false);
+	}
 }
 
 CWebDaemon::CWebDaemon(CNetSubSystem* pNetSubSystem, CMT32Pi* pMT32Pi, u16 nPort)
@@ -1828,66 +1870,11 @@ THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
 				bApplied = m_pMT32Pi->SetMT32PartialCount(nCount);
 		}
 
-		bool bReverbActive = false;
-		float nReverbRoom = 0.0f;
-		float nReverbLevel = 0.0f;
-		float nReverbDamping = 0.0f;
-		float nReverbWidth = 0.0f;
-		bool bChorusActive = false;
-		float nChorusDepth = 0.0f;
-		float nChorusLevel = 0.0f;
-		int   nChorusVoices = 1;
-		float nChorusSpeed = 0.0f;
-		float nSFGain = 0.0f;
-		const bool bHasSoundFontFX = m_pMT32Pi->GetSoundFontFXState(bReverbActive, nReverbRoom, nReverbLevel,
-		                                                             nReverbDamping, nReverbWidth,
-		                                                             bChorusActive, nChorusDepth, nChorusLevel,
-		                                                             nChorusVoices, nChorusSpeed, nSFGain);
-
+		const CMT32Pi::TSystemState st = m_pMT32Pi->GetSystemState();
 		CString JSON;
 		JSON += "{";
 		AppendJSONPairBool(JSON, "ok", bApplied);
-		AppendJSONPair(JSON, "active_synth", m_pMT32Pi->GetActiveSynthName());
-		AppendJSONPair(JSON, "mt32_rom_name", m_pMT32Pi->GetCurrentMT32ROMName());
-		AppendJSONPair(JSON, "soundfont_name", m_pMT32Pi->GetCurrentSoundFontName());
-		AppendJSONPairInt(JSON, "mt32_rom_set", m_pMT32Pi->GetMT32ROMSetIndex());
-		AppendJSONPairInt(JSON, "soundfont_index", static_cast<int>(m_pMT32Pi->GetCurrentSoundFontIndex()));
-		AppendJSONPairInt(JSON, "soundfont_count", static_cast<int>(m_pMT32Pi->GetSoundFontCount()));
-		AppendJSONPairInt(JSON, "master_volume", m_pMT32Pi->GetMasterVolume());
-		AppendJSONPairBool(JSON, "sf_available", bHasSoundFontFX);
-		AppendJSONPairFloat(JSON, "sf_gain", bHasSoundFontFX ? nSFGain : 0.0f);
-		AppendJSONPairBool(JSON, "sf_reverb_active", bHasSoundFontFX ? bReverbActive : false);
-		AppendJSONPairFloat(JSON, "sf_reverb_room", bHasSoundFontFX ? nReverbRoom : 0.0f);
-		AppendJSONPairFloat(JSON, "sf_reverb_level", bHasSoundFontFX ? nReverbLevel : 0.0f);
-		AppendJSONPairFloat(JSON, "sf_reverb_damping", bHasSoundFontFX ? nReverbDamping : 0.0f);
-		AppendJSONPairFloat(JSON, "sf_reverb_width", bHasSoundFontFX ? nReverbWidth : 0.0f);
-		AppendJSONPairBool(JSON, "sf_chorus_active", bHasSoundFontFX ? bChorusActive : false);
-		AppendJSONPairFloat(JSON, "sf_chorus_depth", bHasSoundFontFX ? nChorusDepth : 0.0f);
-		AppendJSONPairFloat(JSON, "sf_chorus_level", bHasSoundFontFX ? nChorusLevel : 0.0f);
-		AppendJSONPairInt(JSON, "sf_chorus_voices", bHasSoundFontFX ? nChorusVoices : 1);
-		AppendJSONPairFloat(JSON, "sf_chorus_speed", bHasSoundFontFX ? nChorusSpeed : 0.0f);
-		AppendJSONPairInt(JSON, "sf_tuning", m_pMT32Pi->GetSoundFontTuning());
-		AppendJSONPair(JSON, "sf_tuning_name", m_pMT32Pi->GetSoundFontTuningName());
-		AppendJSONPairInt(JSON, "sf_polyphony", m_pMT32Pi->GetSoundFontPolyphony());
-		AppendJSONPairInt(JSON, "sf_percussion_mask", m_pMT32Pi->GetSoundFontPercussionMask());
-		
-		// MT-32 parameters
-		AppendJSONPairFloat(JSON, "mt32_reverb_gain", m_pMT32Pi->GetMT32ReverbOutputGain());
-		AppendJSONPairBool(JSON, "mt32_reverb_active", m_pMT32Pi->IsMT32ReverbActive());
-		AppendJSONPairBool(JSON, "mt32_nice_amp", m_pMT32Pi->IsMT32NiceAmpRamp());
-		AppendJSONPairBool(JSON, "mt32_nice_pan", m_pMT32Pi->IsMT32NicePanning());
-		AppendJSONPairBool(JSON, "mt32_nice_mix", m_pMT32Pi->IsMT32NicePartialMixing());
-		AppendJSONPairInt(JSON, "mt32_dac_mode", m_pMT32Pi->GetMT32DACMode());
-		AppendJSONPairInt(JSON, "mt32_midi_delay", m_pMT32Pi->GetMT32MIDIDelayMode());
-		AppendJSONPairInt(JSON, "mt32_analog_mode", m_pMT32Pi->GetMT32AnalogMode());
-		AppendJSONPairInt(JSON, "mt32_renderer_type", m_pMT32Pi->GetMT32RendererType());
-		AppendJSONPairInt(JSON, "mt32_partial_count", m_pMT32Pi->GetMT32PartialCount());
-		{
-			const CMT32Pi::TMixerStatus mxs = m_pMT32Pi->GetMixerStatus();
-			AppendJSONPairBool(JSON, "mixer_enabled", mxs.bEnabled);
-			AppendJSONPairInt(JSON, "mixer_preset", mxs.nPreset);
-			AppendJSONPairBool(JSON, "mixer_dual_mode", mxs.bDualMode, false);
-		}
+		AppendSynthStatusJSON(JSON, st);
 		JSON += "}";
 
 		const unsigned nBodyLength = JSON.GetLength();
@@ -1902,65 +1889,10 @@ THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
 
 	if (bIsRuntimeStatusPath)
 	{
-		bool bReverbActive = false;
-		float nReverbRoom = 0.0f;
-		float nReverbLevel = 0.0f;
-		float nReverbDamping = 0.0f;
-		float nReverbWidth = 0.0f;
-		bool bChorusActive = false;
-		float nChorusDepth = 0.0f;
-		float nChorusLevel = 0.0f;
-		int   nChorusVoices = 1;
-		float nChorusSpeed = 0.0f;
-		float nSFGain = 0.0f;
-		const bool bHasSoundFontFX = m_pMT32Pi->GetSoundFontFXState(bReverbActive, nReverbRoom, nReverbLevel,
-		                                                             nReverbDamping, nReverbWidth,
-		                                                             bChorusActive, nChorusDepth, nChorusLevel,
-		                                                             nChorusVoices, nChorusSpeed, nSFGain);
-
+		const CMT32Pi::TSystemState st = m_pMT32Pi->GetSystemState();
 		CString JSON;
 		JSON += "{";
-		AppendJSONPair(JSON, "active_synth", m_pMT32Pi->GetActiveSynthName());
-		AppendJSONPair(JSON, "mt32_rom_name", m_pMT32Pi->GetCurrentMT32ROMName());
-		AppendJSONPair(JSON, "soundfont_name", m_pMT32Pi->GetCurrentSoundFontName());
-		AppendJSONPairInt(JSON, "mt32_rom_set", m_pMT32Pi->GetMT32ROMSetIndex());
-		AppendJSONPairInt(JSON, "soundfont_index", static_cast<int>(m_pMT32Pi->GetCurrentSoundFontIndex()));
-		AppendJSONPairInt(JSON, "soundfont_count", static_cast<int>(m_pMT32Pi->GetSoundFontCount()));
-		AppendJSONPairInt(JSON, "master_volume", m_pMT32Pi->GetMasterVolume());
-		AppendJSONPairBool(JSON, "sf_available", bHasSoundFontFX);
-		AppendJSONPairFloat(JSON, "sf_gain", bHasSoundFontFX ? nSFGain : 0.0f);
-		AppendJSONPairBool(JSON, "sf_reverb_active", bHasSoundFontFX ? bReverbActive : false);
-		AppendJSONPairFloat(JSON, "sf_reverb_room", bHasSoundFontFX ? nReverbRoom : 0.0f);
-		AppendJSONPairFloat(JSON, "sf_reverb_level", bHasSoundFontFX ? nReverbLevel : 0.0f);
-		AppendJSONPairFloat(JSON, "sf_reverb_damping", bHasSoundFontFX ? nReverbDamping : 0.0f);
-		AppendJSONPairFloat(JSON, "sf_reverb_width", bHasSoundFontFX ? nReverbWidth : 0.0f);
-		AppendJSONPairBool(JSON, "sf_chorus_active", bHasSoundFontFX ? bChorusActive : false);
-		AppendJSONPairFloat(JSON, "sf_chorus_depth", bHasSoundFontFX ? nChorusDepth : 0.0f);
-		AppendJSONPairFloat(JSON, "sf_chorus_level", bHasSoundFontFX ? nChorusLevel : 0.0f);
-		AppendJSONPairInt(JSON, "sf_chorus_voices", bHasSoundFontFX ? nChorusVoices : 1);
-		AppendJSONPairFloat(JSON, "sf_chorus_speed", bHasSoundFontFX ? nChorusSpeed : 0.0f);
-		AppendJSONPairInt(JSON, "sf_tuning", m_pMT32Pi->GetSoundFontTuning());
-		AppendJSONPair(JSON, "sf_tuning_name", m_pMT32Pi->GetSoundFontTuningName());
-		AppendJSONPairInt(JSON, "sf_polyphony", m_pMT32Pi->GetSoundFontPolyphony());
-		AppendJSONPairInt(JSON, "sf_percussion_mask", m_pMT32Pi->GetSoundFontPercussionMask());
-		
-		// MT-32 parameters
-		AppendJSONPairFloat(JSON, "mt32_reverb_gain", m_pMT32Pi->GetMT32ReverbOutputGain());
-		AppendJSONPairBool(JSON, "mt32_reverb_active", m_pMT32Pi->IsMT32ReverbActive());
-		AppendJSONPairBool(JSON, "mt32_nice_amp", m_pMT32Pi->IsMT32NiceAmpRamp());
-		AppendJSONPairBool(JSON, "mt32_nice_pan", m_pMT32Pi->IsMT32NicePanning());
-		AppendJSONPairBool(JSON, "mt32_nice_mix", m_pMT32Pi->IsMT32NicePartialMixing());
-		AppendJSONPairInt(JSON, "mt32_dac_mode", m_pMT32Pi->GetMT32DACMode());
-		AppendJSONPairInt(JSON, "mt32_midi_delay", m_pMT32Pi->GetMT32MIDIDelayMode());
-		AppendJSONPairInt(JSON, "mt32_analog_mode", m_pMT32Pi->GetMT32AnalogMode());
-		AppendJSONPairInt(JSON, "mt32_renderer_type", m_pMT32Pi->GetMT32RendererType());
-		AppendJSONPairInt(JSON, "mt32_partial_count", m_pMT32Pi->GetMT32PartialCount());
-		{
-			const CMT32Pi::TMixerStatus mxs = m_pMT32Pi->GetMixerStatus();
-			AppendJSONPairBool(JSON, "mixer_enabled", mxs.bEnabled);
-			AppendJSONPairInt(JSON, "mixer_preset", mxs.nPreset);
-			AppendJSONPairBool(JSON, "mixer_dual_mode", mxs.bDualMode, false);
-		}
+		AppendSynthStatusJSON(JSON, st);
 		JSON += "}";
 
 		const unsigned nBodyLength = JSON.GetLength();
@@ -1975,22 +1907,21 @@ THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
 
 	if (bIsStatusAPIPath)
 	{
-		CString IPAddress;
-		m_pMT32Pi->FormatIPAddress(IPAddress);
+		const CMT32Pi::TSystemState st = m_pMT32Pi->GetSystemState();
 
 		CString JSON;
 		JSON += "{";
-		AppendJSONPair(JSON, "active_synth", m_pMT32Pi->GetActiveSynthName());
-		AppendJSONPair(JSON, "network_interface", m_pMT32Pi->GetNetworkInterfaceName());
-		AppendJSONPairBool(JSON, "network_ready", m_pMT32Pi->IsNetworkReady());
-		AppendJSONPair(JSON, "ip", IPAddress);
-		AppendJSONPair(JSON, "hostname", pConfig->NetworkHostname);
-		AppendJSONPairInt(JSON, "web_port", pConfig->NetworkWebServerPort);
-		AppendJSONPair(JSON, "mt32_rom_name", m_pMT32Pi->GetCurrentMT32ROMName());
-		AppendJSONPair(JSON, "soundfont_name", m_pMT32Pi->GetCurrentSoundFontName());
-		AppendJSONPair(JSON, "soundfont_path", m_pMT32Pi->GetCurrentSoundFontPath());
-		AppendJSONPairInt(JSON, "soundfont_index", static_cast<int>(m_pMT32Pi->GetCurrentSoundFontIndex()));
-		AppendJSONPairInt(JSON, "soundfont_count", static_cast<int>(m_pMT32Pi->GetSoundFontCount()), false);
+		AppendJSONPair(JSON, "active_synth",      st.pActiveSynthName);
+		AppendJSONPair(JSON, "network_interface", st.pNetworkInterfaceName);
+		AppendJSONPairBool(JSON, "network_ready", st.bNetworkReady);
+		AppendJSONPair(JSON, "ip",                st.IPAddress);
+		AppendJSONPair(JSON, "hostname",          pConfig->NetworkHostname);
+		AppendJSONPairInt(JSON, "web_port",       pConfig->NetworkWebServerPort);
+		AppendJSONPair(JSON, "mt32_rom_name",     st.pMT32ROMName);
+		AppendJSONPair(JSON, "soundfont_name",    st.pSoundFontName);
+		AppendJSONPair(JSON, "soundfont_path",    st.pSoundFontPath);
+		AppendJSONPairInt(JSON, "soundfont_index", static_cast<int>(st.nSoundFontIndex));
+		AppendJSONPairInt(JSON, "soundfont_count", static_cast<int>(st.nSoundFontCount), false);
 		JSON += "}";
 
 		const unsigned nBodyLength = JSON.GetLength();

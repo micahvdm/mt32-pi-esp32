@@ -223,6 +223,66 @@ public:
 	enum class EMidiSource : u8 { None = 0, Physical = 1, Player = 2, WebUI = 3 };
 	void GetActiveNotes(u8 out[16][128]) const;
 
+	// ---- Aggregated system state snapshot ----
+	// Captures all runtime state in one call; pointers are valid until the next
+	// mutation on Core 0.  ActiveNotes are NOT included (2 KB, websocket-only).
+	struct TSystemState
+	{
+		TSequencerStatus Sequencer;
+		TMixerStatus     Mixer;
+
+		// Synth identity
+		const char* pActiveSynthName;
+		const char* pMT32ROMName;
+		int         nMT32ROMSetIndex;
+		const char* pSoundFontName;
+		const char* pSoundFontPath;
+		size_t      nSoundFontIndex;
+		size_t      nSoundFontCount;
+		int         nMasterVolume;
+
+		// SoundFont FX
+		bool  bSFFXAvailable;
+		float fSFGain;
+		bool  bSFReverbActive;
+		float fSFReverbRoom;
+		float fSFReverbLevel;
+		float fSFReverbDamping;
+		float fSFReverbWidth;
+		bool  bSFChorusActive;
+		float fSFChorusDepth;
+		float fSFChorusLevel;
+		int   nSFChorusVoices;
+		float fSFChorusSpeed;
+		int         nSFTuning;
+		const char* pSFTuningName;
+		int   nSFPolyphony;
+		u16   nSFPercussionMask;
+
+		// MT-32 parameters
+		float fMT32ReverbGain;
+		bool  bMT32ReverbActive;
+		bool  bMT32NiceAmpRamp;
+		bool  bMT32NicePanning;
+		bool  bMT32NicePartialMixing;
+		int   nMT32DACMode;
+		int   nMT32MIDIDelayMode;
+		int   nMT32AnalogMode;
+		int   nMT32RendererType;
+		int   nMT32PartialCount;
+
+		// Network
+		bool        bNetworkReady;
+		const char* pNetworkInterfaceName;
+		char        IPAddress[32];
+
+		// MIDI activity levels
+		float MIDILevels[16];
+		float MIDIPeaks[16];
+	};
+
+	TSystemState GetSystemState() const;
+
 private:
 	enum class TLCDLogType
 	{
