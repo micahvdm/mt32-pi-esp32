@@ -18,15 +18,13 @@ class CMT32Pi;
 class CWebSocketDaemon : public CTask
 {
 public:
-	CWebSocketDaemon(CNetSubSystem* pNetSubSystem, CMT32Pi* pMT32Pi, u16 nPort = 8765);
-	virtual ~CWebSocketDaemon() override;
+        CWebSocketDaemon(CNetSubSystem* pNetSubSystem, CMT32Pi* pMT32Pi, u16 nPort = 8765, unsigned nIntervalMs = 250);
+        virtual ~CWebSocketDaemon() override;
 
-	void Run() override;
+        void Run() override;
 
 private:
-	CNetSubSystem* m_pNetSubSystem;
-	CMT32Pi*       m_pMT32Pi;
-	u16            m_nPort;
-};
-
-#endif
+        CNetSubSystem* m_pNetSubSystem;
+        CMT32Pi*       m_pMT32Pi;
+        u16            m_nPort;
+        unsigned       m_nIntervalMs;

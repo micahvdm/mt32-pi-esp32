@@ -1943,8 +1943,10 @@ void CMT32Pi::UpdateNetwork()
 
 		if (m_pConfig->NetworkWebServer && !m_pWebSocketDaemon)
 		{
-			m_pWebSocketDaemon = new CWebSocketDaemon(m_pNet, this, 8765);
-			LOGNOTE("WebSocket daemon initialized on port 8765");
+			const u16      nWsPort  = static_cast<u16>(m_pConfig->NetworkWebSocketPort);
+			const unsigned nWsItv  = static_cast<unsigned>(m_pConfig->NetworkWebSocketIntervalMs);
+			m_pWebSocketDaemon = new CWebSocketDaemon(m_pNet, this, nWsPort, nWsItv);
+			LOGNOTE("WebSocket daemon initialized on port %u (interval %u ms)", (unsigned)nWsPort, nWsItv);
 		}
 	}
 	else if (m_bNetworkReady && !bNetIsRunning)
