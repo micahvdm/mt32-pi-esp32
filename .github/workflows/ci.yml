@@ -47,6 +47,17 @@ jobs:
           sudo apt-get install -y shellcheck
           find scripts -type f -name "*.sh" -print0 | xargs -0 -r shellcheck
 
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y g++ make
+
+      - name: Build and run unit tests
+        run: make -C tests clean run
+
   build:
     runs-on: ubuntu-24.04
     name: build-${{ matrix.board }}
@@ -124,7 +135,7 @@ jobs:
           path: out/${{ matrix.board }}-hdmi/kernel*.img
 
   package:
-    needs: build
+    needs: [build, test]
     runs-on: ubuntu-24.04
     env:
       BOOT_HOME: external/circle-stdlib/libs/circle/boot
