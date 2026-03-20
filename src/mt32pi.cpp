@@ -1198,6 +1198,29 @@ void CMT32Pi::UITask()
 //   The entire render (synth + optional mixer) must complete before the
 //   hardware DMA underruns.  m_nRenderAvgUs (EMA, 1/16 alpha) is exposed
 //   to Core 0 for monitoring via GetMixerStatus() / GetSystemState().
+// AudioTask() — Core 2 audio render loop
+//
+// This function runs for the entire lifetime of the application on Core 2.
+// It fills Circle's sound queue as fast as the hardware consumes samples,
+// using a tight produce-on-demand model:
+//
+//   nFrames = queue capacity − frames already waiting
+//
+// Each iteration:
+//   1. Compute the real-time deadline for this chunk:
+//      deadline_µs = nFrames * 1 000 000 / SampleRate
+//   2. Render (CMT32Synth or CSoundFontSynth, via CAudioMixer if enabled)
+//      and record wall-clock render time.
+//   3. Maintain an EMA (α≈1/16) of render time for CPU-load reporting.
+//   4. Auto polyphony reduction: if avg render > 90 % of deadline,
+//      halve MT-32 partial count (one-shot per overload episode).
+//   5. Convert float samples to the hardware format (I2S 32-bit or
+//      PWM/HDMI 24-bit packed) with optional stereo reversal.
+//   6. Write to Circle's queue and let the DMA transfer handle timing.
+//
+// Inter-core communication: all mutable state shared with Core 0 is
+// updated through *volatile* members or atomic-width writes. There are
+// no mutexes on this path — a stall here causes an audio glitch.
 void CMT32Pi::AudioTask()
 {
 	LOGNOTE("Audio task on Core 2 starting up");
@@ -1971,6 +1994,24 @@ void CMT32Pi::UpdateNetwork()
 //
 // m_eMidiSource is set per-batch so OnShortMessage() can tag active notes
 // with their origin (Physical / Player / WebUI).
+// UpdateMIDI() — Core 0 MIDI ingestion and sequencer tick
+//
+// Called once per main-loop iteration on Core 0. It drains all MIDI
+// sources in priority order and feeds bytes into CMIDIParser:
+//
+//   1. Physical MIDI — UART serial or USB-serial adapter.
+//      The source tag m_eMidiSource is set so downstream code
+//      (router, monitor) can distinguish physical from playback.
+//   2. FluidSequencer tick — advances the player state machine by
+//      one time step and drains any MIDI bytes it produced this tick.
+//      Running the player on Core 0 keeps FluidSynth's synthesiser
+//      (Core 0 / Core 1 via FluidSynth threading) decoupled from the
+//      audio render task on Core 2.
+//   3. Web keyboard — bytes queued by the HTTP/WebSocket handler
+//      when the user plays notes via the web UI virtual keyboard.
+//
+// After each source that produced bytes, m_nActiveSenseTime is
+// refreshed so the active-sense watchdog knows the connection is live.
 void CMT32Pi::UpdateMIDI()
 {
 	size_t nBytes;
