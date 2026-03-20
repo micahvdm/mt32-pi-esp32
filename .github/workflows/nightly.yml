@@ -1,0 +1,110 @@
+name: mt32-pi nightly
+
+# Runs every Monday at 03:00 UTC and on manual trigger.
+# Goals:
+#   1. Verify that all patches in patches/ still apply cleanly to the
+#      pinned submodule commits (fast, no toolchain required).
+#   2. Full clean build from mrproper state (no ccache) to detect build-
+#      system rot and measure true cold-compile time.
+
+on:
+  workflow_dispatch:
+
+env:
+  TOOLCHAIN_VERSION: 14.3.rel1
+
+jobs:
+  # ── Job 1: patch integrity ─────────────────────────────────────────────
+  # Initialises submodules in their raw (unpatched) state and dry-runs
+  # every patch to confirm they still apply cleanly.
+  patch-check:
+    name: Patch integrity
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialise submodules (unpatched)
+        run: git submodule update --init --recursive
+
+      - name: fluidsynth-2.5.3-circle.patch — dry-run
+        run: |
+          if patch --dry-run --forward --strip 1 \
+               --directory external/fluidsynth \
+               < patches/fluidsynth-2.5.3-circle.patch; then
+            echo "✅ fluidsynth-2.5.3-circle.patch applies cleanly"
+          else
+            echo "::error::fluidsynth-2.5.3-circle.patch does not apply cleanly to pinned submodule"
+            exit 1
+          fi
+
+      - name: Circle patches — dry-run
+        run: |
+          CIRCLEHOME=external/circle-stdlib/libs/circle
+          for p in \
+            patches/circle-50-minimal-usb-drivers.patch \
+            patches/circle-50-cp210x-remove-partnum-check.patch; do
+            if patch --dry-run --forward --strip 1 \
+                 --directory "$CIRCLEHOME" < "$p"; then
+              echo "✅ $(basename $p) applies cleanly"
+            else
+              echo "::error::$(basename $p) does not apply cleanly"
+              exit 1
+            fi
+          done
+
+  # ── Job 2: mrproper + clean build ─────────────────────────────────────
+  # Reverses all patches, wipes all build artefacts, re-applies patches
+  # and rebuilds pi3-64 from scratch (no ccache) to catch build-system rot.
+  mrproper-build:
+    name: mrproper + cold build (pi3-64)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch submodules (first pass — apply patches)
+        run: make submodules
+
+      - name: Cache ARM toolchains
+        id: cache-toolchains
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/arm-gnu-toolchain-${{ env.TOOLCHAIN_VERSION }}-x86_64-arm-none-eabi
+            ~/arm-gnu-toolchain-${{ env.TOOLCHAIN_VERSION }}-x86_64-aarch64-none-elf
+          key: ${{ runner.os }}-arm-toolchains-${{ env.TOOLCHAIN_VERSION }}
+
+      - name: Install toolchains if not retrieved from cache
+        if: steps.cache-toolchains.outputs.cache-hit != 'true'
+        run: |
+          set -e
+          for triplet in arm-none-eabi aarch64-none-elf; do
+            wget -q https://developer.arm.com/-/media/Files/downloads/gnu/${{ env.TOOLCHAIN_VERSION }}/binrel/arm-gnu-toolchain-${{ env.TOOLCHAIN_VERSION }}-x86_64-${triplet}.tar.xz
+            tar -xf arm-gnu-toolchain-${{ env.TOOLCHAIN_VERSION }}-x86_64-${triplet}.tar.xz -C ~
+            rm arm-gnu-toolchain-${{ env.TOOLCHAIN_VERSION }}-x86_64-${triplet}.tar.xz
+          done
+
+      - name: Update PATH
+        run: |
+          for triplet in arm-none-eabi aarch64-none-elf; do
+            echo "$HOME/arm-gnu-toolchain-${{ env.TOOLCHAIN_VERSION }}-x86_64-${triplet}/bin" >> "$GITHUB_PATH"
+          done
+
+      - name: mrproper (reverse patches, clean all build artefacts)
+        run: make mrproper
+
+      - name: Fetch submodules (second pass — re-apply patches after mrproper)
+        run: make submodules
+
+      - name: Build pi3-64 (no ccache — true cold build)
+        run: make -j"$(nproc)" BOARD=pi3-64
+
+      - name: Kernel size report
+        run: |
+          echo "## Nightly kernel size — pi3-64 (mrproper build)" >> "$GITHUB_STEP_SUMMARY"
+          echo "| File | Size (KiB) |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|------|------------|" >> "$GITHUB_STEP_SUMMARY"
+          for f in kernel*.img; do
+            [ -f "$f" ] || continue
+            SIZE_KiB=$(( $(stat -c %s "$f") / 1024 ))
+            echo "| \`$f\` | ${SIZE_KiB} |" >> "$GITHUB_STEP_SUMMARY"
+          done
