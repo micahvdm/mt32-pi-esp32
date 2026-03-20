@@ -221,7 +221,7 @@ static int BuildStatusJSON(char* buf, size_t bufSize, CMT32Pi* pPi)
 // ──────────────────────────────────────────────────────────────────────────
 // Handle one accepted WebSocket connection (blocking, runs as task)
 // ──────────────────────────────────────────────────────────────────────────
-static void HandleConnection(CSocket* pSock, CMT32Pi* pMT32Pi)
+static void HandleConnection(CSocket* pSock, CMT32Pi* pMT32Pi, unsigned nIntervalMs)
 {
 	static const size_t kRxBuf = 2048;
 	static const size_t kTxBuf = 3072;
@@ -307,12 +307,10 @@ static void HandleConnection(CSocket* pSock, CMT32Pi* pMT32Pi)
 		char prevJSON[2560]; // last JSON sent; used to skip duplicate frames
 		prevJSON[0] = '\0';
 
-		while (true)
-		{
-			unsigned nNow = CTimer::Get()->GetTicks(); // HZ = 100
-
-			// Push status at ~250ms intervals, but only if state changed
-			if (nNow - nLastPush >= 25) // 25 ticks × (1/100 s) = 250ms
+		// HZ=100 → 1 tick = 10ms; clamp to [50,5000] ms
+		const unsigned nIntervalTicks = (nIntervalMs < 50u ? 50u : nIntervalMs > 5000u ? 5000u : nIntervalMs) / 10u;
+			// Push status at configured interval, but only if state changed
+			if (nNow - nLastPush >= nIntervalTicks)
 			{
 				nLastPush = nNow;
 				int jLen = BuildStatusJSON(jsonBuf, sizeof(jsonBuf), pMT32Pi);
@@ -408,27 +406,29 @@ cleanup:
 class CWebSocketWorker : public CTask
 {
 public:
-	CWebSocketWorker(CSocket* pSock, CMT32Pi* pPi)
-		: CTask(8192), m_pSock(pSock), m_pPi(pPi) {}
+	CWebSocketWorker(CSocket* pSock, CMT32Pi* pPi, unsigned nIntervalMs)
+		: CTask(8192), m_pSock(pSock), m_pPi(pPi), m_nIntervalMs(nIntervalMs) {}
 
 	void Run() override
 	{
-		HandleConnection(m_pSock, m_pPi);
+		HandleConnection(m_pSock, m_pPi, m_nIntervalMs);
 	}
 
 private:
 	CSocket*  m_pSock;
 	CMT32Pi*  m_pPi;
+	unsigned  m_nIntervalMs;
 };
 
 // ──────────────────────────────────────────────────────────────────────────
 // CWebSocketDaemon — listener task
 // ──────────────────────────────────────────────────────────────────────────
-CWebSocketDaemon::CWebSocketDaemon(CNetSubSystem* pNet, CMT32Pi* pPi, u16 nPort)
+CWebSocketDaemon::CWebSocketDaemon(CNetSubSystem* pNet, CMT32Pi* pPi, u16 nPort, unsigned nIntervalMs)
 	: CTask(8192),
 	  m_pNetSubSystem(pNet),
 	  m_pMT32Pi(pPi),
-	  m_nPort(nPort)
+	  m_nPort(nPort),
+	  m_nIntervalMs(nIntervalMs)
 {
 }
 
@@ -468,7 +468,7 @@ void CWebSocketDaemon::Run()
 		CSocket* pClient = pServer->Accept(&clientIP, &clientPort);
 		if (pClient)
 		{
-			new CWebSocketWorker(pClient, m_pMT32Pi);
+			new CWebSocketWorker(pClient, m_pMT32Pi, m_nIntervalMs);
 		}
 		else
 		{
