@@ -21,6 +21,7 @@ OBJS		:=	src/config.o \
 			src/main.o \
 			src/fluidsequencer.o \
 			src/midimonitor.o \
+			src/midirecorder.o \
 			src/midiparser.o \
 			src/midirouter.o \
 			src/audiomixer.o \
