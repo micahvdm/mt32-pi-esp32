@@ -2581,8 +2581,15 @@ THTTPStatus CWebDaemon::BuildMixerPage(u8* pBuffer, unsigned* pLength, const cha
 		HTML += "<label>CPU load <strong id='mx-cpu'>-</strong>%</label>";
 		HTML += "</div></section>";
 
-		// Channel routing table
+		// Channel routing visual diagram + table
 		HTML += "<section><h2>Channel Routing</h2>";
+		HTML += "<div id='mx-route-map' style='display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px;'></div>";
+		HTML += "<div style='display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:11px;color:#94a3b8;margin-bottom:8px;'>";
+		HTML += "<span><span style='display:inline-block;width:12px;height:12px;border-radius:3px;background:#3b82f6;vertical-align:middle;margin-right:3px;'></span>MT-32</span>";
+		HTML += "<span><span style='display:inline-block;width:12px;height:12px;border-radius:3px;background:#22c55e;vertical-align:middle;margin-right:3px;'></span>FluidSynth</span>";
+		HTML += "<span><span style='display:inline-block;width:12px;height:12px;border-radius:3px;background:#a855f7;vertical-align:middle;margin-right:3px;'></span>Layered</span>";
+		HTML += "<span><span style='display:inline-block;width:12px;height:12px;border-radius:3px;background:#475569;vertical-align:middle;margin-right:3px;'></span>None</span>";
+		HTML += "</div>";
 		HTML += "<table style='width:100%;border-collapse:collapse;'><thead><tr>";
 		HTML += "<th style='text-align:left;padding:4px;border-bottom:2px solid #334155;color:#93c5fd;'>CH</th>";
 		HTML += "<th style='text-align:left;padding:4px;border-bottom:2px solid #334155;color:#93c5fd;'>Engine</th>";
@@ -2625,7 +2632,8 @@ THTTPStatus CWebDaemon::BuildMixerPage(u8* pBuffer, unsigned* pLength, const cha
 		HTML += "function resetChVol(){_qs('/api/mixer/set','param=channel_volume_reset&value=1',function(r){if(r&&r.ok){loadStatus();showToast('Vol reset');}else showToast('Error',false);});}";
 
 		// render
-		HTML += "function renderChannels(chs){var tb=document.getElementById('mx-ch');tb.innerHTML='';";
+		HTML += "function renderRouteMap(chs){var mp=document.getElementById('mx-route-map');if(!mp)return;mp.innerHTML='';for(var i=0;i<chs.length;i++){var c=chs[i];var chip=document.createElement('div');var col=c.layered?'#a855f7':(c.engine==='MT-32'?'#3b82f6':(c.engine==='FluidSynth'?'#22c55e':'#475569'));chip.style.cssText='width:40px;height:40px;border-radius:6px;background:'+col+';display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:default;flex-shrink:0;position:relative;';var chnum=document.createElement('span');chnum.style.cssText='font-size:12px;font-weight:bold;color:#fff;line-height:1;';chnum.textContent=c.ch;chip.appendChild(chnum);var eng=document.createElement('span');eng.style.cssText='font-size:8px;color:rgba(255,255,255,0.75);line-height:1;margin-top:2px;';eng.textContent=c.layered?'L':c.engine==='MT-32'?'MT':'SF';chip.appendChild(eng);if(c.remap!==c.ch){var rm=document.createElement('span');rm.style.cssText='font-size:7px;color:rgba(255,255,255,0.6);line-height:1;margin-top:1px;';rm.textContent='\u2192'+c.remap;chip.appendChild(rm);}chip.title='Ch '+c.ch+': '+(c.layered?'Layered (both)':c.engine)+(c.remap!==c.ch?' \u2192ch'+c.remap:'')+' Vol:'+c.vol+'%';mp.appendChild(chip);}}";
+		HTML += "function renderChannels(chs){renderRouteMap(chs);var tb=document.getElementById('mx-ch');tb.innerHTML='';
 		HTML += "for(var i=0;i<chs.length;i++){var c=chs[i];var tr=document.createElement('tr');";
 		HTML += "var bg=i%2===0?'#111827':'#0b1220';tr.style.background=bg;";
 		HTML += "var ec=c.layered?'#c084fc':(c.engine==='MT-32'?'#93c5fd':(c.engine==='FluidSynth'?'#4ade80':'#475569'));";
