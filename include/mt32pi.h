@@ -212,6 +212,7 @@ public:
 		bool        bLoopEnabled;
 		bool        bAutoNext;   // true if auto-advance to next file is enabled
 		bool        bFinished;   // true when song ended naturally (loop=off)
+		bool        bLoading;    // true while SequencerPlayFile is reading from SD
 		const char* pFile;       // points to internal buffer; valid until next call
 		u32         nEventCount;
 		u32         nDurationMs;
