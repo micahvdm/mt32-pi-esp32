@@ -309,6 +309,10 @@ static void HandleConnection(CSocket* pSock, CMT32Pi* pMT32Pi, unsigned nInterva
 
 		// HZ=100 → 1 tick = 10ms; clamp to [50,5000] ms
 		const unsigned nIntervalTicks = (nIntervalMs < 50u ? 50u : nIntervalMs > 5000u ? 5000u : nIntervalMs) / 10u;
+		while (true)
+		{
+			unsigned nNow = CTimer::Get()->GetTicks();
+
 			// Push status at configured interval, but only if state changed
 			if (nNow - nLastPush >= nIntervalTicks)
 			{
