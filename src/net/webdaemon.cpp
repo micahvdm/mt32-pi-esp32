@@ -807,6 +807,8 @@ THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
 	const bool bIsRouterSavePath    = strcmp(pPath, "/api/router/save") == 0;
 	const bool bIsRouterLoadPath    = strcmp(pPath, "/api/router/load") == 0;
 	const bool bIsSFInfoPath        = strcmp(pPath, "/api/soundfont/info") == 0;
+	const bool bIsRecStartPath      = strcmp(pPath, "/api/recorder/start") == 0;
+	const bool bIsRecStopPath       = strcmp(pPath, "/api/recorder/stop") == 0;
 
 	// ---- GET /api/sequencer/status ----
 	if (bIsSeqStatusPath)
@@ -2219,6 +2221,7 @@ THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
 		AppendJSONPair(JSON, "mt32_rom_name",     st.pMT32ROMName);
 		AppendJSONPair(JSON, "soundfont_name",    st.pSoundFontName);
 		AppendJSONPair(JSON, "soundfont_path",    st.pSoundFontPath);
+		AppendJSONPairBool(JSON, "recording",     st.bMidiRecording);
 		AppendJSONPairInt(JSON, "soundfont_index", static_cast<int>(st.nSoundFontIndex));
 		AppendJSONPairInt(JSON, "soundfont_count", static_cast<int>(st.nSoundFontCount), false);
 		JSON += "}";
@@ -2268,6 +2271,32 @@ THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
 		return HTTPOK;
 	}
 
+	// ---- POST /api/recorder/start ----
+	if (bIsRecStartPath)
+	{
+		const bool bOK = m_pMT32Pi->StartMidiRecording();
+		const char* pBody = bOK ? "{\"recording\":true}" : "{\"error\":\"already_recording\"}";
+		const unsigned nLen = static_cast<unsigned>(__builtin_strlen(pBody));
+		if (*pLength < nLen) return HTTPInternalServerError;
+		memcpy(pBuffer, pBody, nLen);
+		*pLength = nLen;
+		*ppContentType = "application/json; charset=utf-8";
+		return bOK ? HTTPOK : HTTPBadRequest;
+	}
+
+	// ---- POST /api/recorder/stop ----
+	if (bIsRecStopPath)
+	{
+		m_pMT32Pi->StopMidiRecording();
+		constexpr const char* pBody = "{\"recording\":false}";
+		const unsigned nLen = static_cast<unsigned>(__builtin_strlen(pBody));
+		if (*pLength < nLen) return HTTPInternalServerError;
+		memcpy(pBuffer, pBody, nLen);
+		*pLength = nLen;
+		*ppContentType = "application/json; charset=utf-8";
+		return HTTPOK;
+	}
+
 	return HTTPNotFound;
 }
 
@@ -2298,7 +2327,7 @@ THTTPStatus CWebDaemon::BuildStylesheet(u8* pBuffer, unsigned* pLength, const ch
 			".statusbar{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:14px;}"
 			".statusbar .pill{background:#0b1220;border-color:#334155;color:#cbd5e1;border-radius:999px;}"
 			".badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;background:#1e293b;border:1px solid #475569;}"
-			".badge.playing{background:#14532d;border-color:#16a34a;}.badge.paused{background:#432d03;border-color:#d97706;}.badge.finished{background:#44403c;border-color:#a8a29e;}.badge.loading{background:#1e3a5f;border-color:#3b82f6;}"
+			".badge.playing{background:#14532d;border-color:#16a34a;}.badge.paused{background:#432d03;border-color:#d97706;}.badge.finished{background:#44403c;border-color:#a8a29e;}.badge.loading{background:#1e3a5f;border-color:#3b82f6;}.badge.recording{background:#4c0519;border-color:#e11d48;}"
 			".tabbar{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 14px;}"
 			".tabbtn{background:#0b1220;color:#cbd5e1;border:1px solid #334155;border-radius:999px;padding:10px 14px;cursor:pointer;}"
 			".tabbtn.active{background:#1d4ed8;border-color:#1d4ed8;color:#fff;}"
@@ -3447,6 +3476,14 @@ THTTPStatus CWebDaemon::BuildStatusPage(u8* pBuffer, unsigned* pLength, const ch
 	HTML += "<button id='idx-stop-btn' onclick='idxStop()' style='display:none;'>&#9646; Stop</button>";
 	HTML += "<button onclick='idxNext()' title='Next'>&#9654;&#9654;</button>";
 	HTML += "</div></section>";
+
+	// ---- MIDI Recorder section ----
+	HTML += "<section><h2>MIDI Recorder</h2>";
+	HTML += "<span id='idx-rec-badge' class='badge'>Stopped</span>";
+	HTML += "<p style='margin-top:8px;color:#64748b;font-size:12px;margin-bottom:10px;'>Records live MIDI input to SD:recording_NNN.mid (Standard MIDI File Type\u00a00).</p>";
+	HTML += "<button id='idx-rec-btn' class='primary' onclick='toggleRecord()'>&#9210; Start Recording</button>";
+	HTML += "</section>";
+
 	HTML += "<section><h2>Live MIDI</h2><table><tr><th>API</th><td><code>/api/midi</code></td></tr><tr><th>Status</th><td id='midi-status'>Loading...</td></tr></table><div class='meter-grid' id='midi-grid'></div></section>";
 	HTML += "<section><h2>Active keyboard</h2><canvas id='kb-canvas' height='64'></canvas></section>";
 	HTML += "<section><h2>Piano roll</h2><canvas id='pr-canvas' height='160'></canvas></section>";
@@ -3510,8 +3547,12 @@ THTTPStatus CWebDaemon::BuildStatusPage(u8* pBuffer, unsigned* pLength, const ch
 	HTML += "b.className='badge'+(st2==='playing'?' playing':(st2==='paused'?' paused':(st2==='finished'?' finished':(st2==='loading'?' loading':''))));";
 	HTML += "var ppb=document.getElementById('idx-pp-btn'),stb=document.getElementById('idx-stop-btn');";
 	HTML += "if(ppb){ppb.textContent=st2==='playing'?'\\u23F8 Pause':(st2==='paused'?'\\u25B6 Resume':'\\u25B6 Play');}";
-	HTML += "if(stb)stb.style.display=(st2==='playing'||st2==='paused')?'':'none';}";  
+	HTML += "if(stb)stb.style.display=(st2==='playing'||st2==='paused')?'':'none';}";
 	HTML += "var sf=document.getElementById('idx-seq-file');if(sf)sf.textContent=(d.file||'').replace(/^(SD:|USB:)/,'')||'\\u2014';";
+	// Recorder badge + button
+	HTML += "var rb=document.getElementById('idx-rec-btn'),rbg=document.getElementById('idx-rec-badge');";
+	HTML += "if(rb){var rec=!!d.recording;rb.textContent=rec?'\\u23F9 Stop Recording':'\\u23FA Start Recording';rb.className=rec?'danger':'primary';}";
+	HTML += "if(rbg){rbg.textContent=rec?'\\u25CF Recording':'Stopped';rbg.className='badge'+(rec?' recording':'');}";
 	HTML += "var dur=d.duration_ms||1;var elp=d.finished?d.duration_ms:(d.elapsed_ms||0);";
 	HTML += "var pp=document.getElementById('idx-prog');if(pp)pp.style.width=Math.min(100,elp/dur*100).toFixed(1)+'%';";
 	HTML += "var tt=document.getElementById('idx-seq-time');if(tt)tt.textContent=fmt(elp)+' / '+fmt(d.duration_ms);}";
@@ -3520,6 +3561,7 @@ THTTPStatus CWebDaemon::BuildStatusPage(u8* pBuffer, unsigned* pLength, const ch
 	HTML += "function idxNext(){_qs('/api/sequencer/next','',function(){});}";
 	HTML += "function idxStop(){_qs('/api/sequencer/stop','',function(){});}";
 	HTML += "function idxPP(){if(_idxSt==='playing')_qs('/api/sequencer/pause','',function(){});else if(_idxSt==='paused')_qs('/api/sequencer/resume','',function(){});else _qs('/api/sequencer/next','',function(){});}";
+	HTML += "function toggleRecord(){var btn=document.getElementById('idx-rec-btn');if(btn&&btn.classList.contains('danger'))_qs('/api/recorder/stop','',function(){});else _qs('/api/recorder/start','',function(){});}";
 	HTML += "(function(){var ws=null,_rt=0;function conn(){ws=new WebSocket('ws://'+location.hostname+':8765/');ws.onmessage=function(e){try{applyWS(JSON.parse(e.data));}catch(x){}};ws.onclose=function(){_rt=Math.min((_rt||500)*2,8000);setTimeout(conn,_rt);};ws.onerror=function(){ws.close();};}conn();})();";
 	HTML += "</script>";
 

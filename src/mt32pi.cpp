@@ -1046,6 +1046,9 @@ CMT32Pi::TSystemState CMT32Pi::GetSystemState() const
 	// MIDI activity levels
 	GetMIDIChannelLevels(s.MIDILevels, s.MIDIPeaks);
 
+	// Recorder
+	s.bMidiRecording = m_MidiRecorder.IsRecording();
+
 	return s;
 }
 
@@ -1720,6 +1723,9 @@ void CMT32Pi::OnShortMessage(u32 nMessage)
 	else
 		m_pCurrentSynth->HandleMIDIShortMessage(nMessage);
 
+	// Record to SD card if active
+	m_MidiRecorder.RecordShortMessage(nMessage, CTimer::GetClockTicks());
+
 	// Wake from power saving mode if necessary
 	Awaken();
 }
@@ -1741,6 +1747,9 @@ void CMT32Pi::OnSysExMessage(const u8* pData, size_t nSize)
 		else
 			m_pCurrentSynth->HandleMIDISysExMessage(pData, nSize);
 	}
+
+	// Record to SD card if active
+	m_MidiRecorder.RecordSysEx(pData, nSize, CTimer::GetClockTicks());
 
 	// Wake from power saving mode if necessary
 	Awaken();
@@ -2708,6 +2717,16 @@ bool CMT32Pi::LoadRouterPreset()
 	f_close(&fp);
 	m_MIDIRouter.ApplyPreset(TRouterPreset::Custom);
 	return true;
+}
+
+bool CMT32Pi::StartMidiRecording()
+{
+	return m_MidiRecorder.Start();
+}
+
+void CMT32Pi::StopMidiRecording()
+{
+	m_MidiRecorder.Stop();
 }
 
 int CMT32Pi::SeekHistoryGet(const char* pPath) const

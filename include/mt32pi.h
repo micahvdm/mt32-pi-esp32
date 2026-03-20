@@ -66,6 +66,7 @@
 #include "audiomixer.h"
 #include "midirouter.h"
 #include "midimonitor.h"
+#include "midirecorder.h"
 #include "synth/mt32romset.h"
 #include "synth/mt32synth.h"
 #include "synth/soundfontsynth.h"
@@ -204,6 +205,10 @@ public:
 	bool SaveRouterPreset() const;
 	bool LoadRouterPreset();
 
+	// ---- MIDI recorder ----
+	bool StartMidiRecording();
+	void StopMidiRecording();  // no-op if not recording
+
 	// ---- Sequencer control (called from Core 0 / web handler) ----
 	struct TSequencerStatus
 	{
@@ -303,6 +308,9 @@ public:
 		// MIDI activity levels
 		float MIDILevels[16];
 		float MIDIPeaks[16];
+
+		// Recorder state
+		bool bMidiRecording;
 	};
 
 	TSystemState GetSystemState() const;
@@ -507,6 +515,9 @@ private:
 	// Active note snapshot (written by OnShortMessage on Core 0 task context)
 	u8 m_activeNotes[16][128];   // value = EMidiSource (0 = off)
 	u8 m_eMidiSource;            // source tag for the current ParseMIDIBytes batch
+
+	// MIDI recorder (Core 0 only)
+	CMidiRecorder m_MidiRecorder;
 
 	// Event handling
 	TEventQueue m_EventQueue;

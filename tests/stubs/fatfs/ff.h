@@ -18,6 +18,7 @@ typedef unsigned long long FSIZE_t;
 
 #define FA_READ          0x01
 #define FA_WRITE         0x02
+#define FA_CREATE_NEW    0x04
 #define FA_CREATE_ALWAYS 0x08
 
 typedef struct { char _dummy; } FIL;
@@ -32,7 +33,10 @@ FRESULT f_open (FIL* fp, const char* path, int mode);
 FRESULT f_close(FIL* fp);
 FRESULT f_read (FIL* fp, void* buf, UINT btr, UINT* br);
 FSIZE_t f_size (FIL* fp);
-FRESULT f_stat (const char* path, FILINFO* fno);
+FRESULT f_stat  (const char* path, FILINFO* fno);
+FRESULT f_write (FIL* fp, const void* buf, UINT btw, UINT* bw);
+FRESULT f_lseek (FIL* fp, FSIZE_t ofs);
+FSIZE_t f_tell  (FIL* fp);
 
 #ifdef __cplusplus
 }
@@ -40,8 +44,17 @@ FRESULT f_stat (const char* path, FILINFO* fno);
 // Test control globals (C++ only)
 extern bool                 g_fatfs_open_fail;
 extern bool                 g_fatfs_read_fail;
+extern bool                 g_fatfs_stat_fail;
+extern bool                 g_fatfs_write_fail;
 extern const unsigned char* g_fatfs_data;
 extern size_t               g_fatfs_data_size;
+
+// Write capture buffer for testing
+extern unsigned char        g_fatfs_written_buf[];
+extern size_t               g_fatfs_written_size;
+extern FSIZE_t              g_fatfs_seek_pos;
+
+static constexpr size_t kFatfsWriteBufSize = 1024 * 1024; // 1 MB stub buffer
 #endif
 
 #endif // _fatfs_ff_stub_h
