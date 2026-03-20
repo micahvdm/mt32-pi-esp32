@@ -58,6 +58,8 @@ This fork adds a full web-based control interface, a dual-engine MIDI mixer/rout
 
 ### System architecture
 
+#### Core assignment
+
 | Core | Responsibility | Cadence |
 |------|---------------|----------|
 | 0 | MIDI polling, parsing, routing, sequencer tick, network, control | Continuous |
@@ -65,14 +67,100 @@ This fork adds a full web-based control interface, a dual-engine MIDI mixer/rout
 | 2 | Audio render (hot path — synth + mixer) | ~11.6 ms (256 frames @ 48 kHz) |
 | 3 | Free | — |
 
-MIDI flow (Core 0):
+No mutexes on the audio hot path. Inter-core communication uses `volatile` flags and lock-free ring buffers.
+
+#### Component overview
+
 ```
-Serial/USB/GPIO → parse → CMIDIRouter
-                                  ├─► MT-32 (munt)
- FluidSequencer tick ──────────────┤
-                                  └─► FluidSynth
- Web keyboard ──────────────────────► (both, through same router)
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              CORE 0  (main loop)                        │
+│                                                                         │
+│  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐                │
+│  │  MIDI Input  │   │  Sequencer   │   │  Web Keyboard│                │
+│  │  Serial/USB/ │   │  (SMF Type   │   │  (REST API)  │                │
+│  │  GPIO/Apple  │   │   0 & 1)     │   │              │                │
+│  └──────┬───────┘   └──────┬───────┘   └──────┬───────┘                │
+│         │                  │                  │                         │
+│         └──────────────────┴──────────────────┘                        │
+│                            │                                            │
+│                    ┌───────▼────────┐                                   │
+│                    │  CMIDIParser   │  running status, SysEx            │
+│                    └───────┬────────┘                                   │
+│                            │                                            │
+│                    ┌───────▼────────┐                                   │
+│                    │  CMIDIRouter   │  per-channel route, remap,        │
+│                    │                │  CC filter, layering              │
+│                    └──┬─────────┬──┘                                   │
+│                       │         │                                       │
+│             ┌─────────┘         └─────────┐                            │
+│             │                             │                            │
+│    ┌────────▼───────┐           ┌─────────▼──────┐                    │
+│    │  CMT32Synth    │           │ CSoundFontSynth │                    │
+│    │  (munt / MT-32)│           │  (FluidSynth)   │                    │
+│    └────────┬───────┘           └─────────┬──────┘                    │
+│             │                             │                            │
+│             └─────────┐       ┌───────────┘                            │
+│                       │       │                                        │
+│               ┌───────▼───────▼───────┐                               │
+│               │     CAudioMixer        │  volume, pan, solo,           │
+│               │                        │  per-channel & per-engine     │
+│               └───────────┬───────────┘                               │
+└───────────────────────────│───────────────────────────────────────────┘
+                            │  (shared buffer, written Core 0 / read Core 2)
+┌───────────────────────────│───────────────────────────────────────────┐
+│                    CORE 2 (audio render)                               │
+│               ┌───────────▼───────────┐                               │
+│               │   HAL audio output     │  PWM / I²S / HDMI @ 48 kHz  │
+│               └───────────────────────┘                               │
+└───────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        NETWORK SERVICES  (Core 0)                       │
+│                                                                         │
+│  ┌────────────┐  ┌─────────────────┐  ┌────────────┐  ┌────────────┐  │
+│  │ CWebDaemon │  │CWebSocketDaemon │  │ AppleMIDI  │  │  UDP MIDI  │  │
+│  │ HTTP:80    │  │  WS:8765        │  │  RTP MIDI  │  │  (opt.)    │  │
+│  │ 5 pages +  │  │  JSON status    │  │            │  │            │  │
+│  │ REST API   │  │  ~250 ms push   │  │            │  │            │  │
+│  └────────────┘  └─────────────────┘  └────────────┘  └────────────┘  │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
+
+#### MIDI data flow (Core 0)
+
+```
+Serial / USB / GPIO IRQ
+        │
+        ▼
+  Ring buffer (lock-free)
+        │
+        ▼
+  CMIDIParser ──► OnSysExMessage ──► SysEx handler (synth params, custom)
+        │
+        ▼
+  CMIDIRouter
+    ├── channel route table  (MT-32 | FluidSynth | Both | Off)
+    ├── channel remap        (source ch → target ch per engine)
+    ├── CC filter            (block CC per engine)
+    └── layering flag        (duplicate to both engines)
+        │              │
+        ▼              ▼
+  CMT32Synth     CSoundFontSynth
+  (munt)         (FluidSynth)
+```
+
+#### Key source files
+
+| File | ~LOC | Role |
+|------|------|------|
+| `src/mt32pi.cpp` | 2 500 | Main orchestrator: init, loop, MIDI, sequencer, network, state |
+| `src/net/webdaemon.cpp` | 3 000 | HTTP server — 5 pages + full REST API |
+| `src/net/websocketdaemon.cpp` | 400 | WebSocket — JSON status push every 250 ms (configurable) |
+| `src/audiomixer.cpp` | 600 | Dual-engine mix: volume, pan, solo, per-channel gain |
+| `src/midirouter.cpp` | 500 | Per-channel routing, remapping, CC filtering, layering |
+| `src/fluidsequencer.cpp` | 800 | SMF player wrapping `fluid_player_t` |
+| `include/config.def` | — | Single-source config: one `CFG()` line generates INI parser + default |
+| `tests/` | — | doctest suite — 125 tests / 1 190 assertions, host-native |
 
 ### New features summary
 
@@ -106,7 +194,7 @@ curl -T kernel8.img ftp://<pi-ip>/ --user mt32-pi:mt32-pi
 cd tests && make clean && make run
 ```
 
-The test suite uses [doctest](https://github.com/doctest/doctest) and covers `CMIDIRouter`, `CAudioMixer`, and `CMIDIParser` (99 tests, ~1 000 assertions). Tests compile natively — no cross-compiler needed.
+The test suite uses [doctest](https://github.com/doctest/doctest) and covers `CMIDIRouter`, `CAudioMixer`, `CMIDIParser`, and the config parser (125 tests, ~1 190 assertions). Tests compile natively — no cross-compiler needed.
 
 ### Branch conventions
 
