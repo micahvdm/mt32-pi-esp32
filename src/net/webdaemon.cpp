@@ -2298,7 +2298,7 @@ THTTPStatus CWebDaemon::BuildStylesheet(u8* pBuffer, unsigned* pLength, const ch
 			".statusbar{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:14px;}"
 			".statusbar .pill{background:#0b1220;border-color:#334155;color:#cbd5e1;border-radius:999px;}"
 			".badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;background:#1e293b;border:1px solid #475569;}"
-			".badge.playing{background:#14532d;border-color:#16a34a;}.badge.finished{background:#44403c;border-color:#a8a29e;}.badge.loading{background:#1e3a5f;border-color:#3b82f6;}"
+			".badge.playing{background:#14532d;border-color:#16a34a;}.badge.paused{background:#432d03;border-color:#d97706;}.badge.finished{background:#44403c;border-color:#a8a29e;}.badge.loading{background:#1e3a5f;border-color:#3b82f6;}"
 			".tabbar{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 14px;}"
 			".tabbtn{background:#0b1220;color:#cbd5e1;border:1px solid #334155;border-radius:999px;padding:10px 14px;cursor:pointer;}"
 			".tabbtn.active{background:#1d4ed8;border-color:#1d4ed8;color:#fff;}"
@@ -3440,7 +3440,13 @@ THTTPStatus CWebDaemon::BuildStatusPage(u8* pBuffer, unsigned* pLength, const ch
 	HTML += "<span id='idx-seq-badge' class='badge'>Loading...</span>";
 	HTML += "<p id='idx-seq-file' style='margin-top:8px;color:#64748b;word-break:break-all;font-size:12px;margin-bottom:4px;'>&#8212;</p>";
 	HTML += "<div class='seq-prog-bg'><div id='idx-prog' class='seq-prog-fill'></div></div>";
-	HTML += "<p id='idx-seq-time' style='font-size:12px;margin:2px 0 0;color:#64748b;'>0:00 / 0:00</p></section>";
+	HTML += "<p id='idx-seq-time' style='font-size:12px;margin:2px 0 0;color:#64748b;'>0:00 / 0:00</p>";
+	HTML += "<div style='display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;'>";
+	HTML += "<button onclick='idxPrev()' title='Previous'>&#9664;&#9664;</button>";
+	HTML += "<button id='idx-pp-btn' class='primary' onclick='idxPP()'>&#9654; Play</button>";
+	HTML += "<button id='idx-stop-btn' onclick='idxStop()' style='display:none;'>&#9646; Stop</button>";
+	HTML += "<button onclick='idxNext()' title='Next'>&#9654;&#9654;</button>";
+	HTML += "</div></section>";
 	HTML += "<section><h2>Live MIDI</h2><table><tr><th>API</th><td><code>/api/midi</code></td></tr><tr><th>Status</th><td id='midi-status'>Loading...</td></tr></table><div class='meter-grid' id='midi-grid'></div></section>";
 	HTML += "<section><h2>Active keyboard</h2><canvas id='kb-canvas' height='64'></canvas></section>";
 	HTML += "<section><h2>Piano roll</h2><canvas id='pr-canvas' height='160'></canvas></section>";
@@ -3499,11 +3505,21 @@ THTTPStatus CWebDaemon::BuildStatusPage(u8* pBuffer, unsigned* pLength, const ch
 	HTML += "if(d.notes){for(var ch=0;ch<16;ch++){_notes[ch].fill(0);if(d.notes[ch])for(var j=0;j<d.notes[ch].length;j++){const n=d.notes[ch][j];_notes[ch][n]=1;src_arr[ch][n]=(d.src&&d.src[ch])||1;}}";
 	HTML += "_prCol=(_prCol+1)%PR_COLS;_prBuf.fill(0,_prCol*PR_ROWS,(_prCol+1)*PR_ROWS);";
 	HTML += "for(var ch=0;ch<16;ch++){if(d.notes[ch])for(var j=0;j<d.notes[ch].length;j++){const n=d.notes[ch][j];_prBuf[_prCol*PR_ROWS+n]=_isMixer?(_chEng[ch]+1):Math.max(_prBuf[_prCol*PR_ROWS+n],(d.src&&d.src[ch])||1);}}}";
-	HTML += "var b=document.getElementById('idx-seq-badge');if(b){var st2=d.playing?'playing':(d.finished?'finished':'stopped');b.textContent=st2==='playing'?'Playing':(st2==='finished'?'Finished':'Stopped');b.className='badge'+(st2==='playing'?' playing':(st2==='finished'?' finished':''));}";
-	HTML += "var sf=document.getElementById('idx-seq-file');if(sf)sf.textContent=d.file||'\\u2014';";
+	HTML += "var b=document.getElementById('idx-seq-badge');if(b){var st2=d.loading?'loading':(d.paused?'paused':(d.playing?'playing':(d.finished?'finished':'stopped')));_idxSt=st2;";
+	HTML += "b.textContent=st2==='loading'?'Loading\u2026':(st2==='playing'?'Playing':(st2==='paused'?'Paused':(st2==='finished'?'Finished':'Stopped')));";
+	HTML += "b.className='badge'+(st2==='playing'?' playing':(st2==='paused'?' paused':(st2==='finished'?' finished':(st2==='loading'?' loading':''))));";
+	HTML += "var ppb=document.getElementById('idx-pp-btn'),stb=document.getElementById('idx-stop-btn');";
+	HTML += "if(ppb){ppb.textContent=st2==='playing'?'\\u23F8 Pause':(st2==='paused'?'\\u25B6 Resume':'\\u25B6 Play');}";
+	HTML += "if(stb)stb.style.display=(st2==='playing'||st2==='paused')?'':'none';}";  
+	HTML += "var sf=document.getElementById('idx-seq-file');if(sf)sf.textContent=(d.file||'').replace(/^(SD:|USB:)/,'')||'\\u2014';";
 	HTML += "var dur=d.duration_ms||1;var elp=d.finished?d.duration_ms:(d.elapsed_ms||0);";
 	HTML += "var pp=document.getElementById('idx-prog');if(pp)pp.style.width=Math.min(100,elp/dur*100).toFixed(1)+'%';";
 	HTML += "var tt=document.getElementById('idx-seq-time');if(tt)tt.textContent=fmt(elp)+' / '+fmt(d.duration_ms);}";
+	HTML += "var _idxSt='stopped';";
+	HTML += "function idxPrev(){_qs('/api/sequencer/prev','',function(){});}";
+	HTML += "function idxNext(){_qs('/api/sequencer/next','',function(){});}";
+	HTML += "function idxStop(){_qs('/api/sequencer/stop','',function(){});}";
+	HTML += "function idxPP(){if(_idxSt==='playing')_qs('/api/sequencer/pause','',function(){});else if(_idxSt==='paused')_qs('/api/sequencer/resume','',function(){});else _qs('/api/sequencer/next','',function(){});}";
 	HTML += "(function(){var ws=null,_rt=0;function conn(){ws=new WebSocket('ws://'+location.hostname+':8765/');ws.onmessage=function(e){try{applyWS(JSON.parse(e.data));}catch(x){}};ws.onclose=function(){_rt=Math.min((_rt||500)*2,8000);setTimeout(conn,_rt);};ws.onerror=function(){ws.close();};}conn();})();";
 	HTML += "</script>";
 
