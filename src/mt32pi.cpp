@@ -589,8 +589,12 @@ bool CMT32Pi::SetSoundFontIndex(size_t nIndex)
 	if (nIndex >= nSoundFontCount)
 		return false;
 
-	SwitchSoundFont(nIndex);
-	return m_pSoundFontSynth->GetSoundFontIndex() == nIndex;
+	// Defer the switch to the main task loop so this call (invoked from the
+	// web daemon task) returns immediately and doesn't block HTTP responses
+	// while fluid_synth_sfload() loads the SF2 file.
+	DeferSwitchSoundFont(nIndex);
+	m_nDeferredSoundFontSwitchTime = 0;  // Bypass ControlSwitchTimeout delay
+	return true;
 }
 
 bool CMT32Pi::SetMasterVolumePercent(int nVolume)
