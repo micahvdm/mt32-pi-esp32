@@ -21,6 +21,7 @@
 //
 
 #include <circle/logger.h>
+#include <circle/net/in.h>
 #include <circle/net/netsubsystem.h>
 #include <circle/sched/scheduler.h>
 #include <circle/util.h>
@@ -60,7 +61,7 @@ static inline float ReadBEFloat(const u8* p)
 // Advance p to the next 4-byte boundary; return nullptr if that exceeds pEnd
 const u8* COSCParser::AlignTo4(const u8* p, const u8* pEnd)
 {
-	const uintptr_t rem = reinterpret_cast<uintptr_t>(p) & 3u;
+	const u32 rem = static_cast<u32>(reinterpret_cast<unsigned long>(p)) & 3u;
 	if (rem)
 		p += (4u - rem);
 	return (p <= pEnd) ? p : nullptr;
