@@ -109,6 +109,7 @@ CMT32Pi::CMT32Pi(CI2CMaster* pI2CMaster, CSPIMaster* pSPIMaster, CInterruptSyste
 
 	  m_bSerialMIDIAvailable(false),
 	  m_bSerialMIDIEnabled(false),
+	  m_bMIDIThruEnabled(false),
 	  m_pUSBMIDIDevice(nullptr),
 	  m_pUSBSerialDevice(nullptr),
 	  m_pUSBMassStorageDevice(nullptr),
@@ -171,6 +172,7 @@ bool CMT32Pi::Initialize(bool bSerialMIDIAvailable)
 {
 	m_bSerialMIDIAvailable = bSerialMIDIAvailable;
 	m_bSerialMIDIEnabled = bSerialMIDIAvailable;
+	m_bMIDIThruEnabled = m_pConfig->MIDIThru;
 
 	switch (m_pConfig->LCDType)
 	{
@@ -2255,6 +2257,14 @@ void CMT32Pi::UpdateMIDI()
 		s_pThis->m_nActiveSenseTime = s_pThis->m_pTimer->GetTicks();
 	}
 
+	// Universal MIDI Thru: forward physical MIDI bytes to UART TX
+	if (m_bMIDIThruEnabled && nBytes > 0 && m_pSerial)
+	{
+		const int nSent = m_pSerial->Write(Buffer, nBytes);
+		if (nSent != static_cast<int>(nBytes))
+			LOGERR("MIDI Thru: sent %d of %zu bytes", nSent, nBytes);
+	}
+
 	// Drive FluidSequencer player from Core 0 and drain produced MIDI bytes
 	if (m_pFluidSequencer)
 	{
@@ -2358,7 +2368,9 @@ size_t CMT32Pi::ReceiveSerialMIDI(u8* pOutData, size_t nSize)
 	}
 
 	// Replay received MIDI data out via the serial port ('software thru')
-	if (m_pConfig->MIDIGPIOThru)
+	// Skip when midi_thru is active — UpdateMIDI() handles the write to avoid
+	// double-sending the same bytes on the serial path.
+	if (!m_bMIDIThruEnabled && m_pConfig->MIDIGPIOThru)
 	{
 		int nSendResult = m_pSerial->Write(pOutData, nResult);
 		if (nSendResult != nResult)
@@ -2643,6 +2655,8 @@ CMT32Pi::TMixerStatus CMT32Pi::GetMixerStatus() const
 	s.nEffectsReverbDamp     = static_cast<int>(fx.fReverbDamping  * 100.0f + 0.5f);
 	s.nEffectsReverbWet      = static_cast<int>(fx.fReverbWet      * 100.0f + 0.5f);
 
+	s.bMIDIThruEnabled = m_bMIDIThruEnabled;
+
 	return s;
 }
 
@@ -2924,6 +2938,12 @@ bool CMT32Pi::SetEffectReverbWet(int nPercent)
 	CAudioEffects::TConfig cfg = m_AudioEffects.GetConfig();
 	cfg.fReverbWet = nPercent / 100.0f;
 	m_AudioEffects.Configure(cfg, static_cast<float>(m_pConfig->AudioSampleRate));
+	return true;
+}
+
+bool CMT32Pi::SetMIDIThruEnabled(bool bEnabled)
+{
+	m_bMIDIThruEnabled = bEnabled;
 	return true;
 }
 

@@ -1398,6 +1398,9 @@ THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
 		AppendJSONPairInt(JSON,  "fx_reverb_damp",     ms.nEffectsReverbDamp);
 		AppendJSONPairInt(JSON,  "fx_reverb_wet",      ms.nEffectsReverbWet);
 
+		// MIDI Thru
+		AppendJSONPairBool(JSON, "midi_thru_enabled",  ms.bMIDIThruEnabled);
+
 		// Channel array
 		JSON += "\"channels\":[";
 		for (int i = 0; i < 16; ++i)
@@ -1603,6 +1606,12 @@ THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
 		{
 			if (ParseIntStrict(Value, nVal))
 				bApplied = m_pMT32Pi->SetEffectReverbWet(nVal);
+		}
+		else if (std::strcmp(Param, "midi_thru") == 0)
+		{
+			bool b = false;
+			if (CConfig::ParseOption(Value, &b))
+				bApplied = m_pMT32Pi->SetMIDIThruEnabled(b);
 		}
 
 		const char* pOK = bApplied ? "{\"ok\":true}" : "{\"ok\":false}";
@@ -2912,12 +2921,18 @@ THTTPStatus CWebDaemon::BuildMixerPage(u8* pBuffer, unsigned* pLength, const cha
 		HTML += "<label>Wet %  <input id='mx-fx-wet'  type='range' min='0' max='100' oninput=\"setParam('fx_reverb_wet',this.value);document.getElementById('mx-fx-wet-val').textContent=this.value\"> <span id='mx-fx-wet-val'>33</span></label>";
 		HTML += "</div></section>";
 
+		// MIDI Thru
+		HTML += "<section><h2>MIDI Routing</h2><div class='grid'>";
+		HTML += "<label>MIDI Thru<select id='mx-midi-thru' onchange=\"setRtParam('midi_thru',this.value)\"><option value='on'>On</option><option value='off'>Off</option></select></label>";
+		HTML += "</div></section>";
+
 		HTML += "<p id='mx-msg' style='color:#64748b;'></p>";
 
 		// JavaScript
 		HTML += "<script>";
 		// helpers
 		HTML += "function setParam(p,v){_qs('/api/mixer/set','param='+p+'&value='+encodeURIComponent(v),function(r){if(!r||!r.ok)showToast('Error',false);});}";
+		HTML += "function setRtParam(p,v){_qs('/api/runtime/set','param='+p+'&value='+encodeURIComponent(v),function(r){if(r&&r.ok)loadStatus();else showToast('Error',false);});}"; 
 		HTML += "function setEnabled(v){setParam('enabled',v==='1'?'on':'off');}";
 		HTML += "function setPreset(v){_qs('/api/mixer/preset','preset='+v,function(r){if(r&&r.ok)loadStatus();else showToast('Error',false);});}";
 		HTML += "function savePreset(){_qs('/api/router/save','',function(r){if(r&&r.ok)showToast('Preset saved');else showToast('Save failed',false);});}";
@@ -3016,6 +3031,7 @@ HTML += "var cpu=d.cpu_load;document.getElementById('mx-cpu').textContent=cpu;";
 		HTML += "var fxRoom=document.getElementById('mx-fx-room');if(fxRoom){fxRoom.value=d.fx_reverb_room;document.getElementById('mx-fx-room-val').textContent=d.fx_reverb_room;}";
 		HTML += "var fxDamp=document.getElementById('mx-fx-damp');if(fxDamp){fxDamp.value=d.fx_reverb_damp;document.getElementById('mx-fx-damp-val').textContent=d.fx_reverb_damp;}";
 		HTML += "var fxWet=document.getElementById('mx-fx-wet');if(fxWet){fxWet.value=d.fx_reverb_wet;document.getElementById('mx-fx-wet-val').textContent=d.fx_reverb_wet;}";
+		HTML += "var mxThru=document.getElementById('mx-midi-thru');if(mxThru)mxThru.value=d.midi_thru_enabled?'on':'off';";
 		// WebSocket for real-time channel meters
 		HTML += "var _mxLv=new Array(16).fill(0),_mxPk=new Array(16).fill(0),_mxPa=new Array(16).fill(-9999);";
 		HTML += "var _mxTgt=new Array(16).fill(0),_mxPt=new Array(16).fill(0);";

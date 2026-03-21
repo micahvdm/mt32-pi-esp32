@@ -196,6 +196,8 @@ public:
 		int  nEffectsReverbRoom;    // 0-100 (maps to 0.0-1.0)
 		int  nEffectsReverbDamp;    // 0-100
 		int  nEffectsReverbWet;     // 0-100
+		// MIDI Thru state
+		bool bMIDIThruEnabled;
 	};
 
 	TMixerStatus GetMixerStatus() const;
@@ -227,6 +229,9 @@ public:
 	bool SetEffectReverbRoom(int nPercent);  // 0-100 → 0.0-1.0
 	bool SetEffectReverbDamp(int nPercent);  // 0-100 → 0.0-1.0
 	bool SetEffectReverbWet(int nPercent);   // 0-100 → 0.0-1.0
+
+	// MIDI Thru (called from Core 0 / web handler)
+	bool SetMIDIThruEnabled(bool bEnabled);
 
 	// Save / load custom router preset to SD card
 	bool SaveRouterPreset() const;
@@ -476,6 +481,7 @@ private:
 	// Serial GPIO MIDI
 	bool m_bSerialMIDIAvailable;
 	bool m_bSerialMIDIEnabled;
+	bool m_bMIDIThruEnabled;  // universal MIDI thru (all physical → UART TX)
 
 	// USB devices
 	CUSBMIDIDevice* m_pUSBMIDIDevice;
