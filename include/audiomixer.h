@@ -78,19 +78,19 @@ public:
 private:
 	struct TEngineSlot
 	{
-		CSynthBase* pEngine;
-		float       fVolume;   // 0.0 – 1.0
-		float       fPan;      // -1.0 (left) to +1.0 (right)
+		CSynthBase*    pEngine;
+		volatile float fVolume;   // 0.0 – 1.0   (written Core 0, read Core 2)
+		volatile float fPan;      // -1.0 (left) to +1.0 (right)
 	};
 
 	int FindEngine(CSynthBase* pEngine) const;
 
 	static float Clamp(float val, float lo, float hi);
 
-	TEngineSlot   m_Engines[MaxEngines];
-	unsigned      m_nEngineCount;
-	float         m_fMasterVolume;
-	CSynthBase*   m_pSoloEngine;
+	TEngineSlot        m_Engines[MaxEngines];
+	unsigned           m_nEngineCount;
+	volatile float     m_fMasterVolume;
+	CSynthBase* volatile m_pSoloEngine;
 };
 
 #endif

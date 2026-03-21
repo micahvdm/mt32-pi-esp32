@@ -2918,10 +2918,10 @@ THTTPStatus CWebDaemon::BuildMixerPage(u8* pBuffer, unsigned* pLength, const cha
 
 		// Volume / Pan
 		html.Append("<section><h2>Engine Levels</h2><div class='grid'>");
-		html.Append("<label>MT-32 vol<input id='mx-mt32v' type='range' min='0' max='100' oninput='setParam(\"mt32_volume\",this.value)'></label>");
-		html.Append("<label>FluidSynth vol<input id='mx-fluidv' type='range' min='0' max='100' oninput='setParam(\"fluid_volume\",this.value)'></label>");
-		html.Append("<label>MT-32 pan<input id='mx-mt32p' type='range' min='-100' max='100' oninput='setParam(\"mt32_pan\",this.value)'></label>");
-		html.Append("<label>FluidSynth pan<input id='mx-fluidp' type='range' min='-100' max='100' oninput='setParam(\"fluid_pan\",this.value)'></label>");
+		html.Append("<label>MT-32 vol<input id='mx-mt32v' type='range' min='0' max='100' oninput='clearTimeout(this._t);this._t=setTimeout(()=>setParam(\"mt32_volume\",this.value),40)'></label>");
+		html.Append("<label>FluidSynth vol<input id='mx-fluidv' type='range' min='0' max='100' oninput='clearTimeout(this._t);this._t=setTimeout(()=>setParam(\"fluid_volume\",this.value),40)'></label>");
+		html.Append("<label>MT-32 pan<input id='mx-mt32p' type='range' min='-100' max='100' oninput='clearTimeout(this._t);this._t=setTimeout(()=>setParam(\"mt32_pan\",this.value),40)'></label>");
+		html.Append("<label>FluidSynth pan<input id='mx-fluidp' type='range' min='-100' max='100' oninput='clearTimeout(this._t);this._t=setTimeout(()=>setParam(\"fluid_pan\",this.value),40)'></label>");
 		html.Append("</div></section>");
 
 		// Audio render performance
