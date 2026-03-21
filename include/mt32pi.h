@@ -517,7 +517,7 @@ private:
 	CMIDIRouter   m_MIDIRouter;
 	CAudioMixer   m_AudioMixer;
 	CAudioEffects m_AudioEffects;
-	bool m_bMixerEnabled;
+	volatile bool m_bMixerEnabled;
 
 	// Audio render performance monitor (Core 2 writes, Core 0 reads)
 	volatile unsigned m_nRenderUs;           // last chunk render time in µs

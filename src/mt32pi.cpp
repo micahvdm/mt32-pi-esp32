@@ -2891,6 +2891,12 @@ bool CMT32Pi::SetMixerChannelEngine(u8 nChannel, const char* pEngineName)
 	if (!pEngine)
 		return false;
 
+	// Auto-enable the mixer when the user explicitly sets channel routing.
+	// Without this, channel assignments update the map but have no effect on
+	// MIDI dispatch or audio rendering while m_bMixerEnabled is false.
+	if (!m_bMixerEnabled)
+		SetMixerEnabled(true);
+
 	// Send All Sound Off to the old engine for this channel to prevent stuck notes
 	CSynthBase* pOldEngine = m_MIDIRouter.GetChannelEngine(nChannel);
 	if (pOldEngine && pOldEngine != pEngine)

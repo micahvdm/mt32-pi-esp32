@@ -2912,7 +2912,7 @@ THTTPStatus CWebDaemon::BuildMixerPage(u8* pBuffer, unsigned* pLength, const cha
 		html.Append("<label>Preset<select id='mx-preset' onchange='setPreset(this.value)'>");
 		html.Append("<option value='0'>Single MT-32</option><option value='1'>Single FluidSynth</option>");
 		html.Append("<option value='2'>Split GM</option><option value='3'>Custom</option></select></label>");
-		html.Append("<label>Dual mode<select id='mx-enabled' onchange='setEnabled(this.value)'>");
+		html.Append("<label>Mixer<select id='mx-enabled' onchange='setEnabled(this.value)'>");
 		html.Append("<option value='1'>Enabled</option><option value='0'>Disabled</option></select></label>");
 		html.Append("</div></section>");
 
