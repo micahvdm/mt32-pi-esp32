@@ -1776,6 +1776,8 @@ THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
 		char NetworkFTPPassword[64];
 		char NetworkWeb[16];
 		char NetworkWebPort[16];
+		char NetworkOSC[16];
+		char NetworkOSCPort[16];
 
 		if (!GetFormValue(pFormData, "default_synth", DefaultSynth, sizeof(DefaultSynth))
 		 || !GetFormValue(pFormData, "system_verbose", SystemVerbose, sizeof(SystemVerbose))
@@ -1832,7 +1834,9 @@ THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
 		 || !GetFormValue(pFormData, "network_ftp_username", NetworkFTPUsername, sizeof(NetworkFTPUsername))
 		 || !GetFormValue(pFormData, "network_ftp_password", NetworkFTPPassword, sizeof(NetworkFTPPassword))
 		 || !GetFormValue(pFormData, "network_web", NetworkWeb, sizeof(NetworkWeb))
-		 || !GetFormValue(pFormData, "network_web_port", NetworkWebPort, sizeof(NetworkWebPort)))
+		 || !GetFormValue(pFormData, "network_web_port", NetworkWebPort, sizeof(NetworkWebPort))
+		 || !GetFormValue(pFormData, "network_osc", NetworkOSC, sizeof(NetworkOSC))
+		 || !GetFormValue(pFormData, "network_osc_port", NetworkOSCPort, sizeof(NetworkOSCPort)))
 		{
 			return HTTPBadRequest;
 		}
@@ -1893,6 +1897,8 @@ THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
 		CString ParsedFTPPassword;
 		bool ParsedWeb = false;
 		int ParsedWebPort = 0;
+		bool ParsedOSC = false;
+		int ParsedOSCPort = 0;
 
 		if (!CConfig::ParseOption(DefaultSynth, &ParsedDefaultSynth)
 		 || !CConfig::ParseOption(SystemVerbose, &ParsedSystemVerbose)
@@ -1949,7 +1955,9 @@ THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
 		 || !CConfig::ParseOption(NetworkFTPUsername, &ParsedFTPUsername)
 		 || !CConfig::ParseOption(NetworkFTPPassword, &ParsedFTPPassword)
 		 || !CConfig::ParseOption(NetworkWeb, &ParsedWeb)
-		 || !CConfig::ParseOption(NetworkWebPort, &ParsedWebPort))
+		 || !CConfig::ParseOption(NetworkWebPort, &ParsedWebPort)
+		 || !CConfig::ParseOption(NetworkOSC, &ParsedOSC)
+		 || !CConfig::ParseOption(NetworkOSCPort, &ParsedOSCPort))
 		{
 			return HTTPBadRequest;
 		}
@@ -2011,6 +2019,8 @@ THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
 			{TConfigSection::Network,    "ftp_password",     NetworkFTPPassword,        false},
 			{TConfigSection::Network,    "web",              NetworkWeb,                false},
 			{TConfigSection::Network,    "web_port",         NetworkWebPort,            false},
+			{TConfigSection::Network,    "osc",              NetworkOSC,                false},
+			{TConfigSection::Network,    "osc_port",         NetworkOSCPort,            false},
 		};
 
 		CString SaveError;
@@ -2326,6 +2336,8 @@ THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
 		AppendJSONPair(JSON, "ip",                st.IPAddress);
 		AppendJSONPair(JSON, "hostname",          pConfig->NetworkHostname);
 		AppendJSONPairInt(JSON, "web_port",       pConfig->NetworkWebServerPort);
+		AppendJSONPairBool(JSON, "osc",           pConfig->NetworkOSC);
+		AppendJSONPairInt(JSON, "osc_port",       pConfig->NetworkOSCPort);
 		AppendJSONPair(JSON, "mt32_rom_name",     st.pMT32ROMName);
 		AppendJSONPair(JSON, "soundfont_name",    st.pSoundFontName);
 		AppendJSONPair(JSON, "soundfont_path",    st.pSoundFontPath);
@@ -2900,46 +2912,50 @@ THTTPStatus CWebDaemon::BuildMixerPage(u8* pBuffer, unsigned* pLength, const cha
 		html.Append("<label>Preset<select id='mx-preset' onchange='setPreset(this.value)'>");
 		html.Append("<option value='0'>Single MT-32</option><option value='1'>Single FluidSynth</option>");
 		html.Append("<option value='2'>Split GM</option><option value='3'>Custom</option></select></label>");
-		html.Append("<label>Dual mode<select id='mx-enabled' onchange='setEnabled(this.value)'>");
+		html.Append("<label>Mixer<select id='mx-enabled' onchange='setEnabled(this.value)'>");
 		html.Append("<option value='1'>Enabled</option><option value='0'>Disabled</option></select></label>");
 		html.Append("</div></section>");
 
 		// Volume / Pan
 		html.Append("<section><h2>Engine Levels</h2><div class='grid'>");
-		html.Append("<label>MT-32 vol<input id='mx-mt32v' type='range' min='0' max='100' oninput='setParam(\"mt32_volume\",this.value)'></label>");
-		html.Append("<label>FluidSynth vol<input id='mx-fluidv' type='range' min='0' max='100' oninput='setParam(\"fluid_volume\",this.value)'></label>");
-		html.Append("<label>MT-32 pan<input id='mx-mt32p' type='range' min='-100' max='100' oninput='setParam(\"mt32_pan\",this.value)'></label>");
-		html.Append("<label>FluidSynth pan<input id='mx-fluidp' type='range' min='-100' max='100' oninput='setParam(\"fluid_pan\",this.value)'></label>");
+		html.Append("<label>MT-32 vol<input id='mx-mt32v' type='range' min='0' max='100' oninput='clearTimeout(this._t);this._t=setTimeout(()=>setParam(\"mt32_volume\",this.value),40)'></label>");
+		html.Append("<label>FluidSynth vol<input id='mx-fluidv' type='range' min='0' max='100' oninput='clearTimeout(this._t);this._t=setTimeout(()=>setParam(\"fluid_volume\",this.value),40)'></label>");
+		html.Append("<label>MT-32 pan<input id='mx-mt32p' type='range' min='-100' max='100' oninput='clearTimeout(this._t);this._t=setTimeout(()=>setParam(\"mt32_pan\",this.value),40)'></label>");
+		html.Append("<label>FluidSynth pan<input id='mx-fluidp' type='range' min='-100' max='100' oninput='clearTimeout(this._t);this._t=setTimeout(()=>setParam(\"fluid_pan\",this.value),40)'></label>");
 		html.Append("</div></section>");
 
-		// Audio render performance
-		html.Append("<section><h2>Audio Performance</h2><div class='grid'>");
-		html.Append("<label>Render <span id='mx-render'>-</span> &micro;s</label>");
-		html.Append("<label>Average <span id='mx-avg'>-</span> &micro;s</label>");
-		html.Append("<label>Peak <span id='mx-peak'>-</span> &micro;s</label>");
-		html.Append("<label>Deadline <span id='mx-deadline'>-</span> &micro;s</label>");
-                html.Append("<label>CPU load <strong id='mx-cpu'>-</strong>% <span id='mx-cpu-hint' style='font-size:11px;font-weight:normal;display:none'></span></label>");
-		html.Append("<span><span style='display:inline-block;width:12px;height:12px;border-radius:3px;background:#3b82f6;vertical-align:middle;margin-right:3px;'></span>MT-32</span>");
-		html.Append("<span><span style='display:inline-block;width:12px;height:12px;border-radius:3px;background:#22c55e;vertical-align:middle;margin-right:3px;'></span>FluidSynth</span>");
-		html.Append("<span><span style='display:inline-block;width:12px;height:12px;border-radius:3px;background:#a855f7;vertical-align:middle;margin-right:3px;'></span>Layered</span>");
-		html.Append("<span><span style='display:inline-block;width:12px;height:12px;border-radius:3px;background:#475569;vertical-align:middle;margin-right:3px;'></span>None</span>");
+		// Audio render performance - redesigned
+		html.Append("<section><h2>Audio Performance</h2>");
+		// Status pill + translated metrics
+		html.Append("<div style='display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;'>");
+		html.Append("<span id='mx-status' style='font-weight:700;font-size:13px;padding:4px 14px;border-radius:999px;background:#14532d;border:1px solid #16a34a;color:#4ade80;'>&#9679; OK</span>");
+		html.Append("<span style='font-size:12px;color:#94a3b8;'>Latency <strong id='mx-lat' style='color:#e2e8f0;'>-</strong> ms &bull; Headroom <strong id='mx-head' style='color:#e2e8f0;'>-</strong>% &bull; CPU <strong id='mx-cpu' style='color:#22c55e;'>-</strong>%<span id='mx-cpu-hint' style='display:none;margin-left:8px;font-size:11px;'></span></span>");
 		html.Append("</div>");
-		html.Append("<table style='width:100%;border-collapse:collapse;'><thead><tr>");
-		html.Append("<th style='text-align:left;padding:4px;border-bottom:2px solid #334155;color:#93c5fd;'>CH</th>");
-		html.Append("<th style='text-align:left;padding:4px;border-bottom:2px solid #334155;color:#93c5fd;'>Engine</th>");
-		html.Append("<th style='text-align:left;padding:4px;border-bottom:2px solid #334155;color:#93c5fd;'>Remap&rarr;</th>");
-		html.Append("<th style='text-align:left;padding:4px;border-bottom:2px solid #334155;color:#93c5fd;'>Layer</th>");
-		html.Append("<th style='text-align:left;padding:4px;border-bottom:2px solid #334155;color:#93c5fd;'>Vol%</th>");
-		html.Append("<th style='text-align:left;padding:4px;border-bottom:2px solid #334155;color:#93c5fd;'>Instrument</th>");
-		html.Append("<th style='text-align:left;padding:4px;border-bottom:2px solid #334155;color:#93c5fd;min-width:80px;'>Activity</th>");
-		html.Append("</tr></thead><tbody id='mx-ch'></tbody></table>");
-		html.Append("<div style='margin-top:8px;'>");
-		html.Append("<button onclick='setAllLayer(true)'>Layer All</button> ");
-		html.Append("<button onclick='setAllLayer(false)'>Unlayer All</button> ");
-		html.Append("<button onclick='resetCCFilters()'>Reset CC Filters</button> ");
-		html.Append("<button onclick='resetChVol()'>Reset Vol</button> ");
-		html.Append("<button onclick='savePreset()' style='background:#1e3a5f;border-color:#3b82f6;'>&#128190; Save Preset</button> ");
-		html.Append("<button onclick='loadPreset()' style='background:#1c2e1a;border-color:#4ade80;'>&#128190; Load Preset</button>");
+		// Technical detail (small)
+		html.Append("<div style='font-size:11px;color:#475569;margin-bottom:12px;display:flex;gap:14px;flex-wrap:wrap;'>");
+		html.Append("<span>Render <b id='mx-render' style='color:#64748b;'>-</b>&micro;s</span>");
+		html.Append("<span>Avg <b id='mx-avg' style='color:#64748b;'>-</b>&micro;s</span>");
+		html.Append("<span>Peak <b id='mx-peak' style='color:#64748b;'>-</b>&micro;s</span>");
+		html.Append("<span>Deadline <b id='mx-deadline' style='color:#64748b;'>-</b>&micro;s</span>");
+		html.Append("</div>");
+		// Legend
+		html.Append("<div style='display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;font-size:11px;'>");
+		html.Append("<span><span style='display:inline-block;width:10px;height:10px;border-radius:2px;background:#3b82f6;vertical-align:middle;margin-right:3px;'></span>MT-32</span>");
+		html.Append("<span><span style='display:inline-block;width:10px;height:10px;border-radius:2px;background:#22c55e;vertical-align:middle;margin-right:3px;'></span>FluidSynth</span>");
+		html.Append("<span><span style='display:inline-block;width:10px;height:10px;border-radius:2px;background:#a855f7;vertical-align:middle;margin-right:3px;'></span>Layered</span>");
+		html.Append("<span><span style='display:inline-block;width:10px;height:10px;border-radius:2px;background:#475569;vertical-align:middle;margin-right:3px;'></span>None</span>");
+		html.Append("<span style='color:#64748b;font-size:10px;margin-left:4px;'>(dbl-click=mute, scroll=vol)</span>");
+		html.Append("</div>");
+		// Card grid (replaces table)
+		html.Append("<div id='mx-ch' style='display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-bottom:10px;'></div>");
+		// Buttons
+		html.Append("<div style='display:flex;gap:6px;flex-wrap:wrap;'>");
+		html.Append("<button onclick='setAllLayer(true)'>Layer All</button>");
+		html.Append("<button onclick='setAllLayer(false)'>Unlayer All</button>");
+		html.Append("<button onclick='resetCCFilters()'>Reset CC Filters</button>");
+		html.Append("<button onclick='resetChVol()'>Reset Vol</button>");
+		html.Append("<button onclick='savePreset()' style='background:#1e3a5f;border-color:#3b82f6;'>&#128190; Save</button>");
+		html.Append("<button onclick='loadPreset()' style='background:#1c2e1a;border-color:#4ade80;'>&#128190; Load</button>");
 		html.Append("</div></section>");
 
 		// Post-mix audio effects
@@ -2986,57 +3002,44 @@ THTTPStatus CWebDaemon::BuildMixerPage(u8* pBuffer, unsigned* pLength, const cha
 		// render
 		html.Append("function renderRouteMap(chs){var mp=document.getElementById('mx-route-map');if(!mp)return;mp.innerHTML='';for(var i=0;i<chs.length;i++){var c=chs[i];var chip=document.createElement('div');var col=c.layered?'#a855f7':(c.engine==='MT-32'?'#3b82f6':(c.engine==='FluidSynth'?'#22c55e':'#475569'));chip.style.cssText='width:40px;height:40px;border-radius:6px;background:'+col+';display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:default;flex-shrink:0;position:relative;';var chnum=document.createElement('span');chnum.style.cssText='font-size:12px;font-weight:bold;color:#fff;line-height:1;';chnum.textContent=c.ch;chip.appendChild(chnum);var eng=document.createElement('span');eng.style.cssText='font-size:8px;color:rgba(255,255,255,0.75);line-height:1;margin-top:2px;';eng.textContent=c.layered?'L':c.engine==='MT-32'?'MT':'SF';chip.appendChild(eng);if(c.remap!==c.ch){var rm=document.createElement('span');rm.style.cssText='font-size:7px;color:rgba(255,255,255,0.6);line-height:1;margin-top:1px;';rm.textContent='\u2192'+c.remap;chip.appendChild(rm);}chip.title='Ch '+c.ch+': '+(c.layered?'Layered (both)':c.engine)+(c.remap!==c.ch?' \u2192ch'+c.remap:'')+' Vol:'+c.vol+'%';mp.appendChild(chip);}}");
 		html.Append("function renderChannels(chs){renderRouteMap(chs);var tb=document.getElementById('mx-ch');tb.innerHTML='';");
-		html.Append("for(var i=0;i<chs.length;i++){var c=chs[i];var tr=document.createElement('tr');");
-		html.Append("var bg=i%2===0?'#111827':'#0b1220';tr.style.background=bg;");
+		html.Append("for(var i=0;i<chs.length;i++){var c=chs[i];");
 		html.Append("var ec=c.layered?'#c084fc':(c.engine==='MT-32'?'#93c5fd':(c.engine==='FluidSynth'?'#4ade80':'#475569'));");
-		html.Append("tr.style.borderLeft='3px solid '+ec;");
-
-		// CH number cell
-		html.Append("var td1=document.createElement('td');td1.style.padding='6px 4px';td1.style.borderBottom='1px solid #1e293b';");
-		html.Append("td1.textContent=c.ch;tr.appendChild(td1);");
-
-		// Engine select cell
-		html.Append("var td2=document.createElement('td');td2.style.padding='6px 4px';td2.style.borderBottom='1px solid #1e293b';");
-		html.Append("var sel=document.createElement('select');sel.dataset.ch=c.ch;");
-		html.Append("var o1=document.createElement('option');o1.value='mt32';o1.textContent='MT-32';if(c.engine==='MT-32')o1.selected=true;sel.appendChild(o1);");
-		html.Append("var o2=document.createElement('option');o2.value='fluidsynth';o2.textContent='FluidSynth';if(c.engine==='FluidSynth')o2.selected=true;sel.appendChild(o2);");
-		html.Append("sel.onchange=function(){setChEngine(this.dataset.ch,this.value);};");
-		html.Append("td2.appendChild(sel);tr.appendChild(td2);");
-
-		// Remap input cell
-		html.Append("var td3=document.createElement('td');td3.style.padding='6px 4px';td3.style.borderBottom='1px solid #1e293b';");
-		html.Append("var inp=document.createElement('input');inp.type='number';inp.min=1;inp.max=16;inp.value=c.remap;");
-		html.Append("inp.style.width='60px';inp.dataset.ch=c.ch;");
-		html.Append("inp.onchange=function(){setChRemap(this.dataset.ch,this.value);};");
-		html.Append("td3.appendChild(inp);tr.appendChild(td3);");
-
-		// Layer checkbox cell
-		html.Append("var td4=document.createElement('td');td4.style.padding='6px 4px';td4.style.borderBottom='1px solid #1e293b';");
+		html.Append("var ecBg=c.layered?'#2e1065':(c.engine==='MT-32'?'#1e3a5f':(c.engine==='FluidSynth'?'#14532d':'#1e293b'));");
+		html.Append("var card=document.createElement('div');");
+		html.Append("card.style.cssText='border-left:4px solid '+ec+';background:'+ecBg+';border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:5px;';");
+		// Row 1: CH badge + instrument name + engine toggle button
+		html.Append("var r1=document.createElement('div');r1.style.cssText='display:flex;align-items:center;gap:6px;min-width:0;';");
+		html.Append("var chb=document.createElement('span');chb.style.cssText='font-size:10px;font-weight:700;color:'+ec+';border:1px solid '+ec+';border-radius:4px;padding:1px 5px;flex-shrink:0;';chb.textContent='CH '+c.ch;r1.appendChild(chb);");
+		html.Append("var ins=document.createElement('span');ins.style.cssText='flex:1;font-size:11px;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;';ins.textContent=c.instrument||'\\u2014';ins.title=c.instrument||'';r1.appendChild(ins);");
+		html.Append("var eb=document.createElement('button');eb.style.cssText='font-size:10px;padding:2px 7px;border-radius:6px;background:transparent;border:1px solid '+ec+';color:'+ec+';cursor:pointer;flex-shrink:0;';");
+		html.Append("eb.textContent=c.engine==='MT-32'?'MT-32':'SF';eb.dataset.ch=c.ch;eb.dataset.eng=c.engine==='MT-32'?'mt32':'fluidsynth';");
+		html.Append("eb.onclick=(function(b){return function(){setChEngine(b.dataset.ch,b.dataset.eng==='mt32'?'fluidsynth':'mt32');};})(eb);");
+		html.Append("r1.appendChild(eb);card.appendChild(r1);");
+		// Row 2: VU meter (14px tall, dynamic color via _mxRf)
+		html.Append("var vu=document.createElement('div');vu.style.cssText='position:relative;height:14px;background:#0b1220;border:1px solid #334155;border-radius:999px;overflow:hidden;';");
+		html.Append("var mff=document.createElement('div');mff.id='mxf-'+c.ch;mff.style.cssText='position:absolute;left:0;top:0;bottom:0;width:0%;background:#22c55e;';");
+		html.Append("var mpp=document.createElement('div');mpp.id='mxp-'+c.ch;mpp.style.cssText='position:absolute;top:-1px;bottom:-1px;width:2px;background:#f8fafc;left:0%;';");
+		html.Append("vu.appendChild(mff);vu.appendChild(mpp);card.appendChild(vu);");
+		// Row 3: Vol slider + label (with scroll-wheel support)
+		html.Append("var vrow=document.createElement('div');vrow.style.cssText='display:flex;align-items:center;gap:5px;';");
+		html.Append("var vsl=document.createElement('input');vsl.type='range';vsl.min=0;vsl.max=100;vsl.value=c.vol!=null?c.vol:100;vsl.style.cssText='flex:1;cursor:pointer;';vsl.dataset.ch=c.ch;");
+		html.Append("var vlab=document.createElement('span');vlab.style.cssText='font-size:10px;color:#94a3b8;width:28px;text-align:right;flex-shrink:0;';vlab.textContent=(c.vol!=null?c.vol:100)+'%';");
+		html.Append("vsl.oninput=(function(l,ch){return function(){setChVol(ch,this.value);l.textContent=this.value+'%';};})(vlab,c.ch);");
+		html.Append("vsl.onwheel=(function(l,ch){return function(e){e.preventDefault();var nv=Math.max(0,Math.min(100,parseInt(this.value)+(e.deltaY<0?1:-1)));this.value=nv;l.textContent=nv+'%';setChVol(ch,nv);};})(vlab,c.ch);");
+		html.Append("vrow.appendChild(vsl);vrow.appendChild(vlab);card.appendChild(vrow);");
+		// Row 4: Remap + Layer (compact detail row)
+		html.Append("var dr=document.createElement('div');dr.style.cssText='display:flex;align-items:center;gap:8px;';");
+		html.Append("var rsp=document.createElement('span');rsp.style.cssText='font-size:10px;color:#475569;';rsp.textContent='\\u2192';dr.appendChild(rsp);");
+		html.Append("var ri=document.createElement('input');ri.type='number';ri.min=1;ri.max=16;ri.value=c.remap;ri.style.cssText='width:38px;font-size:10px;padding:2px 4px;height:20px;border-radius:4px;';ri.dataset.ch=c.ch;");
+		html.Append("ri.onchange=function(){setChRemap(this.dataset.ch,this.value);};dr.appendChild(ri);");
+		html.Append("var ll=document.createElement('label');ll.style.cssText='display:flex;align-items:center;gap:3px;font-size:10px;color:#475569;cursor:pointer;flex-direction:row;';");
 		html.Append("var cb=document.createElement('input');cb.type='checkbox';cb.checked=!!c.layered;cb.dataset.ch=c.ch;");
-		html.Append("cb.onchange=function(){setChLayer(this.dataset.ch,this.checked);};");
-		html.Append("td4.appendChild(cb);tr.appendChild(td4);");
-
-		// Instrument name cell
-		html.Append("var td5i=document.createElement('td');td5i.style.padding='6px 4px';td5i.style.borderBottom='1px solid #1e293b';");
-		html.Append("td5i.style.fontSize='11px';td5i.style.color='#94a3b8';td5i.style.maxWidth='120px';td5i.style.overflow='hidden';td5i.style.textOverflow='ellipsis';td5i.style.whiteSpace='nowrap';");
-		html.Append("td5i.textContent=c.instrument||'\\u2014';tr.appendChild(td5i);");
-
-		// Volume slider cell (CC7 scale)
-		html.Append("var tdv=document.createElement('td');tdv.style.padding='6px 4px';tdv.style.borderBottom='1px solid #1e293b';tdv.style.minWidth='90px';");
-		html.Append("var vsl=document.createElement('input');vsl.type='range';vsl.min=0;vsl.max=100;vsl.value=c.vol!=null?c.vol:100;");
-		html.Append("vsl.style.width='80px';vsl.dataset.ch=c.ch;");
-		html.Append("vsl.oninput=function(){setChVol(this.dataset.ch,this.value);};");
-		html.Append("tdv.appendChild(vsl);");
-		html.Append("var vlab=document.createElement('span');vlab.style.fontSize='10px';vlab.style.color='#94a3b8';vlab.style.marginLeft='4px';vlab.textContent=(c.vol!=null?c.vol:100)+'%';");
-		html.Append("vsl.oninput=(function(l){return function(){setChVol(this.dataset.ch,this.value);l.textContent=this.value+'%';};})(vlab);");
-		html.Append("tdv.appendChild(vlab);tr.appendChild(tdv);");
-
-		// Activity meter cell
-		html.Append("var td5=document.createElement('td');td5.style.padding='6px 4px';td5.style.borderBottom='1px solid #1e293b';");
-		html.Append("td5.innerHTML='<div class=\"meter-bar\" style=\"height:8px;\"><div class=\"meter-fill\" id=\"mxf-'+c.ch+'\"></div><div class=\"meter-peak\" id=\"mxp-'+c.ch+'\"></div></div>';");
-		html.Append("tr.appendChild(td5);");
-
-		html.Append("tb.appendChild(tr);}}");
+		html.Append("cb.onchange=function(){setChLayer(this.dataset.ch,this.checked);};ll.appendChild(cb);ll.appendChild(document.createTextNode('Layer'));dr.appendChild(ll);card.appendChild(dr);");
+		// Double-click to mute / unmute
+		html.Append("card.ondblclick=(function(sl,l,ch){return function(e){if(e.target.tagName==='INPUT'||e.target.tagName==='BUTTON')return;");
+		html.Append("if(parseInt(sl.value)>0){sl.dataset.pv=sl.value;sl.value=0;l.textContent='0%';setChVol(ch,0);}");
+		html.Append("else{var pv=sl.dataset.pv||100;sl.value=pv;l.textContent=pv+'%';setChVol(ch,pv);}");
+		html.Append("};})(vsl,vlab,c.ch);tb.appendChild(card);}}");
 
 		// load status
 		html.Append("function loadStatus(){_qs('/api/mixer/status','',function(d){if(!d)return;");
@@ -3065,13 +3068,16 @@ html.Append("var cpu=d.cpu_load;document.getElementById('mx-cpu').textContent=cp
 		html.Append("var fxDamp=document.getElementById('mx-fx-damp');if(fxDamp){fxDamp.value=d.fx_reverb_damp;document.getElementById('mx-fx-damp-val').textContent=d.fx_reverb_damp;}");
 		html.Append("var fxWet=document.getElementById('mx-fx-wet');if(fxWet){fxWet.value=d.fx_reverb_wet;document.getElementById('mx-fx-wet-val').textContent=d.fx_reverb_wet;}");
 		html.Append("var mxThru=document.getElementById('mx-midi-thru');if(mxThru)mxThru.value=d.midi_thru_enabled?'on':'off';");
+		html.Append("if(d.channels)renderChannels(d.channels);});}loadStatus();setInterval(loadStatus,5000);");
 		// WebSocket for real-time channel meters
 		html.Append("var _mxLv=new Array(16).fill(0),_mxPk=new Array(16).fill(0),_mxPa=new Array(16).fill(-9999);");
-		html.Append("var _mxTgt=new Array(16).fill(0),_mxPt=new Array(16).fill(0);");
-		html.Append("function _mxRf(ts){for(var i=0;i<16;i++){var t=_mxTgt[i];_mxLv[i]=t>_mxLv[i]?_mxLv[i]+(t-_mxLv[i])*0.3:_mxLv[i]+(t-_mxLv[i])*0.07;");
-		html.Append("if(_mxPt[i]>_mxPk[i]){_mxPk[i]=_mxPt[i];_mxPa[i]=ts;}else if(ts-_mxPa[i]>1200)_mxPk[i]*=0.97;");
-		html.Append("var f=document.getElementById('mxf-'+i);if(f)f.style.width=(_mxLv[i]*100).toFixed(1)+'%';");
-		html.Append("var p=document.getElementById('mxp-'+i);if(p)p.style.left=(_mxPk[i]*100).toFixed(1)+'%';}");
+		html.Append("var _mxTgt=new Array(17).fill(0),_mxPt=new Array(17).fill(0);");
+		html.Append("function _mxRf(ts){for(var i=0;i<16;i++){var ch=i+1;var t=_mxTgt[ch];");
+		html.Append("_mxLv[i]=t>_mxLv[i]?_mxLv[i]+(t-_mxLv[i])*0.4:_mxLv[i]+(t-_mxLv[i])*0.06;");
+		html.Append("if(_mxPt[ch]>_mxPk[i]){_mxPk[i]=_mxPt[ch];_mxPa[i]=ts;}else if(ts-_mxPa[i]>1500)_mxPk[i]*=0.95;");
+		html.Append("var lp=_mxLv[i]*100;var col=lp>75?'#ef4444':lp>45?'#f59e0b':'#22c55e';");
+		html.Append("var f=document.getElementById('mxf-'+ch);if(f){f.style.width=lp.toFixed(1)+'%';f.style.background=col;}");
+		html.Append("var p=document.getElementById('mxp-'+ch);if(p)p.style.left=(_mxPk[i]*100).toFixed(1)+'%';}");
 		html.Append("requestAnimationFrame(_mxRf);}requestAnimationFrame(_mxRf);");
 		html.Append("(function(){var ws=null,_rt=0;function conn(){ws=new WebSocket('ws://'+location.hostname+':8765/');");
 		html.Append("ws.onmessage=function(e){try{var d=JSON.parse(e.data);if(d.channels)for(var i=0;i<d.channels.length;i++){var ch=d.channels[i];_mxTgt[ch.ch]=Math.max(0,Math.min(1,ch.lv||0));_mxPt[ch.ch]=Math.max(0,Math.min(1,ch.pk||0));}}catch(x){}};");
@@ -3444,7 +3450,7 @@ THTTPStatus CWebDaemon::BuildSoundPage(u8* pBuffer, unsigned* pLength, const cha
 		html.Append("<label>Polyphony <input id='rt_sf_polyphony' type='number' min='1' max='512' value='200'></label>");
 		html.Append("<label>Channel types<div id='sf_chtypes' style='display:flex;gap:3px;flex-wrap:wrap;margin-top:4px;'></div></label>");
 		html.Append("</div><div id='rtStatus' style='margin-top:10px;color:#86efac;'></div></section>");
-		html.Append("<script>const rs=document.getElementById('rtStatus'));"
+		html.Append("<script>const rs=document.getElementById('rtStatus');"
 			"const setText=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};"
 			"const setDisabled=(id,b)=>{const e=document.getElementById(id);if(e)e.disabled=!!b;};"
 			"const setSectionHidden=(id,b)=>{const e=document.getElementById(id);if(e)e.classList.toggle('section-hidden',!!b);};"
@@ -3653,6 +3659,9 @@ THTTPStatus CWebDaemon::BuildConfigPage(u8* pBuffer, unsigned* pLength, const ch
 		html.Append("<label>FTP password<small>FTP server password. Default: mt32-pi</small><input name='network_ftp_password' type='password' value='"); AppendEscaped(html, pConfig->NetworkFTPPassword); html.Append("'></label>");
 		html.Append("<label>Web<select name='network_web'><option value='on'"); html.Append(SelectedAttr(pConfig->NetworkWebServer)); html.Append(">on</option><option value='off'"); html.Append(SelectedAttr(!pConfig->NetworkWebServer)); html.Append(">off</option></select></label>");
 		html.Append("<label>Web port<small>TCP port for the web server. Default: 80. Restart to apply changes.</small><input name='network_web_port' type='number' value='"); AppendEscaped(html, WebPort); html.Append("'></label>");
+		CString OSCPort; OSCPort.Format("%d", pConfig->NetworkOSCPort);
+		html.Append("<label>OSC<small>on: enable OSC (Open Sound Control) UDP server for MIDI and control messages.</small><select name='network_osc'><option value='on'"); html.Append(SelectedAttr(pConfig->NetworkOSC)); html.Append(">on</option><option value='off'"); html.Append(SelectedAttr(!pConfig->NetworkOSC)); html.Append(">off</option></select></label>");
+		html.Append("<label>OSC port<small>UDP port for the OSC server. Default: 8000. Restart to apply changes.</small><input name='network_osc_port' type='number' value='"); AppendEscaped(html, OSCPort); html.Append("'></label>");
 		html.Append("</div></section>");
 
 		html.Append("<section id='wifi-section' class='section-hidden'><h2>WiFi</h2><p>Credentials for connecting to a wireless network. Saved to <code>wpa_supplicant.conf</code>.</p>");
@@ -3733,6 +3742,8 @@ THTTPStatus CWebDaemon::BuildStatusPage(u8* pBuffer, unsigned* pLength, const ch
 	AppendRow(html, "FTP", BoolText(pConfig->NetworkFTPServer));
 	AppendRow(html, "Web", BoolText(pConfig->NetworkWebServer));
 	AppendIntRow(html, "Web port", pConfig->NetworkWebServerPort);
+	AppendRow(html, "OSC", BoolText(pConfig->NetworkOSC));
+	AppendIntRow(html, "OSC port", pConfig->NetworkOSCPort);
 	AppendSectionEnd(html);
 
 	AppendSectionStart(html, "Audio & control");

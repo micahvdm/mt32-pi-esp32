@@ -31,6 +31,7 @@ OBJS		:=	src/config.o \
 			src/net/applemidi.o \
 			src/net/ftpdaemon.o \
 			src/net/ftpworker.o \
+			src/net/oscdaemon.o \
 			src/net/sha1.o \
 			src/net/udpmidi.o \
 			src/net/webdaemon.o \
