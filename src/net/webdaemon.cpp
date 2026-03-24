@@ -2640,6 +2640,20 @@ THTTPStatus CWebDaemon::BuildStylesheet(u8* pBuffer, unsigned* pLength, const ch
 		"body.light p{color:#475569;}body.light h1,body.light h2{color:#0f172a;}"
 		"body.light #_dm{background:#e2e8f0;border-color:#cbd5e1;color:#475569;}"
 		"body.light .tst{background:#f8fafc;border-color:#cbd5e1;color:#0f172a;}"
+		"body.light button.primary{background:#1d4ed8;border-color:#1d4ed8;color:#fff;}"
+		"body.light button.danger,body.light button.warn{background:#7f1d1d;border-color:#7f1d1d;color:#fff;}"
+		"body.light button.loop-on{background:#dbeafe;border-color:#3b82f6;color:#1d4ed8;}"
+		"body.light .tabbtn{background:#e2e8f0;color:#1e293b;border-color:#cbd5e1;}"
+		"body.light .tabbtn.active{background:#1d4ed8;border-color:#1d4ed8;color:#fff;}"
+		"body.light .badge{background:#e2e8f0;border-color:#cbd5e1;color:#374151;}"
+		"body.light .badge.playing{background:#dcfce7;border-color:#16a34a;color:#15803d;}"
+		"body.light .badge.paused{background:#fef9c3;border-color:#d97706;color:#92400e;}"
+		"body.light .badge.recording{background:#fee2e2;border-color:#e11d48;color:#be123c;}"
+		"body.light .badge.loading{background:#dbeafe;border-color:#3b82f6;color:#1d4ed8;}"
+		"body.light .badge.finished{background:#f3f4f6;border-color:#9ca3af;color:#374151;}"
+		"body.light .prog-bg,body.light .seq-prog-bg{background:#e2e8f0;border-color:#cbd5e1;}"
+		"body.light .meter-bar{background:#e2e8f0;border-color:#cbd5e1;}"
+		"body.light canvas{background:#f1f5f9;}"
 		"@media(max-width:600px){main{padding:12px;}h1{font-size:22px;}nav{gap:8px;padding:8px 10px;}nav a{padding:3px 8px;font-size:13px;}.grid{grid-template-columns:1fr;}table{font-size:12px;}#_dm{bottom:10px;right:10px;}}";
 		const unsigned nLen = static_cast<unsigned>(std::strlen(pCSS));
 		if (*pLength < nLen) return HTTPInternalServerError;
@@ -2700,6 +2714,12 @@ THTTPStatus CWebDaemon::BuildSequencerPage(u8* pBuffer, unsigned* pLength, const
 		html.Append(".tmr{display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap;}");
 		html.Append(".tmr .lbl{color:#94a3b8;font-size:13px;}");
 		html.Append(".tmv{font-size:15px;font-weight:700;color:#93c5fd;min-width:54px;text-align:center;}");
+		html.Append("body.light #np{background:linear-gradient(135deg,#dbeafe,#eff6ff);border-color:#3b82f6;}");
+		html.Append("body.light .np-f{color:#0f172a;}");
+		html.Append("body.light .stp span{background:#f1f5f9;border-color:#cbd5e1;color:#475569;}");
+		html.Append("body.light .stp strong{color:#1d4ed8;}");
+		html.Append("body.light .tmv{color:#1d4ed8;}");
+		html.Append("body.light .tmr .lbl{color:#475569;}");
 		html.Append("</style></head><body><main>");
 		html.Append("<script src='/app.js'></script>");
 		html.Append("<h1>MIDI Sequencer</h1>");
@@ -2929,7 +2949,7 @@ THTTPStatus CWebDaemon::BuildMixerPage(u8* pBuffer, unsigned* pLength, const cha
 		// Status pill + translated metrics
 		html.Append("<div style='display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;'>");
 		html.Append("<span id='mx-status' style='font-weight:700;font-size:13px;padding:4px 14px;border-radius:999px;background:#14532d;border:1px solid #16a34a;color:#4ade80;'>&#9679; OK</span>");
-		html.Append("<span style='font-size:12px;color:#94a3b8;'>Latency <strong id='mx-lat' style='color:#e2e8f0;'>-</strong> ms &bull; Headroom <strong id='mx-head' style='color:#e2e8f0;'>-</strong>% &bull; CPU <strong id='mx-cpu' style='color:#22c55e;'>-</strong>%<span id='mx-cpu-hint' style='display:none;margin-left:8px;font-size:11px;'></span></span>");
+		html.Append("<span style='font-size:12px;color:#94a3b8;'>Latency <strong id='mx-lat'>-</strong> ms &bull; Headroom <strong id='mx-head'>-</strong>% &bull; CPU <strong id='mx-cpu' style='color:#22c55e;'>-</strong>%<span id='mx-cpu-hint' style='display:none;margin-left:8px;font-size:11px;'></span></span>");
 		html.Append("</div>");
 		// Technical detail (small)
 		html.Append("<div style='font-size:11px;color:#475569;margin-bottom:12px;display:flex;gap:14px;flex-wrap:wrap;'>");
@@ -3006,31 +3026,31 @@ THTTPStatus CWebDaemon::BuildMixerPage(u8* pBuffer, unsigned* pLength, const cha
 
 		// render
 		html.Append("function renderRouteMap(chs){var mp=document.getElementById('mx-route-map');if(!mp)return;mp.innerHTML='';for(var i=0;i<chs.length;i++){var c=chs[i];var chip=document.createElement('div');var col=c.layered?'#a855f7':(c.engine==='MT-32'?'#3b82f6':(c.engine==='FluidSynth'?'#22c55e':'#475569'));chip.style.cssText='width:40px;height:40px;border-radius:6px;background:'+col+';display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:default;flex-shrink:0;position:relative;';var chnum=document.createElement('span');chnum.style.cssText='font-size:12px;font-weight:bold;color:#fff;line-height:1;';chnum.textContent=c.ch;chip.appendChild(chnum);var eng=document.createElement('span');eng.style.cssText='font-size:8px;color:rgba(255,255,255,0.75);line-height:1;margin-top:2px;';eng.textContent=c.layered?'L':c.engine==='MT-32'?'MT':'SF';chip.appendChild(eng);if(c.remap!==c.ch){var rm=document.createElement('span');rm.style.cssText='font-size:7px;color:rgba(255,255,255,0.6);line-height:1;margin-top:1px;';rm.textContent='\u2192'+c.remap;chip.appendChild(rm);}chip.title='Ch '+c.ch+': '+(c.layered?'Layered (both)':c.engine)+(c.remap!==c.ch?' \u2192ch'+c.remap:'')+' Vol:'+c.vol+'%';mp.appendChild(chip);}}");
-		html.Append("function renderChannels(chs){renderRouteMap(chs);var tb=document.getElementById('mx-ch');tb.innerHTML='';");
+		html.Append("function renderChannels(chs){renderRouteMap(chs);var tb=document.getElementById('mx-ch');tb.innerHTML='';var isLight=document.body.classList.contains('light');var cardBg=isLight?'#f8fafc':'#1e293b';var insClr=isLight?'#0f172a':'#e2e8f0';var vuBg=isLight?'#e2e8f0':'#0f172a';var ebBdr=isLight?'#cbd5e1':'#334155';var mutedClr=isLight?'#4b5563':'#64748b';var detClr=isLight?'#4b5563':'#475569';");
 		html.Append("for(var i=0;i<chs.length;i++){var c=chs[i];");
 		// Engine accent color — muted, used only for left border stripe
 		html.Append("var ec=c.layered?'#a78bfa':(c.engine==='MT-32'?'#60a5fa':(c.engine==='FluidSynth'?'#34d399':'#475569'));");
 		// Card: neutral bg always; id for glow animation; accent only on left border
 		html.Append("var card=document.createElement('div');card.id='mxcd-'+c.ch;");
-		html.Append("card.style.cssText='border-left:3px solid '+ec+';background:#1e293b;border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:4px;transition:box-shadow 0.12s,opacity 0.15s;';");
+		html.Append("card.style.cssText='border-left:3px solid '+ec+';background:'+cardBg+';border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:4px;transition:box-shadow 0.12s,opacity 0.15s;';");
 		// Row 1: CH number (tiny) + instrument name (bold, dominant) + engine tag (right, subtle)
 		html.Append("var r1=document.createElement('div');r1.style.cssText='display:flex;align-items:baseline;gap:5px;min-width:0;';");
 		html.Append("var chb=document.createElement('span');chb.style.cssText='font-size:9px;font-weight:700;color:'+ec+';letter-spacing:0.5px;flex-shrink:0;';chb.textContent='CH'+c.ch;r1.appendChild(chb);");
-		html.Append("var ins=document.createElement('span');ins.style.cssText='flex:1;font-size:13px;font-weight:600;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;';ins.textContent=c.instrument||'\\u2014';ins.title=c.instrument||'';r1.appendChild(ins);");
+		html.Append("var ins=document.createElement('span');ins.style.cssText='flex:1;font-size:13px;font-weight:600;color:'+insClr+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;';ins.textContent=c.instrument||'\\u2014';ins.title=c.instrument||'';r1.appendChild(ins);");
 		// Engine toggle: minimal, muted by default, accent on hover
-		html.Append("var eb=document.createElement('button');eb.style.cssText='font-size:9px;padding:1px 5px;border-radius:4px;background:transparent;border:1px solid #334155;color:#64748b;cursor:pointer;flex-shrink:0;transition:border-color 0.15s,color 0.15s;';");
+		html.Append("var eb=document.createElement('button');eb.style.cssText='font-size:9px;padding:1px 5px;border-radius:4px;background:transparent;border:1px solid '+ebBdr+';color:'+mutedClr+';cursor:pointer;flex-shrink:0;transition:border-color 0.15s,color 0.15s;';");
 		html.Append("eb.textContent=c.engine==='MT-32'?'MT-32':'SF';eb.dataset.ch=c.ch;eb.dataset.eng=c.engine==='MT-32'?'mt32':'fluidsynth';");
-		html.Append("eb.onmouseenter=(function(a){return function(){this.style.borderColor=a;this.style.color=a;};})(ec);eb.onmouseleave=function(){this.style.borderColor='#334155';this.style.color='#64748b';};");
+		html.Append("eb.onmouseenter=(function(a){return function(){this.style.borderColor=a;this.style.color=a;};})(ec);eb.onmouseleave=(function(bd,cl){return function(){this.style.borderColor=bd;this.style.color=cl;};})(ebBdr,mutedClr);");
 		html.Append("eb.onclick=(function(b){return function(){setChEngine(b.dataset.ch,b.dataset.eng==='mt32'?'fluidsynth':'mt32');};})(eb);");
 		html.Append("r1.appendChild(eb);card.appendChild(r1);");
 		// Row 2: VU meter — taller, no border, thicker peak hold bar
-		html.Append("var vu=document.createElement('div');vu.style.cssText='position:relative;height:20px;background:#0f172a;border-radius:4px;overflow:hidden;';");
+		html.Append("var vu=document.createElement('div');vu.style.cssText='position:relative;height:20px;background:'+vuBg+';border-radius:4px;overflow:hidden;';");
 		html.Append("var mff=document.createElement('div');mff.id='mxf-'+c.ch;mff.style.cssText='position:absolute;left:0;top:0;bottom:0;width:0%;background:#22c55e;border-radius:4px;';");
 		html.Append("var mpp=document.createElement('div');mpp.id='mxp-'+c.ch;mpp.style.cssText='position:absolute;top:0;bottom:0;width:3px;background:rgba(255,255,255,0.9);left:0%;border-radius:2px;box-shadow:0 0 4px rgba(255,255,255,0.6);';");
 		html.Append("vu.appendChild(mff);vu.appendChild(mpp);card.appendChild(vu);");
 		// Row 3: Vol slider — label hidden at 100% to reduce noise
 		html.Append("var vrow=document.createElement('div');vrow.style.cssText='display:flex;align-items:center;gap:4px;';");
-		html.Append("var vlbl=document.createElement('span');vlbl.style.cssText='font-size:9px;color:#334155;letter-spacing:0.4px;flex-shrink:0;width:22px;';vlbl.textContent='VOL';vrow.appendChild(vlbl);");
+		html.Append("var vlbl=document.createElement('span');vlbl.style.cssText='font-size:9px;color:'+detClr+';letter-spacing:0.4px;flex-shrink:0;width:22px;';vlbl.textContent='VOL';vrow.appendChild(vlbl);");
 		html.Append("var vsl=document.createElement('input');vsl.type='range';vsl.min=0;vsl.max=100;var initVol=c.vol!=null?c.vol:100;vsl.value=initVol;vsl.style.cssText='flex:1;cursor:pointer;';vsl.dataset.ch=c.ch;");
 		html.Append("var vlab=document.createElement('span');vlab.style.cssText='font-size:10px;color:#94a3b8;width:32px;text-align:right;flex-shrink:0;';vlab.textContent=initVol===100?'':initVol+'%';");
 		html.Append("vsl.oninput=(function(l,ch){return function(){var v=parseInt(this.value);setChVol(ch,v);l.textContent=v===100?'':v+'%';};})(vlab,c.ch);");
@@ -3038,10 +3058,10 @@ THTTPStatus CWebDaemon::BuildMixerPage(u8* pBuffer, unsigned* pLength, const cha
 		html.Append("vrow.appendChild(vsl);vrow.appendChild(vlab);card.appendChild(vrow);");
 		// Row 4: Remap + Layer (compact detail row)
 		html.Append("var dr=document.createElement('div');dr.style.cssText='display:flex;align-items:center;gap:8px;';");
-		html.Append("var rsp=document.createElement('span');rsp.style.cssText='font-size:10px;color:#475569;';rsp.textContent='\\u2192';dr.appendChild(rsp);");
+		html.Append("var rsp=document.createElement('span');rsp.style.cssText='font-size:10px;color:'+detClr+';';rsp.textContent='\\u2192';dr.appendChild(rsp);");
 		html.Append("var ri=document.createElement('input');ri.type='number';ri.min=1;ri.max=16;ri.value=c.remap;ri.style.cssText='width:38px;font-size:10px;padding:2px 4px;height:20px;border-radius:4px;';ri.dataset.ch=c.ch;");
 		html.Append("ri.onchange=function(){setChRemap(this.dataset.ch,this.value);};dr.appendChild(ri);");
-		html.Append("var ll=document.createElement('label');ll.style.cssText='display:flex;align-items:center;gap:3px;font-size:10px;color:#475569;cursor:pointer;flex-direction:row;';");
+		html.Append("var ll=document.createElement('label');ll.style.cssText='display:flex;align-items:center;gap:3px;font-size:10px;color:'+detClr+';cursor:pointer;flex-direction:row;';");
 		html.Append("var cb=document.createElement('input');cb.type='checkbox';cb.checked=!!c.layered;cb.dataset.ch=c.ch;");
 		html.Append("cb.onchange=function(){setChLayer(this.dataset.ch,this.checked);};ll.appendChild(cb);ll.appendChild(document.createTextNode('Layer'));dr.appendChild(ll);card.appendChild(dr);");
 		// Double-click to mute / unmute — dims card for physical feedback
@@ -3863,10 +3883,10 @@ THTTPStatus CWebDaemon::BuildStatusPage(u8* pBuffer, unsigned* pLength, const ch
 	html.Append("const W_ST=[0,2,4,5,7,9,11];");
 	html.Append("const B_ST=[1,3,6,8,10];const B_XF=[0.6,1.6,3.6,4.6,5.6];");
 	html.Append("function _noteClr(ch,n){if(_isMixer)return ENG_COLORS[_chEng[ch]]||'#22d3ee';return SRC_COLORS[src_arr[ch][n]]||'#60a5fa';}");
-	html.Append("function _drawKb(){if(!_kbCtx)return;const W=_kbCanvas.width,H=_kbCanvas.height;");
-	html.Append("const octaves=10,ww=W/(octaves*7);_kbCtx.fillStyle='#0a1020';_kbCtx.fillRect(0,0,W,H);");
+	html.Append("function _drawKb(){if(!_kbCtx)return;const W=_kbCanvas.width,H=_kbCanvas.height;const kbLt=document.body.classList.contains('light');");
+	html.Append("const octaves=10,ww=W/(octaves*7);_kbCtx.fillStyle=kbLt?'#334155':'#0a1020';_kbCtx.fillRect(0,0,W,H);");
 	html.Append("for(let o=0;o<octaves;o++){for(let wi=0;wi<7;wi++){const n=o*12+W_ST[wi];if(n>=128)continue;");
-	html.Append("const x=(o*7+wi)*ww;let clr='#cbd5e1';let hitCh=-1;");
+	html.Append("const x=(o*7+wi)*ww;let clr=kbLt?'#f1f5f9':'#cbd5e1';let hitCh=-1;");
 	html.Append("for(let ch=0;ch<16;ch++){if(_notes[ch][n]){clr=_noteClr(ch,n);hitCh=ch;break;}}");
 	html.Append("_kbCtx.fillStyle=clr;_kbCtx.fillRect(x+0.5,H*0.15,ww-1,H*0.84);");
 	html.Append("if(hitCh>=0){_kbCtx.fillStyle='#fff';_kbCtx.font='bold '+Math.max(7,ww*0.6|0)+'px sans-serif';_kbCtx.textAlign='center';");
@@ -3877,9 +3897,9 @@ THTTPStatus CWebDaemon::BuildStatusPage(u8* pBuffer, unsigned* pLength, const ch
 	html.Append("_kbCtx.fillStyle=clr;_kbCtx.fillRect(x,0,ww*0.55,H*0.58);}}}");
 	html.Append("var _notes=Array.from({length:16},()=>new Uint8Array(128));");
 	html.Append("var src_arr=Array.from({length:16},()=>new Uint8Array(128));");
-	html.Append("function _drawPR(){if(!_prCtx)return;const W=_prCanvas.width,H=_prCanvas.height;");
+	html.Append("function _drawPR(){if(!_prCtx)return;const W=_prCanvas.width,H=_prCanvas.height;const prLt=document.body.classList.contains('light');");
 	html.Append("const rowH=H/128;const colW=W/PR_COLS;");
-	html.Append("_prCtx.fillStyle='#0a1020';_prCtx.fillRect(0,0,W,H);");
+	html.Append("_prCtx.fillStyle=prLt?'#e2e8f0':'#0a1020';_prCtx.fillRect(0,0,W,H);");
 	html.Append("for(let col=0;col<PR_COLS;col++){const ci=(_prCol+col)%PR_COLS;");
 	html.Append("for(let note=0;note<128;note++){const v=_prBuf[ci*PR_ROWS+note];if(!v)continue;");
 	html.Append("_prCtx.fillStyle=_isMixer?ENG_COLORS[v-1]||'#22d3ee':SRC_COLORS[v]||'#60a5fa';");
