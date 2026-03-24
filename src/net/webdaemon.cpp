@@ -2705,197 +2705,264 @@ THTTPStatus CWebDaemon::BuildSequencerPage(u8* pBuffer, unsigned* pLength, const
 		html.Append("<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>");
 		html.Append("<title>mt32-pi sequencer</title><link rel='stylesheet' href='/app.css'>");
 		html.Append("<style>");
-		html.Append("#np{background:linear-gradient(135deg,#0d1b35,#111827);border:1px solid #1d4ed8;border-radius:14px;padding:18px 20px;margin-bottom:14px;}");
-		html.Append(".np-f{font-size:16px;font-weight:700;color:#f8fafc;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:8px 0 14px;}");
-		html.Append(".stp{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}");
-		html.Append(".stp span{background:#0a1020;border:1px solid #1e3a5f;border-radius:999px;padding:4px 13px;font-size:12px;color:#64748b;}");
-		html.Append(".stp strong{color:#93c5fd;}");
-		html.Append("#pb{cursor:pointer;height:14px;margin:12px 0 4px;}");
-		html.Append(".tmr{display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap;}");
-		html.Append(".tmr .lbl{color:#94a3b8;font-size:13px;}");
-		html.Append(".tmv{font-size:15px;font-weight:700;color:#93c5fd;min-width:54px;text-align:center;}");
-		html.Append("body.light #np{background:linear-gradient(135deg,#dbeafe,#eff6ff);border-color:#3b82f6;}");
-		html.Append("body.light .np-f{color:#0f172a;}");
-		html.Append("body.light .stp span{background:#f1f5f9;border-color:#cbd5e1;color:#475569;}");
-		html.Append("body.light .stp strong{color:#1d4ed8;}");
-		html.Append("body.light .tmv{color:#1d4ed8;}");
-		html.Append("body.light .tmr .lbl{color:#475569;}");
+		// Player card
+		html.Append("#sq-card{background:#111827;border:1px solid #1e293b;border-radius:16px;padding:0;margin-bottom:14px;overflow:hidden;}");
+		html.Append("#sq-hdr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px 10px;border-bottom:1px solid #1e293b;}");
+		html.Append("#sq-hdr h1{margin:0;font-size:17px;font-weight:700;color:#f8fafc;white-space:nowrap;}");
+		html.Append("#sq-file-wrap{display:flex;align-items:center;gap:6px;min-width:0;}");
+		html.Append("#seq-file{max-width:220px;font-size:12px;padding:5px 8px;border-radius:8px;}");
+		html.Append("#sq-refresh{padding:4px 8px;font-size:12px;border-radius:8px;background:transparent;border:1px solid #334155;color:#64748b;cursor:pointer;}");
+		html.Append("#sq-refresh:hover{border-color:#475569;color:#94a3b8;}");
+		html.Append("#sq-body{padding:14px 16px 16px;}");
+		// Status row
+		html.Append("#sq-status-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}");
+		html.Append("#sq-time{font-size:13px;color:#64748b;font-variant-numeric:tabular-nums;}");
+		html.Append("#sq-time strong{color:#94a3b8;}");
+		// Progress bar
+		html.Append("#pb{cursor:pointer;height:8px;border-radius:999px;background:#1e293b;position:relative;margin-bottom:14px;touch-action:none;}");
+		html.Append("#pb:hover{background:#1e3a5f;}");
+		html.Append("#prog{height:100%;border-radius:999px;background:linear-gradient(90deg,#1d4ed8,#22d3ee);width:0%;pointer-events:none;transition:width .15s;}");
+		// Transport
+		html.Append("#sq-transport{display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:12px;}");
+		html.Append(".trn-btn{background:transparent;border:1px solid #334155;border-radius:10px;color:#94a3b8;padding:8px 14px;font-size:15px;cursor:pointer;transition:background .1s,color .1s,border-color .1s;}");
+		html.Append(".trn-btn:hover{background:#1e293b;color:#e2e8f0;border-color:#475569;}");
+		html.Append("#trn-play{background:#1d4ed8;border-color:#1d4ed8;color:#fff;padding:10px 28px;font-size:16px;font-weight:600;border-radius:12px;}");
+		html.Append("#trn-play:hover{background:#2563eb;border-color:#2563eb;}");
+		// Toggle pills (Loop / Auto-next)
+		html.Append("#sq-toggles{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:14px;}");
+		html.Append(".tgl-pill{display:flex;align-items:center;gap:5px;font-size:12px;color:#64748b;cursor:pointer;padding:4px 10px;border-radius:999px;border:1px solid #334155;user-select:none;transition:background .1s,color .1s,border-color .1s;}");
+		html.Append(".tgl-pill.on{background:#1e3a5f;border-color:#3b82f6;color:#93c5fd;}");
+		html.Append(".tgl-pill .dot{width:8px;height:8px;border-radius:50%;background:#334155;transition:background .15s;}");
+		html.Append(".tgl-pill.on .dot{background:#3b82f6;}");
+		// Tempo row
+		html.Append("#sq-tempo-row{display:flex;align-items:center;justify-content:space-between;border-top:1px solid #1e293b;padding-top:12px;flex-wrap:wrap;gap:8px;}");
+		html.Append(".tmeta{font-size:12px;color:#64748b;}");
+		html.Append(".tmeta strong{color:#94a3b8;}");
+		html.Append("#sq-speed-ctrl{display:flex;align-items:center;gap:4px;}");
+		html.Append(".spd-btn{width:26px;height:26px;border-radius:6px;font-size:14px;display:flex;align-items:center;justify-content:center;padding:0;background:transparent;border:1px solid #334155;color:#64748b;cursor:pointer;}");
+		html.Append(".spd-btn:hover{background:#1e293b;color:#e2e8f0;}");
+		html.Append("#seq-tmv{font-size:13px;font-weight:700;color:#93c5fd;min-width:46px;text-align:center;}");
+		html.Append("#spd-reset{font-size:10px;padding:2px 6px;border-radius:5px;border:1px solid #1e3a5f;background:transparent;color:#475569;cursor:pointer;}");
+		html.Append("#spd-reset:hover{color:#94a3b8;border-color:#334155;}");
+		// Playlist
+		html.Append("#sq-pl{background:#111827;border:1px solid #1e293b;border-radius:16px;overflow:hidden;}");
+		html.Append("#sq-pl-hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #1e293b;}");
+		html.Append("#sq-pl-hdr h2{margin:0;font-size:15px;color:#f8fafc;}");
+		html.Append("#sq-pl-acts{display:flex;gap:6px;}");
+		html.Append(".pl-act{font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid #334155;background:transparent;color:#64748b;cursor:pointer;}");
+		html.Append(".pl-act:hover{background:#1e293b;color:#94a3b8;}");
+		html.Append(".pl-act.primary{background:#1d4ed8;border-color:#1d4ed8;color:#fff;}");
+		html.Append(".pl-act.primary:hover{background:#2563eb;}");
+		html.Append(".pl-act.danger{background:#7f1d1d;border-color:#7f1d1d;color:#fff;}");
+		html.Append("#sq-pl-opts{display:flex;gap:6px;padding:8px 16px;border-bottom:1px solid #1e293b;}");
+		html.Append("#pl-body{padding:4px 0;}");
+		html.Append(".pl-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:28px 16px;color:#475569;font-size:13px;}");
+		html.Append(".pl-empty-btn{font-size:12px;padding:5px 14px;border-radius:8px;border:1px dashed #334155;background:transparent;color:#64748b;cursor:pointer;}");
+		html.Append(".pl-empty-btn:hover{border-color:#475569;color:#94a3b8;}");
+		html.Append(".pl-row{display:flex;align-items:center;gap:6px;padding:5px 12px;border-left:3px solid transparent;transition:background .1s;}");
+		html.Append(".pl-row:hover{background:#0b1220;}");
+		html.Append(".pl-row.active{background:#0f2744;border-left-color:#1d4ed8;}");
+		html.Append(".pl-name{flex:1;font-size:13px;color:#cbd5e1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;}");
+		html.Append(".pl-row.active .pl-name{color:#93c5fd;font-weight:600;}");
+		html.Append(".pl-btns{display:flex;gap:2px;flex-shrink:0;}");
+		html.Append(".pl-btn{font-size:11px;padding:1px 5px;border-radius:4px;border:1px solid #1e293b;background:transparent;color:#475569;cursor:pointer;}");
+		html.Append(".pl-btn:hover{background:#1e293b;color:#94a3b8;}");
+		html.Append(".pl-btn.rm{color:#7f1d1d;border-color:#7f1d1d;}");
+		html.Append(".pl-btn.rm:hover{background:#7f1d1d;color:#fff;}");
+		// Light mode
+		html.Append("body.light #sq-card,body.light #sq-pl{background:#fff;border-color:#e2e8f0;}");
+		html.Append("body.light #sq-hdr,body.light #sq-pl-hdr,body.light #sq-pl-opts,body.light #sq-tempo-row{border-color:#e2e8f0;}");
+		html.Append("body.light #sq-hdr h1,body.light #sq-pl-hdr h2{color:#0f172a;}");
+		html.Append("body.light #pb{background:#e2e8f0;}body.light #pb:hover{background:#dbeafe;}");
+		html.Append("body.light #sq-time{color:#475569;}body.light #sq-time strong{color:#374151;}");
+		html.Append("body.light .trn-btn{border-color:#cbd5e1;color:#475569;}body.light .trn-btn:hover{background:#f1f5f9;color:#0f172a;}");
+		html.Append("body.light #trn-play{background:#1d4ed8;border-color:#1d4ed8;color:#fff;}");
+		html.Append("body.light .tgl-pill{border-color:#cbd5e1;color:#64748b;}body.light .tgl-pill.on{background:#dbeafe;border-color:#3b82f6;color:#1d4ed8;}");
+		html.Append("body.light .tgl-pill .dot{background:#cbd5e1;}body.light .tgl-pill.on .dot{background:#3b82f6;}");
+		html.Append("body.light .tmeta{color:#64748b;}body.light .tmeta strong{color:#374151;}");
+		html.Append("body.light #seq-tmv{color:#1d4ed8;}");
+		html.Append("body.light .spd-btn{border-color:#cbd5e1;color:#475569;}body.light .spd-btn:hover{background:#f1f5f9;}");
+		html.Append("body.light #spd-reset{border-color:#cbd5e1;color:#64748b;}");
+		html.Append("body.light .pl-act{border-color:#cbd5e1;color:#475569;}body.light .pl-act:hover{background:#f1f5f9;color:#0f172a;}");
+		html.Append("body.light .pl-row:hover{background:#f8fafc;}body.light .pl-row.active{background:#dbeafe;border-left-color:#1d4ed8;}");
+		html.Append("body.light .pl-name{color:#374151;}body.light .pl-row.active .pl-name{color:#1d4ed8;}");
+		html.Append("body.light .pl-btn{border-color:#e2e8f0;color:#64748b;}body.light .pl-btn:hover{background:#f1f5f9;color:#374151;}");
+		html.Append("body.light .pl-empty{color:#94a3b8;}body.light .pl-empty-btn{border-color:#cbd5e1;color:#64748b;}");
+		html.Append("#seq-file{max-width:200px;}");
 		html.Append("</style></head><body><main>");
 		html.Append("<script src='/app.js'></script>");
-		html.Append("<h1>MIDI Sequencer</h1>");
-		html.Append("<nav><a href='/'>Status</a><a href='/sound'>Sound</a><a href='/config'>Config</a><a href='/sequencer'>Sequencer</a><a href='/mixer'>Mixer</a><a href='/monitor'>Monitor</a></nav>");
-		// Now Playing card
-		html.Append("<div id='np'>");
-		html.Append("<div style='display:flex;align-items:center;gap:10px;'>");
-		html.Append("<span id='seq-badge' class='badge'>Stopped</span>");
-		html.Append("<span style='color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:.06em;'>Now Playing</span>");
-		html.Append("</div>");
-		html.Append("<div class='np-f' id='seq-cur-file'>&#8212;</div>");
-		html.Append("<div id='pb' class='prog-bg' onclick='seekClick(event,this)'>");
-		html.Append("<div id='prog' class='prog-fill' style='height:100%;pointer-events:none;'></div></div>");
-		html.Append("<div style='display:flex;justify-content:space-between;font-size:12px;color:#475569;margin-top:2px;'>");
-		html.Append("<span id='seq-elapsed'>0:00</span><span id='seq-duration'>0:00</span></div>");
-		html.Append("<div class='stp'>");
-		html.Append("<span>&#9835;&nbsp;<strong id='seq-bpm'>&#8212;</strong>&nbsp;BPM</span>");
-		html.Append("<span><strong id='seq-ppqn'>&#8212;</strong>&nbsp;PPQN</span>");
-		html.Append("<span>Tempo&nbsp;<strong id='seq-tempo'>1.00&#215;</strong></span>");
-		html.Append("<span>Tick&nbsp;<strong id='seq-tick'>&#8212;</strong></span>");
-		html.Append("<span><strong id='seq-size'>&#8212;</strong>&nbsp;KB</span>");
+		html.Append("<nav><a href='/'>Status</a><a href='/sound'>Sound</a><a href='/config'>Config</a><a href='/sequencer' class='active'>Sequencer</a><a href='/mixer'>Mixer</a><a href='/monitor'>Monitor</a></nav>");
+
+		// ── Player card ───────────────────────────────────────────────────────
+		html.Append("<div id='sq-card'>");
+		// Header: title + file selector
+		html.Append("<div id='sq-hdr'>");
+		html.Append("<h1>&#127926; Sequencer</h1>");
+		html.Append("<div id='sq-file-wrap'>");
+		html.Append("<select id='seq-file' onchange='doPlaySelected()'><option value=''>Loading...</option></select>");
+		html.Append("<button id='sq-refresh' onclick='loadFiles()' title='Refresh file list'>&#8635;</button>");
 		html.Append("</div></div>");
-		// Transport section
-		html.Append("<section><h2>Transport</h2>");
-		html.Append("<div style='display:flex;gap:8px;flex-wrap:wrap;'>");
-		html.Append("<button onclick='doPrev()' title='Previous file'>&#9664;&#9664;</button>");
-		html.Append("<button class='primary' id='play-btn' onclick='doPlay()'>&#9654; Play</button>");
-		html.Append("<button id='pause-btn' onclick='doPauseResume()' style='display:none;'>&#9646;&#9646; Pause</button>");
-		html.Append("<button class='danger' onclick='doStop()'>&#9646; Stop</button>");
-		html.Append("<button onclick='doNext()' title='Next file'>&#9654;&#9654;</button>");
-		html.Append("<button id='seq-loop-btn' onclick='toggleLoop()' title='Loop: OFF'>&#8635; Loop</button>");
-		html.Append("<button id='seq-autonext-btn' onclick='toggleAutoNext()' title='Auto-next: OFF'>&#9658;&#9658; Auto-next</button>");
+		// Body
+		html.Append("<div id='sq-body'>");
+		// Status + time row
+		html.Append("<div id='sq-status-row'>");
+		html.Append("<span id='seq-badge' class='badge'>Stopped</span>");
+		html.Append("<div id='sq-time'><strong id='seq-elapsed'>0:00</strong> / <span id='seq-duration'>0:00</span></div>");
 		html.Append("</div>");
-		html.Append("<div class='tmr'>");
-		html.Append("<span class='lbl'>Tempo</span>");
-		html.Append("<button onclick='adjTempo(-0.1)' style='width:30px;padding:5px 0;text-align:center;'>&#8722;</button>");
-		html.Append("<span class='tmv' id='seq-tmv'>1.00&#215;</span>");
-		html.Append("<button onclick='adjTempo(0.1)' style='width:30px;padding:5px 0;text-align:center;'>+</button>");
-		html.Append("<button onclick='adjTempo(0)' style='padding:5px 10px;font-size:12px;'>1&#215; Reset</button>");
-		html.Append("</div></section>");
-		// File section
-		html.Append("<section><h2>File</h2><div class='grid'>");
-		html.Append("<label>MIDI file<select id='seq-file'><option value=''>Loading...</option></select></label></div>");
-		html.Append("<div style='margin-top:10px;'><button onclick='loadFiles()' style='font-size:12px;'>&#8635; Refresh list</button></div></section>");
-		// Playlist section
-		html.Append("<section><h2>Playlist <span id='pl-count' style='font-size:12px;color:#64748b;'></span></h2>");
-		html.Append("<div style='display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;'>");
-		html.Append("<button id='pl-shuffle-btn' onclick='togglePlShuffle()' title='Shuffle: OFF'>&#128256; Shuffle</button>");
-		html.Append("<button id='pl-repeat-btn'  onclick='togglePlRepeat()'  title='Repeat: OFF'>&#8635; Repeat</button>");
-		html.Append("<button class='primary' onclick='plAdd()'>+ Add to queue</button>");
-		html.Append("<button onclick='plAddAll()'>+ Add all files</button>");
-		html.Append("<button class='danger'  onclick='plClear()'>&#10006; Clear</button>");
+		// Progress bar (seekable)
+		html.Append("<div id='pb' onclick='seekClick(event,this)' title='Click to seek'>");
+		html.Append("<div id='prog'></div></div>");
+		// Transport buttons
+		html.Append("<div id='sq-transport'>");
+		html.Append("<button class='trn-btn' onclick='doPrev()' title='Previous'>&#9664;&#9664;</button>");
+		html.Append("<button class='trn-btn' id='trn-play' onclick='_trPlay()'>&#9654;</button>");
+		html.Append("<button class='trn-btn' onclick='doStop()' title='Stop'>&#9646;</button>");
+		html.Append("<button class='trn-btn' onclick='doNext()' title='Next'>&#9654;&#9654;</button>");
 		html.Append("</div>");
-		html.Append("<div id='pl-list'><em style='color:#64748b;'>Queue empty</em></div>");
-		html.Append("</section>");
+		// Toggle pills: Loop + Auto-next
+		html.Append("<div id='sq-toggles'>");
+		html.Append("<div class='tgl-pill' id='tgl-loop' onclick='toggleLoop()' title='Loop'><span class='dot'></span>Loop</div>");
+		html.Append("<div class='tgl-pill' id='tgl-autonext' onclick='toggleAutoNext()' title='Auto-next'><span class='dot'></span>Auto-next</div>");
+		html.Append("</div>");
+		// Tempo row
+		html.Append("<div id='sq-tempo-row'>");
+		html.Append("<div class='tmeta'>&#9835; <strong id='seq-bpm'>&#8212;</strong> BPM</div>");
+		html.Append("<div id='sq-speed-ctrl'>");
+		html.Append("<button class='spd-btn' onclick='adjTempo(-0.1)'>&#8722;</button>");
+		html.Append("<span id='seq-tmv'>1.00&#215;</span>");
+		html.Append("<button class='spd-btn' onclick='adjTempo(0.1)'>+</button>");
+		html.Append("<button id='spd-reset' onclick='adjTempo(0)'>1&#215;</button>");
+		html.Append("</div></div>");
+		html.Append("</div></div>"); // close sq-body + sq-card
+
+		// ── Playlist ──────────────────────────────────────────────────────────
+		html.Append("<div id='sq-pl' style='margin-top:14px;'>");
+		html.Append("<div id='sq-pl-hdr'>");
+		html.Append("<h2>Playlist <span id='pl-count' style='font-size:12px;font-weight:400;color:#64748b;'></span></h2>");
+		html.Append("<div id='sq-pl-acts'>");
+		html.Append("<button class='pl-act primary' onclick='plAdd()'>+ Add</button>");
+		html.Append("<button class='pl-act' onclick='plAddAll()'>+ All</button>");
+		html.Append("<button class='pl-act danger' onclick='plClear()'>Clear</button>");
+		html.Append("</div></div>");
+		html.Append("<div id='sq-pl-opts'>");
+		html.Append("<div class='tgl-pill' id='tgl-shuffle' onclick='togglePlShuffle()' title='Shuffle'><span class='dot'></span>Shuffle</div>");
+		html.Append("<div class='tgl-pill' id='tgl-repeat' onclick='togglePlRepeat()' title='Repeat'><span class='dot'></span>Repeat</div>");
+		html.Append("</div>");
+		html.Append("<div id='pl-body'></div>");
+		html.Append("</div>"); // close sq-pl
+
 		html.Append("<script>");
-		// State variables
+		// State
 		html.Append("var _wsOk=false,_ls={},_ct=1.0;");
 		html.Append("var _lElp=0,_lDur=1,_lTime=0,_interp=null;");
-		html.Append("var _plCnt=-1,_plShuffle=false,_plRepeat=false;");
-		// Progress bar update helpers
+		html.Append("var _plCnt=-1,_plShuffle=false,_plRepeat=false,_plIdx=-1;");
+		// Progress bar
 		html.Append("function _updBar(elp,dur){");
 		html.Append("document.getElementById('prog').style.width=Math.min(100,elp/dur*100).toFixed(1)+'%';");
 		html.Append("document.getElementById('seq-elapsed').textContent=fmt(elp);}");
-		html.Append("function _startInterp(){");
-		html.Append("_interp=setInterval(function(){");
+		html.Append("function _startInterp(){_interp=setInterval(function(){");
 		html.Append("var est=Math.min(_lDur,_lElp+(Date.now()-_lTime)*_ct);");
-		html.Append("_updBar(est,_lDur);");
-		html.Append("},150);}");
+		html.Append("_updBar(est,_lDur);},150);}");
+		// Toggle pill helpers
+		html.Append("function _setPill(id,on){var el=document.getElementById(id);if(el){if(on)el.classList.add('on');else el.classList.remove('on');}}");
+		// Transport: unified play action
+		html.Append("function _trPlay(){");
+		html.Append("var st=_ls.loading?'loading':(_ls.paused?'paused':(_ls.playing?'playing':(_ls.finished?'finished':'stopped')));");
+		html.Append("if(st==='playing')_qs('/api/sequencer/pause','',function(){});");
+		html.Append("else if(st==='paused')_qs('/api/sequencer/resume','',function(){});");
+		html.Append("else doPlaySelected();}");
+		// Play selected file
+		html.Append("function doPlaySelected(){var f=document.getElementById('seq-file').value;");
+		html.Append("if(!f)return;");
+		html.Append("_qs('/api/sequencer/play','file='+encodeURIComponent(f),function(j){if(!j||!j.ok)showToast('Play failed',false);});}");
 		// applyStatus
 		html.Append("function applyStatus(d){if(!d)return;_ls=d;");
-		html.Append("var b=document.getElementById('seq-badge');");
 		html.Append("var st=d.loading?'loading':(d.paused?'paused':(d.playing?'playing':(d.finished?'finished':'stopped')));");
+		// Badge
+		html.Append("var b=document.getElementById('seq-badge');");
 		html.Append("b.textContent=st==='loading'?'Loading\u2026':(st==='playing'?'Playing':(st==='paused'?'Paused':(st==='finished'?'Finished':'Stopped')));");
-		html.Append("b.className='badge'+(st==='playing'?' playing':(st==='finished'?' finished':(st==='loading'?' loading':'')));");
-		html.Append("var fn=(d.file||'').replace(/^(SD:|USB:)/,'');");
-		html.Append("document.getElementById('seq-cur-file').textContent=fn||'\\u2014';");
-		// Pause/Resume button visibility
-		html.Append("var pb=document.getElementById('pause-btn'),plb=document.getElementById('play-btn');");
-		html.Append("if(pb&&plb){if(st==='playing'){pb.style.display='';pb.textContent='\\u23F8 Pause';}");
-		html.Append("else if(st==='paused'){pb.style.display='';pb.textContent='\\u25B6 Resume';}");
-		html.Append("else{pb.style.display='none';}}");
-		html.Append("var autob=document.getElementById('seq-autonext-btn');");
-		html.Append("if(autob){autob.className=d.auto_next?'loop-on':'';autob.title=d.auto_next?'Auto-next: ON':'Auto-next: OFF';}");
-		// Sync bar from server data
+		html.Append("b.className='badge'+(st==='playing'?' playing':(st==='finished'?' finished':(st==='loading'?' loading':(st==='paused'?' paused':''))));");
+		// Play button icon
+		html.Append("var pb2=document.getElementById('trn-play');");
+		html.Append("if(pb2)pb2.textContent=st==='playing'?'\\u23F8':(st==='paused'?'\\u25B6':'\\u25B6');");
+		// Sync file selector if possible
+		html.Append("var fn=(d.file||'');");
+		html.Append("var sel=document.getElementById('seq-file');");
+		html.Append("if(sel&&fn&&sel.value!==fn){for(var oi=0;oi<sel.options.length;oi++){if(sel.options[oi].value===fn){sel.value=fn;break;}}}");
+		// Duration / progress
 		html.Append("var dur=d.duration_ms>0?d.duration_ms:1;");
 		html.Append("var elp=st==='finished'?dur:(d.elapsed_ms||0);");
 		html.Append("document.getElementById('seq-duration').textContent=fmt(d.duration_ms||0);");
-		// Update interpolation state
 		html.Append("if(d.tempo_multiplier!==undefined)_ct=d.tempo_multiplier;");
 		html.Append("_lElp=elp;_lDur=dur;_lTime=Date.now();");
-		// Start/stop client-side interpolation
 		html.Append("if(_interp){clearInterval(_interp);_interp=null;}");
 		html.Append("if(st==='playing'){_updBar(elp,dur);_startInterp();}else{_updBar(elp,dur);}");
-		// BPM / PPQN / tempo / tick / size
+		// BPM + speed
 		html.Append("var bpm=d.bpm||0;document.getElementById('seq-bpm').textContent=bpm>0?bpm:'\\u2014';");
-		html.Append("var ppqn=d.division||0;document.getElementById('seq-ppqn').textContent=ppqn>0?ppqn:'\\u2014';");
-		html.Append("var tm=(_ct||1).toFixed(2)+'\\u00d7';");
-		html.Append("document.getElementById('seq-tempo').textContent=tm;");
-		html.Append("document.getElementById('seq-tmv').textContent=tm;");
-		html.Append("var ct=d.current_tick||0,tt=d.total_ticks||0;");
-		html.Append("document.getElementById('seq-tick').textContent=tt>0?(ct+' / '+tt):'\\u2014';");
-		html.Append("var sz=d.file_size_kb||0;document.getElementById('seq-size').textContent=sz>0?sz:'\\u2014';");
-		html.Append("var lb=document.getElementById('seq-loop-btn');");
-		html.Append("if(lb){lb.className=d.loop_enabled?'loop-on':'';lb.title=d.loop_enabled?'Loop: ON':'Loop: OFF';}");
-		// Playlist state update from WebSocket
+		html.Append("var tm=(_ct||1).toFixed(2)+'\\u00d7';document.getElementById('seq-tmv').textContent=tm;");
+		// Loop / auto-next pills
+		html.Append("_setPill('tgl-loop',!!d.loop_enabled);");
+		html.Append("_setPill('tgl-autonext',!!d.auto_next);");
+		// Playlist state
 		html.Append("if(typeof d.pl_count!=='undefined'){");
 		html.Append("var pc=document.getElementById('pl-count');if(pc)pc.textContent=d.pl_count>0?'('+d.pl_count+' tracks)':'';");
-		html.Append("if(d.pl_count!==_plCnt){_plCnt=d.pl_count;loadPlaylist();}");
-		html.Append("else{var rows=document.querySelectorAll('#pl-list tr');rows.forEach(function(r,i){r.style.background=i===d.pl_idx?'#0f2744':'';r.style.borderLeft=i===d.pl_idx?'3px solid #1d4ed8':'none';});}");
-		html.Append("var sb=document.getElementById('pl-shuffle-btn');if(sb){sb.className=d.pl_shuffle?'loop-on':'';sb.title=d.pl_shuffle?'Shuffle: ON':'Shuffle: OFF';}");
-		html.Append("var rb=document.getElementById('pl-repeat-btn');if(rb){rb.className=d.pl_repeat?'loop-on':'';rb.title=d.pl_repeat?'Repeat: ON':'Repeat: OFF';}}");
+		html.Append("_setPill('tgl-shuffle',!!d.pl_shuffle);_setPill('tgl-repeat',!!d.pl_repeat);");
+		html.Append("_plShuffle=!!d.pl_shuffle;_plRepeat=!!d.pl_repeat;");
+		html.Append("if(d.pl_count!==_plCnt||d.pl_idx!==_plIdx){_plCnt=d.pl_count;_plIdx=d.pl_idx;loadPlaylist();}");
+		html.Append("else{document.querySelectorAll('.pl-row').forEach(function(r,i){if(i===d.pl_idx)r.classList.add('active');else r.classList.remove('active');});}}");
 		html.Append("}"); // close applyStatus
-		// Poll fallback
+		// Poll fallback + WebSocket
 		html.Append("function schedPoll(){if(_wsOk)return;setTimeout(function(){_qs('/api/sequencer/status','',function(d){applyStatus(d);if(!_wsOk)schedPoll();});},1000);}");
-		// WebSocket
 		html.Append("(function(){var ws=null,_rt=0;");
 		html.Append("function wsConnect(){ws=new WebSocket('ws://'+location.hostname+':8765/');");
 		html.Append("ws.onopen=function(){_wsOk=true;};");
 		html.Append("ws.onmessage=function(e){try{applyStatus(JSON.parse(e.data));}catch(x){}};");
 		html.Append("ws.onclose=function(){_wsOk=false;schedPoll();_rt=Math.min((_rt||500)*2,8000);setTimeout(wsConnect,_rt);};");
-		html.Append("ws.onerror=function(){ws.close();};}");
-		html.Append("wsConnect();})();");
-		// Seek on progress bar click — note: server param is 'ticks' (plural)
+		html.Append("ws.onerror=function(){ws.close();};}wsConnect();})();");
+		// Seek
 		html.Append("function seekClick(ev,el){var r=el.getBoundingClientRect();");
 		html.Append("var f=Math.max(0,Math.min(1,(ev.clientX-r.left)/r.width));");
 		html.Append("var tt=(_ls&&_ls.total_ticks)||0;if(tt<=0)return;");
-		html.Append("var tk=Math.round(f*tt);");
-		// Optimistically update the bar immediately
 		html.Append("_lElp=Math.round(f*_lDur);_lTime=Date.now();");
-		html.Append("_qs('/api/sequencer/seek','ticks='+tk,function(){});}");
-		// Tempo adjust
+		html.Append("_qs('/api/sequencer/seek','ticks='+Math.round(f*tt),function(){});}");
+		// Tempo
 		html.Append("function adjTempo(delta){var t=delta===0?1.0:Math.round(Math.max(0.1,Math.min(4.0,_ct+delta))*10)/10;");
-		html.Append("_qs('/api/sequencer/tempo','multiplier='+t,function(){");
-		html.Append("_ct=t;var lbl=t.toFixed(2)+'\\u00d7';");
-		html.Append("document.getElementById('seq-tempo').textContent=lbl;");
-		html.Append("document.getElementById('seq-tmv').textContent=lbl;});}");
+		html.Append("_qs('/api/sequencer/tempo','multiplier='+t,function(){_ct=t;document.getElementById('seq-tmv').textContent=t.toFixed(2)+'\\u00d7';});}");
 		// File list
-		html.Append("function loadFiles(){var sel=document.getElementById('seq-file');sel.innerHTML='<option value=\"\">Loading...</option>';");
+		html.Append("function loadFiles(){var sel=document.getElementById('seq-file');");
 		html.Append("_qs('/api/sequencer/files','',function(files){sel.innerHTML='';");
 		html.Append("if(!files||!files.length){sel.innerHTML='<option value=\"\">No MIDI files</option>';return;}");
 		html.Append("for(var i=0;i<files.length;i++){var o=document.createElement('option');o.value=files[i];");
-		html.Append("o.textContent=files[i].replace(/^(SD:|USB:)/,'');sel.appendChild(o);}});}");
+		html.Append("o.textContent=files[i].replace(/^(SD:|USB:)/,'');sel.appendChild(o);}");
+		html.Append("if(_ls&&_ls.file){for(var oi=0;oi<sel.options.length;oi++){if(sel.options[oi].value===_ls.file){sel.value=_ls.file;break;}}}});}");
 		// Controls
-		html.Append("function doPlay(){var f=document.getElementById('seq-file').value;");
-		html.Append("if(!f){showToast('Select a file first.',false);return;}");
-		html.Append("_qs('/api/sequencer/play','file='+encodeURIComponent(f),function(j){if(!j||!j.ok)showToast('Play failed',false);});}");
 		html.Append("function doStop(){_qs('/api/sequencer/stop','',function(){});}");
-		html.Append("function doPauseResume(){var st=_ls&&_ls.paused;");
-		html.Append("_qs(st?'/api/sequencer/resume':'/api/sequencer/pause','',function(j){if(!j||!j.ok)showToast('Error',false);});}");
 		html.Append("function doNext(){_qs('/api/sequencer/next','',function(){});}");
 		html.Append("function doPrev(){_qs('/api/sequencer/prev','',function(){});}");
-		html.Append("function toggleLoop(){var lb=document.getElementById('seq-loop-btn');var lc=lb&&lb.className==='loop-on';");
-		html.Append("_qs('/api/sequencer/loop','enabled='+(lc?'off':'on'),function(){_qs('/api/sequencer/status','',function(d){applyStatus(d);});});}");
-		html.Append("function toggleAutoNext(){var ab=document.getElementById('seq-autonext-btn');var ac=ab&&ab.className==='loop-on';");
-		html.Append("_qs('/api/sequencer/autonext','enabled='+(ac?'off':'on'),function(){_qs('/api/sequencer/status','',function(d){applyStatus(d);});});}");
-		// Playlist functions
+		html.Append("function toggleLoop(){var on=!document.getElementById('tgl-loop').classList.contains('on');");
+		html.Append("_qs('/api/sequencer/loop','enabled='+(on?'on':'off'),function(){_setPill('tgl-loop',on);});}");
+		html.Append("function toggleAutoNext(){var on=!document.getElementById('tgl-autonext').classList.contains('on');");
+		html.Append("_qs('/api/sequencer/autonext','enabled='+(on?'on':'off'),function(){_setPill('tgl-autonext',on);});}");
+		// Playlist
 		html.Append("function loadPlaylist(){_qs('/api/playlist','',function(d){");
 		html.Append("if(!d)return;_plCnt=d.count;_plShuffle=d.shuffle;_plRepeat=d.repeat;");
 		html.Append("var pc=document.getElementById('pl-count');if(pc)pc.textContent=d.count>0?'('+d.count+' tracks)':'';");
-		html.Append("var sb=document.getElementById('pl-shuffle-btn');if(sb){sb.className=d.shuffle?'loop-on':'';sb.title=d.shuffle?'Shuffle: ON':'Shuffle: OFF';}");
-		html.Append("var rb=document.getElementById('pl-repeat-btn');if(rb){rb.className=d.repeat?'loop-on':'';rb.title=d.repeat?'Repeat: ON':'Repeat: OFF';}");
-		html.Append("var el=document.getElementById('pl-list');if(!el)return;");
-		html.Append("if(!d.entries||!d.entries.length){el.innerHTML='<em style=\"color:#64748b;\">Queue empty</em>';return;}");
-		html.Append("var html='<table style=\"width:100%;\">',i;");
-		html.Append("for(i=0;i<d.entries.length;i++){");
-		html.Append("var cur=i===d.index,bg=cur?'background:#0f2744;border-left:3px solid #1d4ed8;':'';");
+		html.Append("_setPill('tgl-shuffle',!!d.shuffle);_setPill('tgl-repeat',!!d.repeat);");
+		html.Append("var el=document.getElementById('pl-body');if(!el)return;");
+		html.Append("if(!d.entries||!d.entries.length){");
+		html.Append("el.innerHTML='<div class=\"pl-empty\"><div>No tracks loaded</div><button class=\"pl-empty-btn\" onclick=\"plAdd()\">+ Add MIDI</button></div>';return;}");
+		html.Append("el.innerHTML='';");
+		html.Append("for(var i=0;i<d.entries.length;i++){");
+		html.Append("var cur=i===d.index;");
 		html.Append("var nm=d.entries[i].replace(/^(SD:|USB:)/,'');");
-		html.Append("html+='<tr style=\"'+bg+'\"><td style=\"color:#e2e8f0;font-size:13px;padding:4px 6px;\">'+nm+'</td>';");
-		html.Append("html+='<td style=\"text-align:right;white-space:nowrap;padding:2px;\">'+");
-		html.Append("'<button onclick=\"plPlay('+i+')\"> &#9654;</button> '+");
-		html.Append("'<button onclick=\"plUp('+i+')\">&#8593;</button> '+");
-		html.Append("'<button onclick=\"plDown('+i+')\">&#8595;</button> '+");
-		html.Append("'<button onclick=\"plRemove('+i+')\" class=\"warn\">&#215;</button>'+");
-		html.Append("'</td></tr>';}");
-		html.Append("html+='</table>';el.innerHTML=html;});}");
+		html.Append("var row=document.createElement('div');row.className='pl-row'+(cur?' active':'');");
+		html.Append("row.innerHTML='<div class=\"pl-name\" onclick=\"plPlay('+i+')\">'+nm+'</div>'");
+		html.Append("+'<div class=\"pl-btns\">'");
+		html.Append("+'<button class=\"pl-btn\" onclick=\"plUp('+i+')\">\\u2191</button>'");
+		html.Append("+'<button class=\"pl-btn\" onclick=\"plDown('+i+')\">\\u2193</button>'");
+		html.Append("+'<button class=\"pl-btn rm\" onclick=\"plRemove('+i+')\">\\u00d7</button>'");
+		html.Append("+'</div>';");
+		html.Append("el.appendChild(row);}});}");
 		html.Append("function plAdd(){var f=document.getElementById('seq-file').value;");
 		html.Append("if(!f){showToast('Select a file first.',false);return;}");
 		html.Append("_qs('/api/playlist/add','file='+encodeURIComponent(f),function(){loadPlaylist();});}");
@@ -2905,8 +2972,14 @@ THTTPStatus CWebDaemon::BuildSequencerPage(u8* pBuffer, unsigned* pLength, const
 		html.Append("function plUp(i){_qs('/api/playlist/up','index='+i,function(){loadPlaylist();});}");
 		html.Append("function plDown(i){_qs('/api/playlist/down','index='+i,function(){loadPlaylist();});}");
 		html.Append("function plPlay(i){_qs('/api/playlist/play','index='+i,function(){});}");
-		html.Append("function togglePlShuffle(){_qs('/api/playlist/shuffle','enabled='+(_plShuffle?'off':'on'),function(){loadPlaylist();});}");
-		html.Append("function togglePlRepeat(){_qs('/api/playlist/repeat','enabled='+(_plRepeat?'off':'on'),function(){loadPlaylist();});}");
+		html.Append("function togglePlShuffle(){var on=!document.getElementById('tgl-shuffle').classList.contains('on');");
+		html.Append("_qs('/api/playlist/shuffle','enabled='+(on?'on':'off'),function(){loadPlaylist();});}");
+		html.Append("function togglePlRepeat(){var on=!document.getElementById('tgl-repeat').classList.contains('on');");
+		html.Append("_qs('/api/playlist/repeat','enabled='+(on?'on':'off'),function(){loadPlaylist();});}");
+		// Keyboard shortcut: Space = play/pause
+		html.Append("document.addEventListener('keydown',function(e){");
+		html.Append("if(e.code==='Space'&&e.target.tagName!=='INPUT'&&e.target.tagName!=='SELECT'){e.preventDefault();_trPlay();}");
+		html.Append("});");
 		html.Append("loadPlaylist();loadFiles();schedPoll();");
 		html.Append("</script></main></body></html>");
 
