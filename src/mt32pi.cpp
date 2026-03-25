@@ -3005,13 +3005,38 @@ bool CMT32Pi::SetMixerLayering(u8 nChannel, bool bLayered)
 {
 	if (nChannel >= 16)
 		return false;
+
+	// Layering requires both engines to be rendered — auto-enable the mixer.
+	if (bLayered && !m_bMixerEnabled)
+		SetMixerEnabled(true);
+
 	m_MIDIRouter.SetLayering(nChannel, bLayered);
+
+	// Recalculate dual mode: layering makes IsDualMode() return true even if
+	// the channel map has only one engine type, so the audio mixer must stop
+	// solo-rendering and mix both engines.
+	const bool bDual = m_MIDIRouter.IsDualMode();
+	if (bDual)
+		m_AudioMixer.ClearSoloEngine();
+	else
+		m_AudioMixer.SetSoloEngine(m_MIDIRouter.GetPrimaryEngine());
+	ApplyDualModeLimits(bDual);
 	return true;
 }
 
 bool CMT32Pi::SetMixerAllLayering(bool bLayered)
 {
+	if (bLayered && !m_bMixerEnabled)
+		SetMixerEnabled(true);
+
 	m_MIDIRouter.SetAllLayering(bLayered);
+
+	const bool bDual = m_MIDIRouter.IsDualMode();
+	if (bDual)
+		m_AudioMixer.ClearSoloEngine();
+	else
+		m_AudioMixer.SetSoloEngine(m_MIDIRouter.GetPrimaryEngine());
+	ApplyDualModeLimits(bDual);
 	return true;
 }
 

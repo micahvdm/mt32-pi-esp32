@@ -209,6 +209,11 @@ bool CMIDIRouter::IsDualMode() const
 	if (!m_pMT32 || !m_pFluidSynth)
 		return false;
 
+	// A layered channel sends to both engines even if the channel map only
+	// lists one engine — so any active layering means dual mode.
+	if (HasAnyLayering())
+		return true;
+
 	bool bHasMT32 = false;
 	bool bHasFluid = false;
 	for (unsigned i = 0; i < NumChannels; ++i)
