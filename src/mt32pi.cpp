@@ -1281,6 +1281,12 @@ s8 IntBuffer[nQueueSizeFrames * nBytesPerFrame + (bI2S ? 0 : 1)];
 	while (m_bRunning)
 	{
 		const size_t nFrames = nQueueSizeFrames - m_pSound->GetQueueFramesAvail();
+
+		// If the DMA queue is still full from the last iteration, spin until it
+		// has consumed some samples — avoids overwriting profiler stats with zeros.
+		if (nFrames == 0)
+			continue;
+
 		const size_t nWriteBytes = nFrames * nBytesPerFrame;
 
 		// Compute deadline for this chunk (µs)
@@ -2897,17 +2903,22 @@ bool CMT32Pi::SetMixerChannelEngine(u8 nChannel, const char* pEngineName)
 	if (!m_bMixerEnabled)
 		SetMixerEnabled(true);
 
-	// Send All Sound Off to the old engine for this channel to prevent stuck notes
+	// Silence the old engine on this channel to prevent stuck notes.
+	// Order matters:
+	//   1. CC 64=0 (sustain pedal off): mt32emu's allNotesOff() respects the hold pedal,
+	//      so any held nnote would ring forever unless we release the pedal first.
+	//   2. CC 120 (All Sound Off): immediate cutoff on FluidSynth; CC 120 is not
+	//      implemented by the real MT-32 hardware (mt32emu ignores it), so it is a
+	//      no-op there but harmless.
+	//   3. CC 123 (All Notes Off): starts the release envelope.  With hold pedal already
+	//      cleared in step 1, this reliably silences MT-32 parts too.
 	CSynthBase* pOldEngine = m_MIDIRouter.GetChannelEngine(nChannel);
 	if (pOldEngine && pOldEngine != pEngine)
 	{
 		const u8 nRemap = m_MIDIRouter.GetChannelRemap(nChannel);
-		// CC 120 (All Sound Off) on the remapped channel
-		const u32 nAllSoundOff = 0x007800B0u | nRemap;
-		pOldEngine->HandleMIDIShortMessage(nAllSoundOff);
-		// CC 123 (All Notes Off) as well
-		const u32 nAllNotesOff = 0x007B00B0u | nRemap;
-		pOldEngine->HandleMIDIShortMessage(nAllNotesOff);
+		pOldEngine->HandleMIDIShortMessage(0x000040B0u | nRemap); // CC 64, val 0  – pedal off
+		pOldEngine->HandleMIDIShortMessage(0x007800B0u | nRemap); // CC 120        – all sound off
+		pOldEngine->HandleMIDIShortMessage(0x007B00B0u | nRemap); // CC 123        – all notes off
 	}
 
 	m_MIDIRouter.SetChannelEngine(nChannel, pEngine);
@@ -2994,13 +3005,38 @@ bool CMT32Pi::SetMixerLayering(u8 nChannel, bool bLayered)
 {
 	if (nChannel >= 16)
 		return false;
+
+	// Layering requires both engines to be rendered — auto-enable the mixer.
+	if (bLayered && !m_bMixerEnabled)
+		SetMixerEnabled(true);
+
 	m_MIDIRouter.SetLayering(nChannel, bLayered);
+
+	// Recalculate dual mode: layering makes IsDualMode() return true even if
+	// the channel map has only one engine type, so the audio mixer must stop
+	// solo-rendering and mix both engines.
+	const bool bDual = m_MIDIRouter.IsDualMode();
+	if (bDual)
+		m_AudioMixer.ClearSoloEngine();
+	else
+		m_AudioMixer.SetSoloEngine(m_MIDIRouter.GetPrimaryEngine());
+	ApplyDualModeLimits(bDual);
 	return true;
 }
 
 bool CMT32Pi::SetMixerAllLayering(bool bLayered)
 {
+	if (bLayered && !m_bMixerEnabled)
+		SetMixerEnabled(true);
+
 	m_MIDIRouter.SetAllLayering(bLayered);
+
+	const bool bDual = m_MIDIRouter.IsDualMode();
+	if (bDual)
+		m_AudioMixer.ClearSoloEngine();
+	else
+		m_AudioMixer.SetSoloEngine(m_MIDIRouter.GetPrimaryEngine());
+	ApplyDualModeLimits(bDual);
 	return true;
 }
 
@@ -3033,6 +3069,20 @@ int CMT32Pi::GetMixerChannelVolume(u8 nChannel) const
 void CMT32Pi::ResetMixerChannelVolumes()
 {
 	m_MIDIRouter.ResetChannelVolumes();
+
+	// The router multiplier is now 1.0 for all channels, but the synth engines
+	// still hold whatever CC7 value was last sent to them.  Restore CC7=127 on
+	// every channel so the engines hear the reset immediately.
+	for (u8 i = 0; i < 16; ++i)
+	{
+		CSynthBase* pEngine = m_MIDIRouter.GetChannelEngine(i);
+		if (pEngine)
+		{
+			const u8  nRemap = m_MIDIRouter.GetChannelRemap(i);
+			const u32 nMsg   = 0x0007B0u | nRemap | (static_cast<u32>(127) << 16); // CC7=127
+			pEngine->HandleMIDIShortMessage(nMsg);
+		}
+	}
 }
 
 // ---------------------------------------------------------------------------
