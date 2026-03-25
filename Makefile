@@ -65,7 +65,8 @@ endif
 	@echo "DEFINE += -DEXCLUDE_USB_MOUSE" >> $(CIRCLE_CONFIG)
 	@echo "DEFINE += -DEXCLUDE_USB_GAMEPAD" >> $(CIRCLE_CONFIG)
 	@echo "DEFINE += -DEXCLUDE_USB_PRINTER" >> $(CIRCLE_CONFIG)
-
+# Increase kernel max size to 4MB (stb_vorbis adds ~72KB, exceeding the 2MB default)
+        @echo "DEFINE += -DKERNEL_MAX_SIZE=\"(4*MEGABYTE)\"" >> $(CIRCLE_CONFIG)
 #
 # Build circle-stdlib
 #
