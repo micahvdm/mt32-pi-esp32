@@ -1281,6 +1281,12 @@ s8 IntBuffer[nQueueSizeFrames * nBytesPerFrame + (bI2S ? 0 : 1)];
 	while (m_bRunning)
 	{
 		const size_t nFrames = nQueueSizeFrames - m_pSound->GetQueueFramesAvail();
+
+		// If the DMA queue is still full from the last iteration, spin until it
+		// has consumed some samples — avoids overwriting profiler stats with zeros.
+		if (nFrames == 0)
+			continue;
+
 		const size_t nWriteBytes = nFrames * nBytesPerFrame;
 
 		// Compute deadline for this chunk (µs)
