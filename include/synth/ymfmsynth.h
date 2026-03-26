@@ -18,6 +18,9 @@
 #include "synth/synth.h"
 #include "synth/woplmanager.h"
 
+// Supported chip emulation modes
+enum class TOplChipMode { OPL3, OPL2 };
+
 // OPL3 has 18 two-operator voices (or 6 four-op + 6 two-op)
 // We use all 18 in 2-op mode for maximum polyphony.
 static constexpr unsigned OPL3_VOICES = 18;
@@ -98,7 +101,7 @@ public:
     virtual size_t Render(float* pOutBuffer, size_t nFrames) override;
     virtual void ReportStatus() const override;
     virtual void UpdateLCD(CLCD& LCD, unsigned int nTicks) override;
-    virtual const char* GetName() const override { return "ymfm OPL3"; }
+    virtual const char* GetName() const override;
     virtual TSynth GetType() const override { return TSynth::Ymfm; }
     virtual const char* GetChannelInstrumentName(u8 nChannel) override;
 
@@ -107,6 +110,8 @@ public:
     size_t GetCurrentBankIndex() const { return m_nCurrentBank; }
     bool SwitchBank(size_t nIndex);
     void RescanBanks() { m_BankManager.ScanBanks(); }
+    TOplChipMode GetChipMode() const { return m_eChipMode; }
+    void SetChipMode(TOplChipMode eMode);
 
 private:
     // Register-level helpers
@@ -139,6 +144,9 @@ private:
     ymfm::ymf262            m_Chip;
     uint32_t                m_nNativeRate;      // chip native sample rate
     uint32_t                m_nAgeCounter;
+
+    TOplChipMode            m_eChipMode;        // OPL2 or OPL3 mode
+    unsigned                m_nVoiceCount;      // 9 (OPL2) or 18 (OPL3)
 
     uint8_t                 m_nMasterVolume;    // 0–100
     std::array<TVoice, OPL3_VOICES>       m_Voices;

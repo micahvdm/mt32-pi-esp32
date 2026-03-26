@@ -474,6 +474,8 @@ CYmfmSynth::CYmfmSynth(unsigned nSampleRate)
       m_Chip(m_Interface),
       m_nNativeRate(0),
       m_nAgeCounter(0),
+      m_eChipMode(TOplChipMode::OPL3),
+      m_nVoiceCount(OPL3_VOICES),
       m_nMasterVolume(100),
       m_nCurrentBank(0),
       m_fResamplePos(0.0f)
@@ -552,8 +554,21 @@ bool CYmfmSynth::Initialize()
     m_nNativeRate = m_Chip.sample_rate(OPL3_CLOCK_HZ);
     m_Chip.reset();
 
-    // Enable OPL3 mode (bit 0 of reg 0x105)
-    WriteReg(0x105, 0x01);
+    // Apply chip mode from config
+    if (pConfig && pConfig->YmfmChip == CConfig::TYmfmChip::OPL2)
+    {
+        m_eChipMode   = TOplChipMode::OPL2;
+        m_nVoiceCount = 9;
+        LOGNOTE("Chip mode: OPL2 (9 voices, no stereo)");
+    }
+    else
+    {
+        m_eChipMode   = TOplChipMode::OPL3;
+        m_nVoiceCount = OPL3_VOICES;
+        // Enable OPL3 mode (bit 0 of reg 0x105)
+        WriteReg(0x105, 0x01);
+        LOGNOTE("Chip mode: OPL3 (18 voices, stereo)");
+    }
 
     LOGDBG("OPL3 native rate: %u Hz, output rate: %u Hz", m_nNativeRate, m_nSampleRate);
     return true;
@@ -837,15 +852,18 @@ void CYmfmSynth::ProgramVoice(unsigned nVoice, const TOpl3Patch& patch, uint8_t 
     WriteReg(0x60 + carOp, patch.carAttDec);
     WriteReg(0x80 + modOp, patch.modSusRel);
     WriteReg(0x80 + carOp, patch.carSusRel);
-    WriteReg(0xE0 + modOp, patch.modWave & 0x07);
-    WriteReg(0xE0 + carOp, patch.carWave & 0x07);
+    WriteReg(0xE0 + modOp, patch.modWave & (m_eChipMode == TOplChipMode::OPL2 ? 0x03u : 0x07u));
+    WriteReg(0xE0 + carOp, patch.carWave & (m_eChipMode == TOplChipMode::OPL2 ? 0x03u : 0x07u));
 
-    // Channel: feedback/connection + stereo enable + OPL3 outputs (both sides)
-    // Bits 7-6: output (L=1,R=0 → 0xC0; L=0,R=1 → 0x80; both → 0xA0 or 0xC0 typically "both")
-    uint8_t stereoBits = 0x30; // both left and right (OPL3)
-    if (nPan < 42)       stereoBits = 0x10; // left only
-    else if (nPan > 85)  stereoBits = 0x20; // right only
-    WriteReg(0xC0 + chanR, (stereoBits) | (patch.feedback & 0x0F));
+    // Channel: feedback/connection + (OPL3 only) stereo output enable
+    uint8_t stereoBits = 0x00;
+    if (m_eChipMode == TOplChipMode::OPL3)
+    {
+        stereoBits = 0x30; // both left and right
+        if (nPan < 42)       stereoBits = 0x10; // left only
+        else if (nPan > 85)  stereoBits = 0x20; // right only
+    }
+    WriteReg(0xC0 + chanR, stereoBits | (patch.feedback & 0x0F));
 }
 
 void CYmfmSynth::KeyOn(unsigned nVoice, uint8_t nNote, int8_t nNoteOffset)
@@ -894,7 +912,7 @@ void CYmfmSynth::KeyOff(unsigned nVoice)
 
 int CYmfmSynth::FindVoice(uint8_t nChannel, uint8_t nNote) const
 {
-    for (unsigned i = 0; i < OPL3_VOICES; ++i)
+    for (unsigned i = 0; i < m_nVoiceCount; ++i)
         if (!m_Voices[i].bFree && m_Voices[i].nMIDIChannel == nChannel && m_Voices[i].nNote == nNote)
             return (int)i;
     return -1;
@@ -903,7 +921,7 @@ int CYmfmSynth::FindVoice(uint8_t nChannel, uint8_t nNote) const
 int CYmfmSynth::AllocVoice(uint8_t nChannel, uint8_t nNote)
 {
     // Find a free voice first
-    for (unsigned i = 0; i < OPL3_VOICES; ++i)
+    for (unsigned i = 0; i < m_nVoiceCount; ++i)
         if (m_Voices[i].bFree)
             return (int)i;
 
@@ -912,7 +930,7 @@ int CYmfmSynth::AllocVoice(uint8_t nChannel, uint8_t nNote)
     int victim = -1;
     uint32_t oldest = 0xFFFFFFFF;
 
-    for (unsigned i = 0; i < OPL3_VOICES; ++i)
+    for (unsigned i = 0; i < m_nVoiceCount; ++i)
         if (m_Voices[i].nMIDIChannel == nChannel && m_Voices[i].nAge < oldest)
         {
             oldest = m_Voices[i].nAge;
@@ -920,7 +938,7 @@ int CYmfmSynth::AllocVoice(uint8_t nChannel, uint8_t nNote)
         }
 
     if (victim < 0)
-        for (unsigned i = 0; i < OPL3_VOICES; ++i)
+        for (unsigned i = 0; i < m_nVoiceCount; ++i)
             if (m_Voices[i].nAge < oldest)
             {
                 oldest = m_Voices[i].nAge;
@@ -940,7 +958,7 @@ void CYmfmSynth::FreeVoice(unsigned nVoice)
 
 void CYmfmSynth::ReleaseAllChannel(uint8_t nChannel)
 {
-    for (unsigned i = 0; i < OPL3_VOICES; ++i)
+    for (unsigned i = 0; i < m_nVoiceCount; ++i)
         if (!m_Voices[i].bFree && m_Voices[i].nMIDIChannel == nChannel)
         {
             KeyOff(i);
@@ -1078,7 +1096,7 @@ void CYmfmSynth::PitchBend(uint8_t nChannel, uint16_t nValue)
 
 void CYmfmSynth::AllNotesOff(uint8_t nChannel)
 {
-    for (unsigned i = 0; i < OPL3_VOICES; ++i)
+    for (unsigned i = 0; i < m_nVoiceCount; ++i)
         if (!m_Voices[i].bFree && m_Voices[i].nMIDIChannel == nChannel)
         {
             KeyOff(i);
@@ -1150,7 +1168,7 @@ void CYmfmSynth::HandleMIDISysExMessage(const u8* pData, size_t nSize)
 
 bool CYmfmSynth::IsActive()
 {
-    for (unsigned i = 0; i < OPL3_VOICES; ++i)
+    for (unsigned i = 0; i < m_nVoiceCount; ++i)
         if (!m_Voices[i].bFree)
             return true;
     return false;
@@ -1158,12 +1176,33 @@ bool CYmfmSynth::IsActive()
 
 void CYmfmSynth::AllSoundOff()
 {
-    for (unsigned i = 0; i < OPL3_VOICES; ++i)
+    for (unsigned i = 0; i < m_nVoiceCount; ++i)
     {
         KeyOff(i);
         m_Voices[i].bFree = true;
     }
     CSynthBase::AllSoundOff();
+}
+
+const char* CYmfmSynth::GetName() const
+{
+    return m_eChipMode == TOplChipMode::OPL3 ? "ymfm OPL3" : "ymfm OPL2";
+}
+
+void CYmfmSynth::SetChipMode(TOplChipMode eMode)
+{
+    if (m_eChipMode == eMode)
+        return;
+
+    AllSoundOff();
+    m_eChipMode   = eMode;
+    m_nVoiceCount = (eMode == TOplChipMode::OPL2) ? 9u : OPL3_VOICES;
+
+    m_Chip.reset();
+    if (eMode == TOplChipMode::OPL3)
+        WriteReg(0x105, 0x01);
+
+    LOGNOTE("Chip mode switched to %s", eMode == TOplChipMode::OPL3 ? "OPL3" : "OPL2");
 }
 
 void CYmfmSynth::SetMasterVolume(u8 nVolume)

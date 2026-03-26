@@ -36,7 +36,7 @@ static size_t GetMenuItemCount(const CSynthBase* pCurrent,
 	size_t n = 0;
 	if (pCurrent == pSF && pSF)    n = 12;
 	else if (pCurrent == pMT32 && pMT32) n = 12;
-	else if (pCurrent && pCurrent->GetType() == TSynth::Ymfm) n = 2;
+	else if (pCurrent && pCurrent->GetType() == TSynth::Ymfm) n = 3;
 	if (n > 0 && pMT32Pi) n += MixerMenuItems;
 	return n;
 }
@@ -67,8 +67,8 @@ static const char* GetMenuItemLabel(const CSynthBase* pCurrent,
 	}
 	if (pCurrent && pCurrent->GetType() == TSynth::Ymfm)
 	{
-		static const char* opl3Labels[] = { "Bank", "Volume" };
-		return (nItem < 2) ? opl3Labels[nItem] : nullptr;
+		static const char* opl3Labels[] = { "Bank", "Chip", "Volume" };
+		return (nItem < 3) ? opl3Labels[nItem] : nullptr;
 	}
 	return nullptr;
 }
@@ -320,7 +320,16 @@ bool CUserInterface::MenuEncoderEvent(s8 nDelta)
 				}
 				break;
 			}
-			case 1: // Volume 0-100
+			case 1: // Chip — toggle OPL2/OPL3
+				if (nDelta != 0)
+				{
+					const TOplChipMode eCurrent = m_pMenuYmfm->GetChipMode();
+					const TOplChipMode eNew = (eCurrent == TOplChipMode::OPL3)
+						? TOplChipMode::OPL2 : TOplChipMode::OPL3;
+					m_pMenuYmfm->SetChipMode(eNew);
+				}
+				break;
+			case 2: // Volume 0-100
 				m_nMenuYmfmVol = Utility::Clamp(m_nMenuYmfmVol + nDelta, 0, 100);
 				m_pMenuMT32Pi->SetMasterVolumePercent(m_nMenuYmfmVol);
 				break;
@@ -549,11 +558,14 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 		else if (m_pMenuYmfm && m_pMenuCurrentSynth == m_pMenuYmfm)
 		{
 			// OPL3 items — label + value inline
-			static const char* opl3Labels[] = { "Bank", "Volume" };
-			pLabel = (nItemIdx < 2) ? opl3Labels[nItemIdx] : nullptr;
+			static const char* opl3Labels[] = { "Bank", "Chip", "Volume" };
+			pLabel = (nItemIdx < 3) ? opl3Labels[nItemIdx] : nullptr;
 			if (nItemIdx == 0)
 				snprintf(valBuf, sizeof(valBuf), "%.6s", m_pMenuYmfm->GetBankName());
 			else if (nItemIdx == 1)
+				snprintf(valBuf, sizeof(valBuf), "%s",
+					m_pMenuYmfm->GetChipMode() == TOplChipMode::OPL3 ? "OPL3" : "OPL2");
+			else if (nItemIdx == 2)
 				snprintf(valBuf, sizeof(valBuf), "%d%%", m_nMenuYmfmVol);
 		}
 		else
