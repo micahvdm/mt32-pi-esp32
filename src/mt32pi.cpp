@@ -2246,6 +2246,9 @@ void CMT32Pi::UpdateUSB(bool bStartup)
 
 				if (m_pSoundFontSynth)
 					LCDLog(TLCDLogType::Notice, "%d SoundFonts avail", m_pSoundFontSynth->GetSoundFontManager().GetSoundFontCount());
+
+				if (m_pYmfmSynth)
+					m_pYmfmSynth->RescanBanks();
 			}
 		}
 	}
@@ -2263,6 +2266,9 @@ void CMT32Pi::UpdateUSB(bool bStartup)
 			m_pSoundFontSynth->GetSoundFontManager().ScanSoundFonts();
 			LCDLog(TLCDLogType::Notice, "%d SoundFonts avail", m_pSoundFontSynth->GetSoundFontManager().GetSoundFontCount());
 		}
+
+		if (m_pYmfmSynth)
+			m_pYmfmSynth->RescanBanks();
 	}
 	m_pUSBMassStorageDevice = pUSBMassStorageDevice;
 
@@ -2682,6 +2688,19 @@ void CMT32Pi::ProcessButtonEvent(const TButtonEvent& Event)
 	{
 		if (m_pCurrentSynth == m_pMT32Synth)
 			NextMT32ROMSet();
+		else if (m_pCurrentSynth == m_pYmfmSynth && m_pYmfmSynth)
+		{
+			// Next WOPL bank
+			const size_t nBanks = m_pYmfmSynth->GetBankManager().GetBankCount();
+			if (!nBanks)
+				LCDLog(TLCDLogType::Error, "No WOPL banks!");
+			else
+			{
+				const size_t nNext = (m_pYmfmSynth->GetCurrentBankIndex() + 1) % nBanks;
+				if (m_pYmfmSynth->SwitchBank(nNext))
+					LCDLog(TLCDLogType::Notice, m_pYmfmSynth->GetBankName());
+			}
+		}
 		else
 		{
 			// Next SoundFont

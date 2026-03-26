@@ -303,8 +303,18 @@ bool CUserInterface::MenuEncoderEvent(s8 nDelta)
 		{
 			switch (m_nMenuCursor)
 			{
-			case 0: // Bank — read-only for now
+			case 0: // Bank — cycle through scanned WOPL banks
+			{
+				const size_t nBanks = m_pMenuYmfm->GetBankManager().GetBankCount();
+				if (nBanks > 0)
+				{
+					const size_t nNext = static_cast<size_t>(
+						(static_cast<int>(m_pMenuYmfm->GetCurrentBankIndex()) + nDelta
+						 + static_cast<int>(nBanks)) % static_cast<int>(nBanks));
+					m_pMenuYmfm->SwitchBank(nNext);
+				}
 				break;
+			}
 			case 1: // Volume 0-100
 				m_nMenuYmfmVol = Utility::Clamp(m_nMenuYmfmVol + nDelta, 0, 100);
 				m_pMenuMT32Pi->SetMasterVolumePercent(m_nMenuYmfmVol);

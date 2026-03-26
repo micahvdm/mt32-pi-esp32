@@ -16,6 +16,7 @@
 
 #include "synth/synthbase.h"
 #include "synth/synth.h"
+#include "synth/woplmanager.h"
 
 // OPL3 has 18 two-operator voices (or 6 four-op + 6 two-op)
 // We use all 18 in 2-op mode for maximum polyphony.
@@ -102,6 +103,10 @@ public:
     virtual const char* GetChannelInstrumentName(u8 nChannel) override;
 
     const char* GetBankName() const { return m_szBankName; }
+    const CWoplBankManager& GetBankManager() const { return m_BankManager; }
+    size_t GetCurrentBankIndex() const { return m_nCurrentBank; }
+    bool SwitchBank(size_t nIndex);
+    void RescanBanks() { m_BankManager.ScanBanks(); }
 
 private:
     // Register-level helpers
@@ -139,6 +144,9 @@ private:
     std::array<TChannelState, MIDI_CHANNELS> m_Channels;
 
     TOpl3Patch              m_Patches[128];     // runtime melodic bank (GM or custom WOPL)
+
+    CWoplBankManager        m_BankManager;      // scanned bank list
+    size_t                  m_nCurrentBank;     // index into m_BankManager
 
     char                    m_szBankName[64];   // displayed in OSD menu
 

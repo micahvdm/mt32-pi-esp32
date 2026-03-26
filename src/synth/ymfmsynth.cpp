@@ -475,6 +475,7 @@ CYmfmSynth::CYmfmSynth(unsigned nSampleRate)
       m_nNativeRate(0),
       m_nAgeCounter(0),
       m_nMasterVolume(100),
+      m_nCurrentBank(0),
       m_fResamplePos(0.0f)
 {
     m_Voices.fill({true, 0, 0, 0, 0});
@@ -494,13 +495,58 @@ CYmfmSynth::CYmfmSynth(unsigned nSampleRate)
 
 bool CYmfmSynth::Initialize()
 {
+    // Scan for available WOPL banks on storage
+    m_BankManager.ScanBanks();
+
     // Try to load a custom WOPL bank from SD card
     const CConfig* pConfig = CConfig::Get();
     if (pConfig)
     {
         const char* pPath = pConfig->YmfmBankFile;
         if (pPath && *pPath)
-            LoadWOPLBank(pPath);
+        {
+            // If the path doesn't have a disk prefix, try SD: first
+            if (pPath[1] == ':')
+            {
+                // Absolute path — load directly
+                if (LoadWOPLBank(pPath))
+                {
+                    // Find the bank's index in the scanned list
+                    const size_t nBanks = m_BankManager.GetBankCount();
+                    for (size_t i = 0; i < nBanks; ++i)
+                    {
+                        const char* pEntry = m_BankManager.GetBankPath(i);
+                        if (pEntry && strcmp(pEntry, pPath) == 0)
+                        {
+                            m_nCurrentBank = i;
+                            break;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // Bare filename — search the bank list for a match
+                const size_t nBanks = m_BankManager.GetBankCount();
+                for (size_t i = 0; i < nBanks; ++i)
+                {
+                    const char* pName = m_BankManager.GetBankName(i);
+                    if (pName && strcmp(pName, pPath) == 0)
+                    {
+                        if (LoadWOPLBank(m_BankManager.GetBankPath(i)))
+                            m_nCurrentBank = i;
+                        break;
+                    }
+                }
+                // If not found by name, try constructing SD: path directly
+                if (strcmp(m_szBankName, "GM built-in") == 0)
+                {
+                    CString sdPath;
+                    sdPath.Format("SD:/%s", pPath);
+                    LoadWOPLBank(sdPath);
+                }
+            }
+        }
     }
 
     m_nNativeRate = m_Chip.sample_rate(OPL3_CLOCK_HZ);
@@ -602,6 +648,24 @@ bool CYmfmSynth::LoadWOPLBank(const char* pPath)
     m_szBankName[sizeof(m_szBankName) - 1] = '\0';
     LOGDBG("Loaded WOPL bank: %s", pPath);
     return true;
+}
+
+// ---------------------------------------------------------------------------
+// Bank switching (called from Button2 handler and OSD menu)
+// ---------------------------------------------------------------------------
+
+bool CYmfmSynth::SwitchBank(size_t nIndex)
+{
+    const char* pPath = m_BankManager.GetBankPath(nIndex);
+    if (!pPath)
+        return false;
+
+    if (LoadWOPLBank(pPath))
+    {
+        m_nCurrentBank = nIndex;
+        return true;
+    }
+    return false;
 }
 
 // ---------------------------------------------------------------------------
