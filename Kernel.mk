@@ -95,6 +95,9 @@ INCLUDE		+=	-I $(FLUIDSYNTHBUILDDIR)/include \
 			-I $(FLUIDSYNTHHOME)/include
 EXTRALIBS	+=	$(FLUIDSYNTHLIB)
 
+INCLUDE		+=	-I $(YMFMHOME)/src
+EXTRALIBS	+=	$(YMFMLIB)
+
 # Increase kernel max size to 4MB to accommodate stb_vorbis (+~72KB code/data)
 # Default is 2MB; exceeding it causes BSS to overflow into the kernel stack.
 DEFINE		+=	-D KERNEL_MAX_SIZE="(4*MEGABYTE)"
