@@ -34,7 +34,7 @@ private:
 	};
 
 	void CheckBank(const char* pFullPath, const char* pFileName);
-	static bool IsWoplExtension(const char* pFileName);
+	static bool IsSupportedExtension(const char* pFileName);
 
 	size_t m_nBanks;
 	TBankEntry m_BankList[MaxBanks];

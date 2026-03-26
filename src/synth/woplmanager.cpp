@@ -44,7 +44,7 @@ bool CWoplBankManager::ScanBanks()
 		{
 			if (!(FileInfo.fattrib & (AM_DIR | AM_HID | AM_SYS)))
 			{
-				if (IsWoplExtension(FileInfo.fname))
+				if (IsSupportedExtension(FileInfo.fname))
 				{
 					CString FullPath;
 					FullPath.Format("%s:/%s", pDisk, FileInfo.fname);
@@ -94,7 +94,7 @@ void CWoplBankManager::CheckBank(const char* pFullPath, const char* pFileName)
 	++m_nBanks;
 }
 
-bool CWoplBankManager::IsWoplExtension(const char* pFileName)
+bool CWoplBankManager::IsSupportedExtension(const char* pFileName)
 {
 	// Find the last '.' in the filename
 	const char* pDot = nullptr;
@@ -112,6 +112,13 @@ bool CWoplBankManager::IsWoplExtension(const char* pFileName)
 	    (ext[2] == 'p' || ext[2] == 'P') &&
 	    (ext[3] == 'l' || ext[3] == 'L') &&
 	     ext[4] == '\0')
+		return true;
+
+	// ".op2"
+	if ((ext[0] == 'o' || ext[0] == 'O') &&
+	    (ext[1] == 'p' || ext[1] == 'P') &&
+	     ext[2] == '2' &&
+	     ext[3] == '\0')
 		return true;
 
 	return false;

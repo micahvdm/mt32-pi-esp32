@@ -566,6 +566,20 @@ bool CYmfmSynth::Initialize()
 
 bool CYmfmSynth::LoadWOPLBank(const char* pPath)
 {
+    // Dispatch .op2 (DOOM GENMIDI) files to dedicated loader
+    const char* pDot = nullptr;
+    for (const char* p = pPath; *p; ++p)
+        if (*p == '.') pDot = p;
+    if (pDot)
+    {
+        const char* ext = pDot + 1;
+        const bool bIsOp2 = (ext[0] == 'o' || ext[0] == 'O') &&
+                            (ext[1] == 'p' || ext[1] == 'P') &&
+                             ext[2] == '2' && ext[3] == '\0';
+        if (bIsOp2)
+            return LoadOP2Bank(pPath);
+    }
+
     FILE* pFile = fopen(pPath, "rb");
     if (!pFile)
     {
@@ -647,6 +661,92 @@ bool CYmfmSynth::LoadWOPLBank(const char* pPath)
     strncpy(m_szBankName, pSlash, sizeof(m_szBankName) - 1);
     m_szBankName[sizeof(m_szBankName) - 1] = '\0';
     LOGDBG("Loaded WOPL bank: %s", pPath);
+    return true;
+}
+
+// ---------------------------------------------------------------------------
+// DOOM GENMIDI (.op2) bank loader
+// Format: "#OPL_II#" header + 175 instruments × 36 bytes
+//
+// Each 36-byte instrument:
+//   [0-1]  flags (uint16 LE)
+//   [2]    fine_tuning
+//   [3]    fixed_note
+//   [4-9]  voice[0].modulator  (6 bytes: char, atk_dec, sus_rel, wave, ksl_tl, fb_conn)
+//   [10]   unused
+//   [11]   voice[0].note_offset (signed)
+//   [12-17]voice[0].carrier    (6 bytes: same layout)
+//   [18]   unused
+//   [19]   voice[0].note_offset2
+//   [20-35]voice[1]            (16 bytes, same layout — two-voice instruments ignored)
+//
+// Only the first 128 instruments (GM melodic) are loaded.
+// ---------------------------------------------------------------------------
+
+bool CYmfmSynth::LoadOP2Bank(const char* pPath)
+{
+    FILE* pFile = fopen(pPath, "rb");
+    if (!pFile)
+    {
+        LOGWARN("Cannot open OP2 bank '%s' - using built-in GM bank", pPath);
+        return false;
+    }
+
+    // Verify magic "#OPL_II#" (8 bytes)
+    char magic[8];
+    if (fread(magic, 1, 8, pFile) != 8 || memcmp(magic, "#OPL_II#", 8) != 0)
+    {
+        LOGWARN("OP2 bank '%s': bad magic - using built-in GM bank", pPath);
+        fclose(pFile);
+        return false;
+    }
+
+    // Read first 128 melodic instruments (each 36 bytes)
+    for (unsigned i = 0; i < 128; ++i)
+    {
+        uint8_t inst[36];
+        if (fread(inst, 1, 36, pFile) != 36)
+        {
+            LOGWARN("OP2 bank '%s': truncated at instrument %u - reverting to GM", pPath, i);
+            fclose(pFile);
+            memcpy(m_Patches, kGMPatches, sizeof(m_Patches));
+            return false;
+        }
+
+        // inst[0-1]: flags  (ignored for now)
+        // inst[2]:   fine_tuning  (ignored — OPL2/3 has no per-instrument fine-tune register)
+        // inst[3]:   fixed_note   (ignored — we let MIDI note drive pitch)
+        //
+        // voice[0] layout (bytes 4-19):
+        //   modulator: [4]=char [5]=atk_dec [6]=sus_rel [7]=waveform [8]=ksl_tl [9]=fb_conn
+        //   [10]: unused  [11]: note_offset
+        //   carrier:   [12]=char [13]=atk_dec [14]=sus_rel [15]=waveform [16]=ksl_tl [17]=fb_conn
+        //   [18]: unused  [19]: note_offset2 (second voice, ignored)
+        TOpl3Patch& p = m_Patches[i];
+        p.modChar     = inst[4];
+        p.modAttDec   = inst[5];
+        p.modSusRel   = inst[6];
+        p.modWave     = inst[7];
+        p.modScaleLev = inst[8];
+        p.feedback    = inst[9];   // fb_conn written to OPL reg 0xC0 (bits 3-1=fb, 0=conn)
+        p.noteOffset  = (int8_t)inst[11];
+        p.carChar     = inst[12];
+        p.carAttDec   = inst[13];
+        p.carSusRel   = inst[14];
+        p.carWave     = inst[15];
+        p.carScaleLev = inst[16];
+        // inst[17] = carrier fb_conn (connection is per-channel, already in p.feedback)
+    }
+
+    fclose(pFile);
+
+    // Store basename for OSD display
+    const char* pSlash = pPath;
+    for (const char* p = pPath; *p; ++p)
+        if (*p == '/' || *p == '\\') pSlash = p + 1;
+    strncpy(m_szBankName, pSlash, sizeof(m_szBankName) - 1);
+    m_szBankName[sizeof(m_szBankName) - 1] = '\0';
+    LOGDBG("Loaded OP2 bank: %s", pPath);
     return true;
 }
 

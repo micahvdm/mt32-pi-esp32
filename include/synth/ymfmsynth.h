@@ -115,8 +115,9 @@ private:
     void KeyOn(unsigned nVoice, uint8_t nNote, int8_t nNoteOffset);
     void KeyOff(unsigned nVoice);
 
-    // WOPL bank loading (melodic bank 0 only; fallback to built-in GM on failure)
-    bool LoadWOPLBank(const char* pPath);
+    // Bank loading — dispatches by file extension
+    bool LoadWOPLBank(const char* pPath);   // WOPL v2 format
+    bool LoadOP2Bank(const char* pPath);    // DOOM GENMIDI (.op2) format
 
     // Voice allocation
     int  AllocVoice(uint8_t nChannel, uint8_t nNote);
