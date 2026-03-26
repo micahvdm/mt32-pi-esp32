@@ -32,7 +32,8 @@ CMIDIRouter::CMIDIRouter()
 	: m_bEnabled(false),
 	  m_Preset(TRouterPreset::SingleMT32),
 	  m_pMT32(nullptr),
-	  m_pFluidSynth(nullptr)
+	  m_pFluidSynth(nullptr),
+	  m_pYmfm(nullptr)
 {
 	for (unsigned i = 0; i < NumChannels; ++i)
 	{
@@ -78,6 +79,10 @@ void CMIDIRouter::ApplyPreset(TRouterPreset Preset)
 
 		case TRouterPreset::SingleFluid:
 			SetAllChannels(m_pFluidSynth);
+			break;
+
+		case TRouterPreset::SingleYmfm:
+			SetAllChannels(m_pYmfm);
 			break;
 
 		case TRouterPreset::SplitGM:

@@ -130,6 +130,7 @@ CMT32Pi::CMT32Pi(CI2CMaster* pI2CMaster, CSPIMaster* pSPIMaster, CInterruptSyste
 	  m_pCurrentSynth(nullptr),
 	  m_pMT32Synth(nullptr),
 	  m_pSoundFontSynth(nullptr),
+	  m_pYmfmSynth(nullptr),
 	  m_bMixerEnabled(false),
 	  m_nRenderUs(0),
 	  m_nRenderAvgUs(0),
@@ -137,6 +138,7 @@ CMT32Pi::CMT32Pi(CI2CMaster* pI2CMaster, CSPIMaster* pSPIMaster, CInterruptSyste
 	  m_nDeadlineUs(0),
 	  m_nRenderMT32Us(0),
 	  m_nRenderFluidUs(0),
+	  m_nRenderYmfmUs(0),
 	  m_nRenderMixerUs(0),
 	  m_bAutoReducePartials(true),
 	  m_bMenuLongPressConsumed(false),
@@ -323,11 +325,16 @@ bool CMT32Pi::Initialize(bool bSerialMIDIAvailable)
 	LCDLog(TLCDLogType::Startup, "Init FluidSynth");
 	InitSoundFontSynth();
 
+	LCDLog(TLCDLogType::Startup, "Init OPL3");
+	InitYmfmSynth();
+
 	// Set initial synthesizer
 	if (m_pConfig->SystemDefaultSynth == CConfig::TSystemDefaultSynth::MT32)
 		m_pCurrentSynth = m_pMT32Synth;
 	else if (m_pConfig->SystemDefaultSynth == CConfig::TSystemDefaultSynth::SoundFont)
 		m_pCurrentSynth = m_pSoundFontSynth;
+	else if (m_pConfig->SystemDefaultSynth == CConfig::TSystemDefaultSynth::Ymfm)
+		m_pCurrentSynth = m_pYmfmSynth;
 
 	if (!m_pCurrentSynth)
 	{
@@ -338,6 +345,8 @@ bool CMT32Pi::Initialize(bool bSerialMIDIAvailable)
 			m_pCurrentSynth = m_pMT32Synth;
 		else if (m_pSoundFontSynth)
 			m_pCurrentSynth = m_pSoundFontSynth;
+		else if (m_pYmfmSynth)
+			m_pCurrentSynth = m_pYmfmSynth;
 		else
 		{
 			LOGPANIC("No synths available; ROMs/SoundFonts not found");
@@ -475,6 +484,23 @@ bool CMT32Pi::InitSoundFontSynth()
 	return true;
 }
 
+bool CMT32Pi::InitYmfmSynth()
+{
+	assert(m_pYmfmSynth == nullptr);
+
+	m_pYmfmSynth = new CYmfmSynth(m_pConfig->AudioSampleRate);
+	if (!m_pYmfmSynth->Initialize())
+	{
+		LOGWARN("ymfm OPL3 init failed");
+		delete m_pYmfmSynth;
+		m_pYmfmSynth = nullptr;
+		return false;
+	}
+
+	m_pYmfmSynth->SetUserInterface(&m_UserInterface);
+	return true;
+}
+
 void CMT32Pi::FormatIPAddress(CString& Out) const
 {
 	Out = "Unavailable";
@@ -491,6 +517,8 @@ const char* CMT32Pi::GetActiveSynthName() const
 		return "MT-32";
 	if (m_pCurrentSynth == m_pSoundFontSynth)
 		return "SoundFont";
+	if (m_pCurrentSynth == m_pYmfmSynth)
+		return "OPL3";
 	return "Unavailable";
 }
 
@@ -564,6 +592,8 @@ bool CMT32Pi::SetActiveSynth(TSynth Synth)
 		return m_pCurrentSynth == m_pMT32Synth;
 	if (Synth == TSynth::SoundFont)
 		return m_pCurrentSynth == m_pSoundFontSynth;
+	if (Synth == TSynth::Ymfm)
+		return m_pCurrentSynth == m_pYmfmSynth;
 
 	return false;
 }
@@ -1297,6 +1327,7 @@ s8 IntBuffer[nQueueSizeFrames * nBytesPerFrame + (bI2S ? 0 : 1)];
 		const unsigned nStart = CTimer::GetClockTicks();
 		unsigned nMT32Us = 0;
 		unsigned nFluidUs = 0;
+		unsigned nYmfmUs = 0;
 		unsigned nMixerUs = 0;
 
 		if (m_bMixerEnabled)
@@ -1322,6 +1353,8 @@ s8 IntBuffer[nQueueSizeFrames * nBytesPerFrame + (bI2S ? 0 : 1)];
 				nMT32Us = nSynthUs;
 			else if (m_pCurrentSynth == m_pSoundFontSynth)
 				nFluidUs = nSynthUs;
+			else if (m_pCurrentSynth == m_pYmfmSynth)
+				nYmfmUs = nSynthUs;
 		}
 
 		// Post-mix effects chain (EQ → Reverb → Limiter/clamp)
@@ -1331,8 +1364,8 @@ s8 IntBuffer[nQueueSizeFrames * nBytesPerFrame + (bI2S ? 0 : 1)];
 		m_nRenderUs = nElapsed;
 		m_nRenderMT32Us = nMT32Us;
 		m_nRenderFluidUs = nFluidUs;
+		m_nRenderYmfmUs = nYmfmUs;
 		m_nRenderMixerUs = nMixerUs;
-
 		// Exponential moving average (alpha ≈ 1/16)
 		m_nRenderAvgUs = m_nRenderAvgUs - (m_nRenderAvgUs >> 4) + (nElapsed >> 4);
 
@@ -2635,9 +2668,12 @@ void CMT32Pi::ProcessButtonEvent(const TButtonEvent& Event)
 		}
 		else
 		{
-			// Swap synths
+			// Swap synths (three-way cycle: MT-32 → SoundFont → OPL3 → MT-32)
 			if (m_pCurrentSynth == m_pMT32Synth)
-				SwitchSynth(TSynth::SoundFont);
+				SwitchSynth(m_pSoundFontSynth ? TSynth::SoundFont :
+				            m_pYmfmSynth     ? TSynth::Ymfm      : TSynth::MT32);
+			else if (m_pCurrentSynth == m_pSoundFontSynth)
+				SwitchSynth(m_pYmfmSynth ? TSynth::Ymfm : TSynth::MT32);
 			else
 				SwitchSynth(TSynth::MT32);
 		}
@@ -2695,6 +2731,11 @@ void CMT32Pi::SetupMixerRouting()
 		m_MIDIRouter.SetFluidSynthEngine(m_pSoundFontSynth);
 		m_AudioMixer.AddEngine(m_pSoundFontSynth);
 	}
+	if (m_pYmfmSynth)
+	{
+		m_MIDIRouter.SetYmfmEngine(m_pYmfmSynth);
+		m_AudioMixer.AddEngine(m_pYmfmSynth);
+	}
 
 	m_bMixerEnabled = m_pConfig->MixerEnabled;
 
@@ -2730,8 +2771,10 @@ void CMT32Pi::SetupMixerRouting()
 		// Classic single-engine mode
 		if (m_pCurrentSynth == m_pMT32Synth)
 			m_MIDIRouter.ApplyPreset(TRouterPreset::SingleMT32);
-		else
+		else if (m_pCurrentSynth == m_pSoundFontSynth)
 			m_MIDIRouter.ApplyPreset(TRouterPreset::SingleFluid);
+		else
+			m_MIDIRouter.ApplyPreset(TRouterPreset::SingleYmfm);
 
 		m_AudioMixer.SetSoloEngine(m_pCurrentSynth);
 		LOGNOTE("Mixer disabled (classic single-synth mode)");
@@ -3299,6 +3342,8 @@ void CMT32Pi::SwitchSynth(TSynth NewSynth)
 		pNewSynth = m_pMT32Synth;
 	else if (NewSynth == TSynth::SoundFont)
 		pNewSynth = m_pSoundFontSynth;
+	else if (NewSynth == TSynth::Ymfm)
+		pNewSynth = m_pYmfmSynth;
 
 	if (pNewSynth == nullptr)
 	{
@@ -3314,7 +3359,8 @@ void CMT32Pi::SwitchSynth(TSynth NewSynth)
 
 	m_pCurrentSynth->AllSoundOff();
 	m_pCurrentSynth = pNewSynth;
-	const char* pMode = NewSynth == TSynth::MT32 ? "MT-32 mode" : "SoundFont mode";
+	const char* pMode = NewSynth == TSynth::MT32 ? "MT-32 mode" :
+	                    NewSynth == TSynth::SoundFont ? "SoundFont mode" : "OPL3 mode";
 	LOGNOTE("Switching to %s", pMode);
 	LCDLog(TLCDLogType::Notice, pMode);
 
@@ -3323,8 +3369,10 @@ void CMT32Pi::SwitchSynth(TSynth NewSynth)
 	{
 		if (NewSynth == TSynth::MT32)
 			m_MIDIRouter.ApplyPreset(TRouterPreset::SingleMT32);
-		else
+		else if (NewSynth == TSynth::SoundFont)
 			m_MIDIRouter.ApplyPreset(TRouterPreset::SingleFluid);
+		else
+			m_MIDIRouter.ApplyPreset(TRouterPreset::SingleYmfm);
 
 		m_AudioMixer.SetSoloEngine(pNewSynth);
 		ApplyDualModeLimits(false);
