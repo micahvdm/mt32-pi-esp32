@@ -25,7 +25,7 @@
 // ---------------------------------------------------------------------------
 
 static constexpr size_t MenuVisibleRows = 4;
-static constexpr size_t MixerMenuItems  = 4;
+static constexpr size_t MixerMenuItems  = 5;
 
 // Number of menu items per synth (+ mixer items always appended)
 static size_t GetMenuItemCount(const CSynthBase* pCurrent,
@@ -76,7 +76,7 @@ static const char* GetMenuItemLabel(const CSynthBase* pCurrent,
 static const char* GetMixerMenuItemLabel(size_t nMixerIdx)
 {
 	static const char* mixerLabels[] =
-		{ "Mixer", "Preset", "MT32 Vol", "Fluid Vol" };
+		{ "Mixer", "Preset", "MT32 Vol", "Fluid Vol", "OPL3 Vol" };
 	return (nMixerIdx < MixerMenuItems) ? mixerLabels[nMixerIdx] : nullptr;
 }
 
@@ -252,6 +252,7 @@ void CUserInterface::EnterMenu(CSoundFontSynth* pSF, CMT32Synth* pMT32,
 		m_nMenuMixerPreset   = ms.nPreset;
 		m_nMenuMixerMT32Vol  = static_cast<int>(ms.fMT32Volume * 100.0f + 0.5f);
 		m_nMenuMixerFluidVol = static_cast<int>(ms.fFluidVolume * 100.0f + 0.5f);
+		m_nMenuMixerYmfmVol  = static_cast<int>(ms.fYmfmVolume * 100.0f + 0.5f);
 	}
 
 	m_State = TState::InMenu;
@@ -295,6 +296,10 @@ bool CUserInterface::MenuEncoderEvent(s8 nDelta)
 			case 3: // Fluid Vol [0-100]
 				m_nMenuMixerFluidVol = Utility::Clamp(m_nMenuMixerFluidVol + nDelta, 0, 100);
 				m_pMenuMT32Pi->SetMixerEngineVolume("fluidsynth", m_nMenuMixerFluidVol);
+				break;
+			case 4: // OPL3 Vol [0-100]
+				m_nMenuMixerYmfmVol = Utility::Clamp(m_nMenuMixerYmfmVol + nDelta, 0, 100);
+				m_pMenuMT32Pi->SetMixerEngineVolume("ymfm", m_nMenuMixerYmfmVol);
 				break;
 			default: break;
 			}
@@ -537,6 +542,7 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 			}
 			case 2: snprintf(valBuf, sizeof(valBuf), "%d%%", m_nMenuMixerMT32Vol); break;
 			case 3: snprintf(valBuf, sizeof(valBuf), "%d%%", m_nMenuMixerFluidVol); break;
+			case 4: snprintf(valBuf, sizeof(valBuf), "%d%%", m_nMenuMixerYmfmVol); break;
 			default: break;
 			}
 		}

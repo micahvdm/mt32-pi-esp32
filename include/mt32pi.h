@@ -169,6 +169,7 @@ public:
 		bool  bDualMode;
 		float fMT32Volume;
 		float fFluidVolume;
+		float fYmfmVolume;
 		float fMT32Pan;
 		float fFluidPan;
 		float fMasterVolume;

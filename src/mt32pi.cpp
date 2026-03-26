@@ -2830,6 +2830,7 @@ CMT32Pi::TMixerStatus CMT32Pi::GetMixerStatus() const
 
 	s.fMT32Volume  = m_pMT32Synth      ? m_AudioMixer.GetEngineVolume(m_pMT32Synth)      : 0.0f;
 	s.fFluidVolume = m_pSoundFontSynth  ? m_AudioMixer.GetEngineVolume(m_pSoundFontSynth) : 0.0f;
+	s.fYmfmVolume  = m_pYmfmSynth      ? m_AudioMixer.GetEngineVolume(m_pYmfmSynth)      : 0.0f;
 	s.fMT32Pan     = m_pMT32Synth      ? m_AudioMixer.GetEnginePan(m_pMT32Synth)         : 0.0f;
 	s.fFluidPan    = m_pSoundFontSynth  ? m_AudioMixer.GetEnginePan(m_pSoundFontSynth)    : 0.0f;
 
@@ -3015,6 +3016,8 @@ bool CMT32Pi::SetMixerEngineVolume(const char* pEngineName, int nVolumePercent)
 		pEngine = m_pMT32Synth;
 	else if (strcmp(pEngineName, "fluidsynth") == 0)
 		pEngine = m_pSoundFontSynth;
+	else if (strcmp(pEngineName, "ymfm") == 0)
+		pEngine = m_pYmfmSynth;
 	else
 		return false;
 

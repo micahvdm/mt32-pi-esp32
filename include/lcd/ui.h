@@ -154,6 +154,7 @@ bool  m_bMenuMixerEnabled;
 int   m_nMenuMixerPreset;    // TRouterPreset as int
 int   m_nMenuMixerMT32Vol;   // 0-100
 int   m_nMenuMixerFluidVol;  // 0-100
+int   m_nMenuMixerYmfmVol;   // 0-100
 
 // OPL3 (ymfm) menu state
 int   m_nMenuYmfmVol;        // 0-100
