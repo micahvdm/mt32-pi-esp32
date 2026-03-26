@@ -2635,7 +2635,7 @@ void CMT32Pi::ProcessButtonEvent(const TButtonEvent& Event)
 			if (m_UserInterface.IsInMenu())
 				m_UserInterface.MenuBackEvent();
 			else
-				m_UserInterface.EnterMenu(m_pSoundFontSynth, m_pMT32Synth, m_pCurrentSynth, this);
+				m_UserInterface.EnterMenu(m_pSoundFontSynth, m_pMT32Synth, m_pCurrentSynth, this, m_pYmfmSynth);
 		}
 		else if (!Event.bPressed)
 		{
@@ -3436,9 +3436,10 @@ void CMT32Pi::SetMasterVolume(s32 nVolume)
 		m_pMT32Synth->SetMasterVolume(m_nMasterVolume);
 	if (m_pSoundFontSynth)
 		m_pSoundFontSynth->SetMasterVolume(m_nMasterVolume);
+	if (m_pYmfmSynth)
+		m_pYmfmSynth->SetMasterVolume(m_nMasterVolume);
 
-	if (m_pCurrentSynth == m_pSoundFontSynth)
-		LCDLog(TLCDLogType::Notice, "Volume: %d", m_nMasterVolume);
+	LCDLog(TLCDLogType::Notice, "Volume: %d", m_nMasterVolume);
 }
 
 void CMT32Pi::LEDOn()

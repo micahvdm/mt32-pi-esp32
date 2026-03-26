@@ -479,6 +479,8 @@ CYmfmSynth::CYmfmSynth(unsigned nSampleRate)
 {
     m_Voices.fill({true, 0, 0, 0, 0});
     memcpy(m_Patches, kGMPatches, sizeof(m_Patches));
+    strncpy(m_szBankName, "GM built-in", sizeof(m_szBankName) - 1);
+    m_szBankName[sizeof(m_szBankName) - 1] = '\0';
 
     for (unsigned ch = 0; ch < MIDI_CHANNELS; ++ch)
     {
@@ -592,6 +594,12 @@ bool CYmfmSynth::LoadWOPLBank(const char* pPath)
     }
 
     fclose(pFile);
+    // Store the basename for display in the OSD menu
+    const char* pSlash = pPath;
+    for (const char* p = pPath; *p; ++p)
+        if (*p == '/' || *p == '\\') pSlash = p + 1;
+    strncpy(m_szBankName, pSlash, sizeof(m_szBankName) - 1);
+    m_szBankName[sizeof(m_szBankName) - 1] = '\0';
     LOGDBG("Loaded WOPL bank: %s", pPath);
     return true;
 }

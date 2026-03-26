@@ -14,6 +14,7 @@
 #include "mt32pi.h"
 #include "synth/mt32synth.h"
 #include "synth/soundfontsynth.h"
+#include "synth/ymfmsynth.h"
 #include "utility.h"
 
 #include <stdio.h>
@@ -35,6 +36,7 @@ static size_t GetMenuItemCount(const CSynthBase* pCurrent,
 	size_t n = 0;
 	if (pCurrent == pSF && pSF)    n = 12;
 	else if (pCurrent == pMT32 && pMT32) n = 12;
+	else if (pCurrent && pCurrent->GetType() == TSynth::Ymfm) n = 2;
 	if (n > 0 && pMT32Pi) n += MixerMenuItems;
 	return n;
 }
@@ -62,6 +64,11 @@ static const char* GetMenuItemLabel(const CSynthBase* pCurrent,
 			"Analog", "Render", "Partials"
 		};
 		return (nItem < 12) ? mt32Labels[nItem] : nullptr;
+	}
+	if (pCurrent && pCurrent->GetType() == TSynth::Ymfm)
+	{
+		static const char* opl3Labels[] = { "Bank", "Volume" };
+		return (nItem < 2) ? opl3Labels[nItem] : nullptr;
 	}
 	return nullptr;
 }
@@ -176,10 +183,12 @@ static void FormatMenuValue(char* pBuf, size_t nBufSize,
 // ---------------------------------------------------------------------------
 
 void CUserInterface::EnterMenu(CSoundFontSynth* pSF, CMT32Synth* pMT32,
-                               CSynthBase* pCurrent, CMT32Pi* pMT32Pi)
+                               CSynthBase* pCurrent, CMT32Pi* pMT32Pi,
+                               CYmfmSynth* pYmfm)
 {
 	m_pMenuSF           = pSF;
 	m_pMenuMT32         = pMT32;
+	m_pMenuYmfm         = pYmfm;
 	m_pMenuCurrentSynth = pCurrent;
 	m_pMenuMT32Pi       = pMT32Pi;
 	m_nMenuCursor       = 0;
@@ -229,6 +238,10 @@ void CUserInterface::EnterMenu(CSoundFontSynth* pSF, CMT32Synth* pMT32,
 		m_nMenuMT32AnalogMode    = static_cast<int>(pMT32->GetAnalogOutputMode());
 		m_nMenuMT32RendererType  = static_cast<int>(pMT32->GetRendererType());
 		m_nMenuMT32PartialCount  = static_cast<int>(pMT32->GetPartialCount());
+	}
+	else if (pCurrent == pYmfm && pYmfm)
+	{
+		m_nMenuYmfmVol = pMT32Pi ? pMT32Pi->GetMasterVolume() : 100;
 	}
 
 	// Initialize mixer values
@@ -282,6 +295,19 @@ bool CUserInterface::MenuEncoderEvent(s8 nDelta)
 			case 3: // Fluid Vol [0-100]
 				m_nMenuMixerFluidVol = Utility::Clamp(m_nMenuMixerFluidVol + nDelta, 0, 100);
 				m_pMenuMT32Pi->SetMixerEngineVolume("fluidsynth", m_nMenuMixerFluidVol);
+				break;
+			default: break;
+			}
+		}
+		else if (m_pMenuYmfm && m_pMenuCurrentSynth == m_pMenuYmfm && m_pMenuMT32Pi)
+		{
+			switch (m_nMenuCursor)
+			{
+			case 0: // Bank — read-only for now
+				break;
+			case 1: // Volume 0-100
+				m_nMenuYmfmVol = Utility::Clamp(m_nMenuYmfmVol + nDelta, 0, 100);
+				m_pMenuMT32Pi->SetMasterVolumePercent(m_nMenuYmfmVol);
 				break;
 			default: break;
 			}
@@ -503,6 +529,16 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 			case 3: snprintf(valBuf, sizeof(valBuf), "%d%%", m_nMenuMixerFluidVol); break;
 			default: break;
 			}
+		}
+		else if (m_pMenuYmfm && m_pMenuCurrentSynth == m_pMenuYmfm)
+		{
+			// OPL3 items — label + value inline
+			static const char* opl3Labels[] = { "Bank", "Volume" };
+			pLabel = (nItemIdx < 2) ? opl3Labels[nItemIdx] : nullptr;
+			if (nItemIdx == 0)
+				snprintf(valBuf, sizeof(valBuf), "%.6s", m_pMenuYmfm->GetBankName());
+			else if (nItemIdx == 1)
+				snprintf(valBuf, sizeof(valBuf), "%d%%", m_nMenuYmfmVol);
 		}
 		else
 		{

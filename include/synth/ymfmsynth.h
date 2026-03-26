@@ -101,6 +101,8 @@ public:
     virtual TSynth GetType() const override { return TSynth::Ymfm; }
     virtual const char* GetChannelInstrumentName(u8 nChannel) override;
 
+    const char* GetBankName() const { return m_szBankName; }
+
 private:
     // Register-level helpers
     void WriteReg(uint32_t nReg, uint8_t nValue);
@@ -137,6 +139,8 @@ private:
     std::array<TChannelState, MIDI_CHANNELS> m_Channels;
 
     TOpl3Patch              m_Patches[128];     // runtime melodic bank (GM or custom WOPL)
+
+    char                    m_szBankName[64];   // displayed in OSD menu
 
     // Resampler state (naive linear for now)
     float                   m_fResamplePos;
