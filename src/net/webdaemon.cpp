@@ -732,7 +732,7 @@ namespace
 		AppendJSONPairFloat(JSON, "ymfm_volume",     st.Mixer.fYmfmVolume);
 		AppendJSONPairBool(JSON, "ymfm_available",  st.bYmfmAvailable);
 		AppendJSONPair(JSON,     "ymfm_bank_name",  st.pYmfmBankName ? st.pYmfmBankName : "");
-		AppendJSONPairBool(JSON, "ymfm_chip_is_opl3", st.bYmfmChipIsOPL3);
+		AppendJSONPairBool(JSON, "ymfm_chip_is_opl3", st.bYmfmChipIsOPL3, false);
 	}
 }
 
