@@ -728,7 +728,7 @@ namespace
 		AppendJSONPairInt(JSON, "mt32_partial_count",  st.nMT32PartialCount);
 		AppendJSONPairBool(JSON, "mixer_enabled",  st.Mixer.bEnabled);
 		AppendJSONPairInt(JSON, "mixer_preset",    st.Mixer.nPreset);
-		AppendJSONPairBool(JSON, "mixer_dual_mode", st.Mixer.bDualMode, false);
+		AppendJSONPairBool(JSON, "mixer_dual_mode", st.Mixer.bDualMode);
 		AppendJSONPairFloat(JSON, "ymfm_volume",     st.Mixer.fYmfmVolume);
 		AppendJSONPairBool(JSON, "ymfm_available",  st.bYmfmAvailable);
 		AppendJSONPair(JSON,     "ymfm_bank_name",  st.pYmfmBankName ? st.pYmfmBankName : "");
