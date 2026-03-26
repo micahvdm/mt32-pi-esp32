@@ -190,7 +190,9 @@ public:
 		unsigned nMixerRenderUs; // mixer/gain/clamp overhead for the last chunk
 		unsigned nMT32LoadPercent;
 		unsigned nFluidLoadPercent;
+		unsigned nYmfmLoadPercent;
 		unsigned nMixerLoadPercent;
+		unsigned nYmfmRenderUs;
 		// Post-mix audio effects state
 		bool bEffectsEQEnabled;
 		bool bEffectsLimiterEnabled;
@@ -356,6 +358,11 @@ public:
 		// MIDI activity levels
 		float MIDILevels[16];
 		float MIDIPeaks[16];
+
+		// ymfm OPL3 state
+		bool        bYmfmAvailable;
+		const char* pYmfmBankName;
+		bool        bYmfmChipIsOPL3;
 
 		// Recorder state
 		bool bMidiRecording;

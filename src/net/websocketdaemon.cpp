@@ -212,13 +212,13 @@ static int BuildStatusJSON(char* buf, size_t bufSize, CMT32Pi* pPi)
 	{
 		int added = snprintf(buf + n, bufSize - n,
 			"],\"render_us\":%u,\"render_avg_us\":%u,\"deadline_us\":%u,\"cpu_load\":%u"
-			",\"mt32_render_us\":%u,\"fluid_render_us\":%u,\"mixer_render_us\":%u"
-			",\"mt32_cpu\":%u,\"fluid_cpu\":%u,\"mixer_cpu\":%u"
+			",\"mt32_render_us\":%u,\"fluid_render_us\":%u,\"ymfm_render_us\":%u,\"mixer_render_us\":%u"
+			",\"mt32_cpu\":%u,\"fluid_cpu\":%u,\"ymfm_cpu\":%u,\"mixer_cpu\":%u"
 			",\"recording\":%s"
 			",\"pl_count\":%u,\"pl_idx\":%u,\"pl_repeat\":%s,\"pl_shuffle\":%s}",
 			st.Mixer.nRenderUs, st.Mixer.nRenderAvgUs, st.Mixer.nDeadlineUs, st.Mixer.nCpuLoadPercent,
-			st.Mixer.nMT32RenderUs, st.Mixer.nFluidRenderUs, st.Mixer.nMixerRenderUs,
-			st.Mixer.nMT32LoadPercent, st.Mixer.nFluidLoadPercent, st.Mixer.nMixerLoadPercent,
+			st.Mixer.nMT32RenderUs, st.Mixer.nFluidRenderUs, st.Mixer.nYmfmRenderUs, st.Mixer.nMixerRenderUs,
+			st.Mixer.nMT32LoadPercent, st.Mixer.nFluidLoadPercent, st.Mixer.nYmfmLoadPercent, st.Mixer.nMixerLoadPercent,
 			st.bMidiRecording ? "true" : "false",
 			st.nPlaylistCount, st.nPlaylistIndex,
 			st.bPlaylistRepeat  ? "true" : "false",

@@ -1104,6 +1104,12 @@ CMT32Pi::TSystemState CMT32Pi::GetSystemState() const
 	// MIDI activity levels
 	GetMIDIChannelLevels(s.MIDILevels, s.MIDIPeaks);
 
+	// ymfm OPL3 state
+	s.bYmfmAvailable  = m_pYmfmSynth != nullptr;
+	s.pYmfmBankName   = m_pYmfmSynth ? m_pYmfmSynth->GetBankName() : "";
+	s.bYmfmChipIsOPL3 = !m_pYmfmSynth ||
+		(m_pYmfmSynth->GetChipMode() == TOplChipMode::OPL3);
+
 	// Recorder
 	s.bMidiRecording = m_MidiRecorder.IsRecording();
 
@@ -2856,10 +2862,13 @@ CMT32Pi::TMixerStatus CMT32Pi::GetMixerStatus() const
 	s.nMT32RenderUs  = m_nRenderMT32Us;
 	s.nFluidRenderUs = m_nRenderFluidUs;
 	s.nMixerRenderUs = m_nRenderMixerUs;
+	s.nYmfmRenderUs  = m_nRenderYmfmUs;
 	s.nMT32LoadPercent = m_nDeadlineUs > 0
-		? static_cast<unsigned>(m_nRenderMT32Us * 100U / m_nDeadlineUs) : 0;
+		? static_cast<unsigned>(m_nRenderMT32Us  * 100U / m_nDeadlineUs) : 0;
 	s.nFluidLoadPercent = m_nDeadlineUs > 0
 		? static_cast<unsigned>(m_nRenderFluidUs * 100U / m_nDeadlineUs) : 0;
+	s.nYmfmLoadPercent = m_nDeadlineUs > 0
+		? static_cast<unsigned>(m_nRenderYmfmUs  * 100U / m_nDeadlineUs) : 0;
 	s.nMixerLoadPercent = m_nDeadlineUs > 0
 		? static_cast<unsigned>(m_nRenderMixerUs * 100U / m_nDeadlineUs) : 0;
 
