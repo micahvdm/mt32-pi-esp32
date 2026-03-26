@@ -99,6 +99,10 @@ CFG(rotation,			TLCDRotation,			LCDRotation,				TLCDRotation::Normal				)
 CFG(mirror,			TLCDMirror,			LCDMirror,				TLCDMirror::Normal				)
 END_SECTION
 
+BEGIN_SECTION(ymfm)
+CFG(bank_file,			CString,			YmfmBankFile,				""						)
+END_SECTION
+
 BEGIN_SECTION(mixer)
 CFG(enabled,			bool,				MixerEnabled,				false						)
 CFG(mode,			TMixerMode,			MixerMode,				TMixerMode::SingleMT32				)

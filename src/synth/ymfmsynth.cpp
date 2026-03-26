@@ -6,6 +6,7 @@
 #include <circle/logger.h>
 #include <circle/util.h>
 
+#include "config.h"
 #include "lcd/ui.h"
 #include "synth/ymfmsynth.h"
 #include "utility.h"
@@ -477,6 +478,7 @@ CYmfmSynth::CYmfmSynth(unsigned nSampleRate)
       m_fResamplePos(0.0f)
 {
     m_Voices.fill({true, 0, 0, 0, 0});
+    memcpy(m_Patches, kGMPatches, sizeof(m_Patches));
 
     for (unsigned ch = 0; ch < MIDI_CHANNELS; ++ch)
     {
@@ -490,6 +492,15 @@ CYmfmSynth::CYmfmSynth(unsigned nSampleRate)
 
 bool CYmfmSynth::Initialize()
 {
+    // Try to load a custom WOPL bank from SD card
+    const CConfig* pConfig = CConfig::Get();
+    if (pConfig)
+    {
+        const char* pPath = pConfig->YmfmBankFile;
+        if (pPath && *pPath)
+            LoadWOPLBank(pPath);
+    }
+
     m_nNativeRate = m_Chip.sample_rate(OPL3_CLOCK_HZ);
     m_Chip.reset();
 
@@ -497,6 +508,91 @@ bool CYmfmSynth::Initialize()
     WriteReg(0x105, 0x01);
 
     LOGDBG("OPL3 native rate: %u Hz, output rate: %u Hz", m_nNativeRate, m_nSampleRate);
+    return true;
+}
+
+// ---------------------------------------------------------------------------
+// WOPL v2 bank loader (melodic bank 0, 2-op only, no percussion)
+// Format: https://github.com/Wohlstand/OPL3BankEditor/blob/master/Specification.md
+// ---------------------------------------------------------------------------
+
+bool CYmfmSynth::LoadWOPLBank(const char* pPath)
+{
+    FILE* pFile = fopen(pPath, "rb");
+    if (!pFile)
+    {
+        LOGWARN("Cannot open WOPL bank '%s' - using built-in GM bank", pPath);
+        return false;
+    }
+
+    // Magic: "WOPL3-BANK" (10 bytes, no null in file)
+    char magic[10];
+    if (fread(magic, 1, 10, pFile) != 10 || memcmp(magic, "WOPL3-BANK", 10) != 0)
+    {
+        LOGWARN("WOPL bank '%s': bad magic - using built-in GM bank", pPath);
+        fclose(pFile);
+        return false;
+    }
+
+    // version (uint16 LE), count_melodic (uint16 LE), count_perc (uint16 LE)
+    uint8_t hdr[6];
+    if (fread(hdr, 1, 6, pFile) != 6)
+    {
+        fclose(pFile);
+        return false;
+    }
+    uint16_t version  = (uint16_t)(hdr[0] | (hdr[1] << 8));
+    uint16_t nMelodic = (uint16_t)(hdr[2] | (hdr[3] << 8));
+
+    if (version != 2 || nMelodic == 0)
+    {
+        LOGWARN("WOPL bank '%s': unsupported version %u or no melodic banks", pPath, version);
+        fclose(pFile);
+        return false;
+    }
+    uint16_t nPerc = (uint16_t)(hdr[4] | (hdr[5] << 8));
+
+    // skip global_flags + chip_type (2 bytes) + all bank name headers (34 bytes each)
+    if (fseek(pFile, 2 + (long)(nMelodic + nPerc) * 34, SEEK_CUR) != 0)
+    {
+        fclose(pFile);
+        return false;
+    }
+
+    // Read 128 melodic instruments from bank 0
+    // Each instrument is 63 bytes:
+    //  [0..31] name, [32] note_offset1, [33] note_offset2, [34] perc_voice_num,
+    //  [35] inst_flags, [36] second_detune,
+    //  [37..41] op0 (modulator), [42..46] op1 (carrier),
+    //  [47..56] op2+op3 (4-op, ignored), [57] fb_conn1, [58] fb_conn2,
+    //  [59..60] delay_on, [61..62] delay_off
+    for (unsigned i = 0; i < 128; ++i)
+    {
+        uint8_t inst[63];
+        if (fread(inst, 1, 63, pFile) != 63)
+        {
+            LOGWARN("WOPL bank '%s': truncated at instrument %u - reverting to GM", pPath, i);
+            fclose(pFile);
+            memcpy(m_Patches, kGMPatches, sizeof(m_Patches));
+            return false;
+        }
+        TOpl3Patch& p = m_Patches[i];
+        p.modChar     = inst[37];
+        p.carChar     = inst[42];
+        p.modScaleLev = inst[38];
+        p.carScaleLev = inst[43];
+        p.modAttDec   = inst[39];
+        p.carAttDec   = inst[44];
+        p.modSusRel   = inst[40];
+        p.carSusRel   = inst[45];
+        p.modWave     = inst[41];
+        p.carWave     = inst[46];
+        p.feedback    = inst[57];
+        p.noteOffset  = (int8_t)inst[32];
+    }
+
+    fclose(pFile);
+    LOGDBG("Loaded WOPL bank: %s", pPath);
     return true;
 }
 
@@ -719,7 +815,7 @@ void CYmfmSynth::NoteOn(uint8_t nChannel, uint8_t nNote, uint8_t nVelocity)
     }
     else
     {
-        patch = &kGMPatches[ch.nProgram & 0x7F];
+        patch = &m_Patches[ch.nProgram & 0x7F];
         noteOffset = patch->noteOffset;
     }
 

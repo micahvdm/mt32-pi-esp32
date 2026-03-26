@@ -108,6 +108,9 @@ private:
     void KeyOn(unsigned nVoice, uint8_t nNote, int8_t nNoteOffset);
     void KeyOff(unsigned nVoice);
 
+    // WOPL bank loading (melodic bank 0 only; fallback to built-in GM on failure)
+    bool LoadWOPLBank(const char* pPath);
+
     // Voice allocation
     int  AllocVoice(uint8_t nChannel, uint8_t nNote);
     int  FindVoice(uint8_t nChannel, uint8_t nNote) const;
@@ -132,6 +135,8 @@ private:
     uint8_t                 m_nMasterVolume;    // 0–100
     std::array<TVoice, OPL3_VOICES>       m_Voices;
     std::array<TChannelState, MIDI_CHANNELS> m_Channels;
+
+    TOpl3Patch              m_Patches[128];     // runtime melodic bank (GM or custom WOPL)
 
     // Resampler state (naive linear for now)
     float                   m_fResamplePos;
