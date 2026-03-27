@@ -2516,15 +2516,11 @@ void CMT32Pi::UpdateNetwork()
 		return;
 
 	bool bNetIsRunning = false;
-	if (m_pConfig->NetworkMode == CConfig::TNetworkMode::Ethernet)
-	{
-		if (m_pConfig->NetworkDHCP)
-			bNetIsRunning = !m_pNet->GetConfig()->GetIPAddress()->IsNull();
-		else
-			bNetIsRunning = true;
-	}
-	else
-		bNetIsRunning = m_pNet->IsRunning();
+	
+	if (m_pConfig->NetworkDHCP)
+		bNetIsRunning = !m_pNet->GetConfig()->GetIPAddress()->IsNull();
+	else if (m_pConfig->NetworkMode != CConfig::TNetworkMode::Off)
+		bNetIsRunning = true;
 
 	if (!m_bNetworkReady && bNetIsRunning)
 	{
