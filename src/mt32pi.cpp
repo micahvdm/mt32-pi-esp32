@@ -885,30 +885,12 @@ bool CMT32Pi::HandleMappedButtonAction(CConfig::TMIDICCAction Action, u8 nCC, u8
 	}
 }
 
-bool CMT32Pi::ForwardMappedCCAsNormalCC(u8 nChannel, u8 nCC, u8 nValue)
-{
-	const u32 nMessage = 0xB0u
-		| (static_cast<u32>(nChannel) & 0x0Fu)
-		| (static_cast<u32>(nCC & 0x7Fu) << 8)
-		| (static_cast<u32>(nValue & 0x7Fu) << 16);
-
-	if (m_bMixerEnabled)
-		m_MIDIRouter.RouteShortMessage(nMessage);
-	else
-		m_pCurrentSynth->HandleMIDIShortMessage(nMessage);
-
-	return true;
-}
-
 bool CMT32Pi::ExecuteMappedCCAction(CConfig::TMIDICCAction Action, u8 nChannel, u8 nCC, u8 nValue)
 {
 	switch (Action)
 	{
 		case CConfig::TMIDICCAction::None:
 			return false;
-
-		case CConfig::TMIDICCAction::SustainCC64:
-			return ForwardMappedCCAsNormalCC(nChannel, 64, nValue);
 
 		case CConfig::TMIDICCAction::SelectMT32:
 		case CConfig::TMIDICCAction::SelectSoundFont:
@@ -2177,8 +2159,23 @@ void CMT32Pi::OnShortMessage(u32 nMessage)
 	{
 		const u8 nCC    = (nMessage >> 8) & 0x7F;
 		const u8 nValue = (nMessage >> 16) & 0x7F;
-		if (HandleMappedControlChange(ch, nCC, nValue))
+
+		const CConfig::TMIDICCMapping& Mapping = m_pConfig->GetMIDICCMapping(nCC);
+		CConfig::TMIDICCAction Action = CConfig::TMIDICCAction::None;
+
+		if (m_pCurrentSynth == m_pMT32Synth)
+			Action = Mapping.MT32Action;
+		else if (m_pCurrentSynth == m_pSoundFontSynth)
+			Action = Mapping.SoundFontAction;
+
+		if (Action == CConfig::TMIDICCAction::SustainCC64)
+		{
+			nMessage = (nMessage & ~((u32)0x7F << 8)) | ((u32)64 << 8);
+		}
+		else if (HandleMappedControlChange(ch, nCC, nValue))
+		{
 			return;
+		}
 	}
 	if (type == 0x90)
 	{

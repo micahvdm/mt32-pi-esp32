@@ -133,7 +133,7 @@ public:
 	int GetSoundFontPolyphony() const;
 	bool SetSoundFontChannelType(int nChannel, int nType);
 	bool HandleMappedControlChange(u8 nChannel, u8 nCC, u8 nValue);
-	bool ForwardMappedCCAsNormalCC(u8 nChannel, u8 nCC, u8 nValue);
+	// bool ForwardMappedCCAsNormalCC(u8 nChannel, u8 nCC, u8 nValue);
 	u16 GetSoundFontPercussionMask() const;
 
 	// MT-32 Sound Parameters
