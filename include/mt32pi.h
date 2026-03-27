@@ -453,6 +453,16 @@ private:
 	bool HandleMappedButtonAction(CConfig::TMIDICCAction Action, u8 nCC, u8 nValue);
 	bool ExecuteMappedCCAction(CConfig::TMIDICCAction Action, u8 nChannel, u8 nCC, u8 nValue);
 
+	void QueuePendingSoundFontGain(float nValue);
+	void QueuePendingSFReverbRoomSize(float nValue);
+	void QueuePendingSFReverbLevel(float nValue);
+	void QueuePendingSFReverbDamping(float nValue);
+	void QueuePendingSFReverbWidth(float nValue);
+	void QueuePendingSFChorusLevel(float nValue);
+	void QueuePendingSFChorusDepth(float nValue);
+	void QueuePendingSFChorusSpeed(float nValue);
+	void ApplyPendingSoundFontControls();
+
 	const char* GetNetworkDeviceShortName() const;
 	void LEDOn();
 	void LCDLog(TLCDLogType Type, const char* pFormat...);
@@ -559,6 +569,27 @@ private:
 	CRingBuffer<u8, MIDIRxBufferSize> m_MIDIRxBuffer;
 	CRingBuffer<u8, MIDIRxBufferSize> m_WebMIDIRxBuffer;  // Web keyboard → Core 0
 	u8 m_nLastMappedCCValue[128];
+
+	// ---- Deferred SoundFont control updates ----
+	volatile bool  m_bPendingSoundFontGain;
+	volatile bool  m_bPendingSFReverbRoomSize;
+	volatile bool  m_bPendingSFReverbLevel;
+	volatile bool  m_bPendingSFReverbDamping;
+	volatile bool  m_bPendingSFReverbWidth;
+	volatile bool  m_bPendingSFChorusLevel;
+	volatile bool  m_bPendingSFChorusDepth;
+	volatile bool  m_bPendingSFChorusSpeed;
+
+	volatile float m_nPendingSoundFontGain;
+	volatile float m_nPendingSFReverbRoomSize;
+	volatile float m_nPendingSFReverbLevel;
+	volatile float m_nPendingSFReverbDamping;
+	volatile float m_nPendingSFReverbWidth;
+	volatile float m_nPendingSFChorusLevel;
+	volatile float m_nPendingSFChorusDepth;
+	volatile float m_nPendingSFChorusSpeed;
+
+	unsigned m_nLastPendingSoundFontApplyTicks;
 
 	// ---- Sequencer (FluidSequencer, runs entirely on Core 0) ----
 	static constexpr size_t SeqPathMax = 260;

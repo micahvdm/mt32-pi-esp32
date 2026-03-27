@@ -789,6 +789,108 @@ u16 CMT32Pi::GetSoundFontPercussionMask() const
 	return m_pSoundFontSynth->GetPercussionMask();
 }
 
+void CMT32Pi::QueuePendingSoundFontGain(float nValue)
+{
+    m_nPendingSoundFontGain = Utility::Clamp(nValue, 0.0f, 5.0f);
+    m_bPendingSoundFontGain = true;
+}
+
+void CMT32Pi::QueuePendingSFReverbRoomSize(float nValue)
+{
+    m_nPendingSFReverbRoomSize = Utility::Clamp(nValue, 0.0f, 1.0f);
+    m_bPendingSFReverbRoomSize = true;
+}
+
+void CMT32Pi::QueuePendingSFReverbLevel(float nValue)
+{
+    m_nPendingSFReverbLevel = Utility::Clamp(nValue, 0.0f, 1.0f);
+    m_bPendingSFReverbLevel = true;
+}
+
+void CMT32Pi::QueuePendingSFReverbDamping(float nValue)
+{
+    m_nPendingSFReverbDamping = Utility::Clamp(nValue, 0.0f, 1.0f);
+    m_bPendingSFReverbDamping = true;
+}
+
+void CMT32Pi::QueuePendingSFReverbWidth(float nValue)
+{
+    m_nPendingSFReverbWidth = Utility::Clamp(nValue, 0.0f, 100.0f);
+    m_bPendingSFReverbWidth = true;
+}
+
+void CMT32Pi::QueuePendingSFChorusLevel(float nValue)
+{
+    m_nPendingSFChorusLevel = Utility::Clamp(nValue, 0.0f, 1.0f);
+    m_bPendingSFChorusLevel = true;
+}
+
+void CMT32Pi::QueuePendingSFChorusDepth(float nValue)
+{
+    m_nPendingSFChorusDepth = Utility::Clamp(nValue, 0.0f, 20.0f);
+    m_bPendingSFChorusDepth = true;
+}
+
+void CMT32Pi::QueuePendingSFChorusSpeed(float nValue)
+{
+    m_nPendingSFChorusSpeed = Utility::Clamp(nValue, 0.29f, 5.0f);
+    m_bPendingSFChorusSpeed = true;
+}
+
+void CMT32Pi::ApplyPendingSoundFontControls()
+{
+    if (!m_pSoundFontSynth)
+        return;
+
+    if (m_bPendingSoundFontGain)
+    {
+        m_bPendingSoundFontGain = false;
+        SetSoundFontGain(m_nPendingSoundFontGain);
+    }
+
+    if (m_bPendingSFReverbRoomSize)
+    {
+        m_bPendingSFReverbRoomSize = false;
+        SetSoundFontReverbRoomSize(m_nPendingSFReverbRoomSize);
+    }
+
+    if (m_bPendingSFReverbLevel)
+    {
+        m_bPendingSFReverbLevel = false;
+        SetSoundFontReverbLevel(m_nPendingSFReverbLevel);
+    }
+
+    if (m_bPendingSFReverbDamping)
+    {
+        m_bPendingSFReverbDamping = false;
+        SetSoundFontReverbDamping(m_nPendingSFReverbDamping);
+    }
+
+    if (m_bPendingSFReverbWidth)
+    {
+        m_bPendingSFReverbWidth = false;
+        SetSoundFontReverbWidth(m_nPendingSFReverbWidth);
+    }
+
+    if (m_bPendingSFChorusLevel)
+    {
+        m_bPendingSFChorusLevel = false;
+        SetSoundFontChorusLevel(m_nPendingSFChorusLevel);
+    }
+
+    if (m_bPendingSFChorusDepth)
+    {
+        m_bPendingSFChorusDepth = false;
+        SetSoundFontChorusDepth(m_nPendingSFChorusDepth);
+    }
+
+    if (m_bPendingSFChorusSpeed)
+    {
+        m_bPendingSFChorusSpeed = false;
+        SetSoundFontChorusSpeed(m_nPendingSFChorusSpeed);
+    }
+}
+
 float CMT32Pi::CCToUnitFloat(u8 nValue)
 {
 	return static_cast<float>(nValue) / 127.0f;
@@ -902,16 +1004,22 @@ bool CMT32Pi::ExecuteMappedCCAction(CConfig::TMIDICCAction Action, u8 nChannel, 
 			if (m_pCurrentSynth == m_pMT32Synth)
 				return SetMT32ReverbOutputGain(CCToRangeFloat(nValue, 0.0f, 4.0f));
 			if (m_pCurrentSynth == m_pSoundFontSynth)
-				return SetSoundFontReverbLevel(CCToUnitFloat(nValue));
+			{
+				QueuePendingSFReverbLevel(CCToUnitFloat(nValue));
+				return true;
+			}
 			return false;
 
 		case CConfig::TMIDICCAction::MasterVolume:
 			return SetMasterVolumePercent(CCToPercent(nValue));
 
 		case CConfig::TMIDICCAction::SoundFontGain:
-			return (m_pCurrentSynth == m_pSoundFontSynth)
-				? SetSoundFontGain(CCToRangeFloat(nValue, 0.0f, 5.0f))
-				: false;
+			if (m_pCurrentSynth == m_pSoundFontSynth)
+			{
+				QueuePendingSoundFontGain(CCToRangeFloat(nValue, 0.0f, 5.0f));
+				return true;
+			}
+			return false;
 
 		case CConfig::TMIDICCAction::MT32ReverbEnable:
 			return (m_pCurrentSynth == m_pMT32Synth)
@@ -944,34 +1052,52 @@ bool CMT32Pi::ExecuteMappedCCAction(CConfig::TMIDICCAction Action, u8 nChannel, 
 				: false;
 
 		case CConfig::TMIDICCAction::SFReverbRoomSize:
-			return (m_pCurrentSynth == m_pSoundFontSynth)
-				? SetSoundFontReverbRoomSize(CCToUnitFloat(nValue))
-				: false;
+			if (m_pCurrentSynth == m_pSoundFontSynth)
+			{
+				QueuePendingSFReverbRoomSize(CCToUnitFloat(nValue));
+				return true;
+			}
+			return false;
 
 		case CConfig::TMIDICCAction::SFReverbDamping:
-			return (m_pCurrentSynth == m_pSoundFontSynth)
-				? SetSoundFontReverbDamping(CCToUnitFloat(nValue))
-				: false;
+			if (m_pCurrentSynth == m_pSoundFontSynth)
+			{
+				QueuePendingSFReverbDamping(CCToUnitFloat(nValue));
+				return true;
+			}
+			return false;
 
 		case CConfig::TMIDICCAction::SFReverbWidth:
-			return (m_pCurrentSynth == m_pSoundFontSynth)
-				? SetSoundFontReverbWidth(CCToRangeFloat(nValue, 0.0f, 100.0f))
-				: false;
+			if (m_pCurrentSynth == m_pSoundFontSynth)
+			{
+				QueuePendingSFReverbWidth(CCToRangeFloat(nValue, 0.0f, 100.0f));
+				return true;
+			}
+			return false;
 
 		case CConfig::TMIDICCAction::SFChorusLevel:
-			return (m_pCurrentSynth == m_pSoundFontSynth)
-				? SetSoundFontChorusLevel(CCToUnitFloat(nValue))
-				: false;
+			if (m_pCurrentSynth == m_pSoundFontSynth)
+			{
+				QueuePendingSFChorusLevel(CCToUnitFloat(nValue));
+				return true;
+			}
+			return false;
 
 		case CConfig::TMIDICCAction::SFChorusDepth:
-			return (m_pCurrentSynth == m_pSoundFontSynth)
-				? SetSoundFontChorusDepth(CCToRangeFloat(nValue, 0.0f, 20.0f))
-				: false;
+			if (m_pCurrentSynth == m_pSoundFontSynth)
+			{
+				QueuePendingSFChorusDepth(CCToRangeFloat(nValue, 0.0f, 20.0f));
+				return true;
+			}
+			return false;
 
 		case CConfig::TMIDICCAction::SFChorusSpeed:
-			return (m_pCurrentSynth == m_pSoundFontSynth)
-				? SetSoundFontChorusSpeed(CCToRangeFloat(nValue, 0.29f, 5.0f))
-				: false;
+			if (m_pCurrentSynth == m_pSoundFontSynth)
+			{
+				QueuePendingSFChorusSpeed(CCToRangeFloat(nValue, 0.29f, 5.0f));
+				return true;
+			}
+			return false;
 
 		default:
 			return false;
@@ -1342,6 +1468,12 @@ void CMT32Pi::MainTask()
 	{
 		// Process MIDI data
 		UpdateMIDI();
+
+		if ((m_pTimer->GetTicks() - m_nLastPendingSoundFontApplyTicks) >= MSEC2HZ(5))
+		{
+			ApplyPendingSoundFontControls();
+			m_nLastPendingSoundFontApplyTicks = m_pTimer->GetTicks();
+		}
 
 		// Process network packets
 		UpdateNetwork();
