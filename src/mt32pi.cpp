@@ -874,56 +874,105 @@ bool CMT32Pi::HandleMappedPrevNextCC(u8 nCC, u8 nValue)
 
 bool CMT32Pi::HandleMappedControlChange(u8 nChannel, u8 nCC, u8 nValue)
 {
-	(void) nChannel;
+    (void) nChannel;
 
-	if (HandleMappedPrevNextCC(nCC, nValue))
-		return true;
+    // Engine select buttons: press only
+    if (nCC == 104 || nCC == 105)
+    {
+        if (nValue < 64)
+        {
+            m_nLastMappedCCValue[nCC] = nValue;
+            return true;
+        }
 
-	switch (nCC)
-	{
-		case 21:
-			if (m_pCurrentSynth == m_pMT32Synth)
-				return SetMT32ReverbOutputGain(CCToRangeFloat(nValue, 0.0f, 4.0f));
-			if (m_pCurrentSynth == m_pSoundFontSynth)
-				return SetSoundFontReverbLevel(CCToUnitFloat(nValue));
-			return false;
+        if (m_nLastMappedCCValue[nCC] >= 64)
+            return true;
 
-		case 22:
-			return (m_pCurrentSynth == m_pSoundFontSynth)
-				? SetSoundFontReverbRoomSize(CCToUnitFloat(nValue))
-				: false;
+        m_nLastMappedCCValue[nCC] = nValue;
 
-		case 23:
-			return (m_pCurrentSynth == m_pSoundFontSynth)
-				? SetSoundFontReverbDamping(CCToUnitFloat(nValue))
-				: false;
+        if (nCC == 104)
+            return SetActiveSynth(TSynth::MT32);
 
-		case 24:
-			return (m_pCurrentSynth == m_pSoundFontSynth)
-				? SetSoundFontReverbWidth(CCToRangeFloat(nValue, 0.0f, 100.0f))
-				: false;
+        return SetActiveSynth(TSynth::SoundFont);
+    }
 
-		case 25:
-			return (m_pCurrentSynth == m_pSoundFontSynth)
-				? SetSoundFontChorusLevel(CCToUnitFloat(nValue))
-				: false;
+    if (HandleMappedPrevNextCC(nCC, nValue))
+        return true;
 
-		case 26:
-			return (m_pCurrentSynth == m_pSoundFontSynth)
-				? SetSoundFontChorusDepth(CCToRangeFloat(nValue, 0.0f, 20.0f))
-				: false;
+    switch (nCC)
+    {
+        case 21:
+            if (m_pCurrentSynth == m_pMT32Synth)
+                return SetMT32ReverbOutputGain(CCToRangeFloat(nValue, 0.0f, 4.0f));
+            if (m_pCurrentSynth == m_pSoundFontSynth)
+                return SetSoundFontReverbLevel(CCToUnitFloat(nValue));
+            return false;
 
-		case 27:
-			return (m_pCurrentSynth == m_pSoundFontSynth)
-				? SetSoundFontChorusSpeed(CCToRangeFloat(nValue, 0.29f, 5.0f))
-				: false;
+        case 22:
+            if (m_pCurrentSynth == m_pMT32Synth)
+                return SetMT32ReverbActive(nValue >= 64);
+            return (m_pCurrentSynth == m_pSoundFontSynth)
+                ? SetSoundFontReverbRoomSize(CCToUnitFloat(nValue))
+                : false;
 
-		case 28:
-			return SetMasterVolumePercent(CCToPercent(nValue));
+        case 23:
+            if (m_pCurrentSynth == m_pMT32Synth)
+            {
+                const int nMode = (nValue * 3) / 128;   // adjust if enum range differs
+                return SetMT32MIDIDelayMode(nMode);
+            }
+            return (m_pCurrentSynth == m_pSoundFontSynth)
+                ? SetSoundFontReverbDamping(CCToUnitFloat(nValue))
+                : false;
 
-		default:
-			return false;
-	}
+        case 24:
+            if (m_pCurrentSynth == m_pMT32Synth)
+            {
+                const int nMode = (nValue * 4) / 128;
+                return SetMT32AnalogMode(nMode);
+            }
+            return (m_pCurrentSynth == m_pSoundFontSynth)
+                ? SetSoundFontReverbWidth(CCToRangeFloat(nValue, 0.0f, 100.0f))
+                : false;
+
+        case 25:
+            if (m_pCurrentSynth == m_pMT32Synth)
+            {
+                const int nMode = (nValue * 4) / 128;
+                return SetMT32DACMode(nMode);
+            }
+            return (m_pCurrentSynth == m_pSoundFontSynth)
+                ? SetSoundFontChorusLevel(CCToUnitFloat(nValue))
+                : false;
+
+        case 26:
+            if (m_pCurrentSynth == m_pMT32Synth)
+            {
+                const int nType = (nValue >= 64) ? 1 : 0;
+                return SetMT32RendererType(nType);
+            }
+            return (m_pCurrentSynth == m_pSoundFontSynth)
+                ? SetSoundFontChorusDepth(CCToRangeFloat(nValue, 0.0f, 20.0f))
+                : false;
+
+        case 27:
+            if (m_pCurrentSynth == m_pMT32Synth)
+            {
+                const int nPartials = 8 + ((nValue * (256 - 8)) / 127);
+                return SetMT32PartialCount(nPartials);
+            }
+            return (m_pCurrentSynth == m_pSoundFontSynth)
+                ? SetSoundFontChorusSpeed(CCToRangeFloat(nValue, 0.29f, 5.0f))
+                : false;
+
+        case 28:
+            if (m_pCurrentSynth == m_pSoundFontSynth)
+                return SetSoundFontGain(CCToRangeFloat(nValue, 0.0f, 5.0f));
+            return SetMasterVolumePercent(CCToPercent(nValue));
+
+        default:
+            return false;
+    }
 }
 
 // ========== MT-32 Sound Parameters ==========
