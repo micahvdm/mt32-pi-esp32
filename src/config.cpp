@@ -90,6 +90,7 @@ CConfig::CConfig()
 	MIDICCMap[105] = { TMIDICCAction::SelectSoundFont,    TMIDICCAction::SelectSoundFont };
 	MIDICCMap[106] = { TMIDICCAction::PrevRomOrSoundFont, TMIDICCAction::PrevRomOrSoundFont };
 	MIDICCMap[107] = { TMIDICCAction::NextRomOrSoundFont, TMIDICCAction::NextRomOrSoundFont };
+	MIDICCMap[109] = { TMIDICCAction::SustainCC64, 		  TMIDICCAction::SustainCC64 };
 
 	MIDICCMap[21] = { TMIDICCAction::MainReverb,        TMIDICCAction::MainReverb };
 	MIDICCMap[22] = { TMIDICCAction::MT32ReverbEnable,  TMIDICCAction::SFReverbRoomSize };
@@ -247,6 +248,8 @@ CConfig::TMIDICCAction CConfig::ParseMIDICCAction(const char* pValue)
 		return TMIDICCAction::None;
 
 	if (strcasecmp(pValue, "none") == 0) return TMIDICCAction::None;
+
+	if (strcasecmp(pValue, "sustain_cc64") == 0) return TMIDICCAction::SustainCC64;
 
 	if (strcasecmp(pValue, "select_mt32") == 0) return TMIDICCAction::SelectMT32;
 	if (strcasecmp(pValue, "select_soundfont") == 0) return TMIDICCAction::SelectSoundFont;

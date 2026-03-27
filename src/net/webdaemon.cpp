@@ -1767,6 +1767,7 @@ THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
 		char MIDICC105[128];
 		char MIDICC106[128];
 		char MIDICC107[128];
+		char MIDICC109[128];
 		char ControlScheme[32];
 		char EncoderType[32];
 		char EncoderReversed[16];
@@ -1840,6 +1841,7 @@ THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
 		 || !GetFormValue(pFormData, "midi_cc_105", MIDICC105, sizeof(MIDICC105))
 		 || !GetFormValue(pFormData, "midi_cc_106", MIDICC106, sizeof(MIDICC106))
 		 || !GetFormValue(pFormData, "midi_cc_107", MIDICC107, sizeof(MIDICC107))
+		 || !GetFormValue(pFormData, "midi_cc_109", MIDICC109, sizeof(MIDICC109))
 		 || !GetFormValue(pFormData, "control_scheme", ControlScheme, sizeof(ControlScheme))
 		 || !GetFormValue(pFormData, "encoder_type", EncoderType, sizeof(EncoderType))
 		 || !GetFormValue(pFormData, "encoder_reversed", EncoderReversed, sizeof(EncoderReversed))
@@ -2027,7 +2029,8 @@ THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
 		 || !CConfig::ParseMIDICCMapping(MIDICC104, &ParsedMIDICCMapping)
 		 || !CConfig::ParseMIDICCMapping(MIDICC105, &ParsedMIDICCMapping)
 		 || !CConfig::ParseMIDICCMapping(MIDICC106, &ParsedMIDICCMapping)
-		 || !CConfig::ParseMIDICCMapping(MIDICC107, &ParsedMIDICCMapping))
+		 || !CConfig::ParseMIDICCMapping(MIDICC107, &ParsedMIDICCMapping)
+		 || !CConfig::ParseMIDICCMapping(MIDICC109, &ParsedMIDICCMapping))
 		{
 			return HTTPBadRequest;
 		}
@@ -2057,6 +2060,7 @@ THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
 			{TConfigSection::MIDICCMap,  "cc105", 			 MIDICC105, 				false},
 			{TConfigSection::MIDICCMap,  "cc106", 			 MIDICC106, 				false},
 			{TConfigSection::MIDICCMap,  "cc107", 			 MIDICC107, 				false},
+			{TConfigSection::MIDICCMap,  "cc109", 			 MIDICC109, 				false},
 			{TConfigSection::Control,    "scheme",           ControlScheme,             false},
 			{TConfigSection::Control,    "encoder_type",     EncoderType,               false},
 			{TConfigSection::Control,    "encoder_reversed", EncoderReversed,           false},
@@ -3755,6 +3759,7 @@ THTTPStatus CWebDaemon::BuildConfigPage(u8* pBuffer, unsigned* pLength, const ch
 			switch (Action)
 			{
 				case CConfig::TMIDICCAction::None:                return "none";
+				case CConfig::TMIDICCAction::SustainCC64:         return "sustain_cc64";
 				case CConfig::TMIDICCAction::SelectMT32:          return "select_mt32";
 				case CConfig::TMIDICCAction::SelectSoundFont:     return "select_soundfont";
 				case CConfig::TMIDICCAction::PrevRomOrSoundFont:  return "prev_rom_or_soundfont";
@@ -3803,6 +3808,7 @@ THTTPStatus CWebDaemon::BuildConfigPage(u8* pBuffer, unsigned* pLength, const ch
 		CString CC105 = GetMappingText(105);
 		CString CC106 = GetMappingText(106);
 		CString CC107 = GetMappingText(107);
+		CString CC109 = GetMappingText(109);
 
 		html.Append("<section><h2>MIDI CC Mapping</h2><div class='grid'>");
 		html.Append("<label>CC21<small>Main reverb / engine-dependent mapping. Format: action or mt32_action|soundfont_action</small><input name='midi_cc_21' value='"); AppendEscaped(html, CC21); html.Append("'></label>");
@@ -3817,6 +3823,7 @@ THTTPStatus CWebDaemon::BuildConfigPage(u8* pBuffer, unsigned* pLength, const ch
 		html.Append("<label>CC105<input name='midi_cc_105' value='"); AppendEscaped(html, CC105); html.Append("'></label>");
 		html.Append("<label>CC106<input name='midi_cc_106' value='"); AppendEscaped(html, CC106); html.Append("'></label>");
 		html.Append("<label>CC107<input name='midi_cc_107' value='"); AppendEscaped(html, CC107); html.Append("'></label>");
+		html.Append("<label>CC109<input name='midi_cc_109' value='"); AppendEscaped(html, CC109); html.Append("'></label>");
 		html.Append("</div></section>");
 
 		// ---- [control] ----

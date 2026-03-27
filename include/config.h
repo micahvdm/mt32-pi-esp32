@@ -93,6 +93,8 @@ public:
 	{
 		None = 0,
 
+		SustainCC64,
+
 		SelectMT32,
 		SelectSoundFont,
 		PrevRomOrSoundFont,

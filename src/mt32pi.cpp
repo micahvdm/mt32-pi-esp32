@@ -885,12 +885,25 @@ bool CMT32Pi::HandleMappedButtonAction(CConfig::TMIDICCAction Action, u8 nCC, u8
 	}
 }
 
-bool CMT32Pi::ExecuteMappedCCAction(CConfig::TMIDICCAction Action, u8 nCC, u8 nValue)
+bool CMT32Pi::ForwardMappedCCAsNormalCC(u8 nChannel, u8 nCC, u8 nValue)
+{
+	const u32 nMessage = 0xB0u | (static_cast<u32>(nChannel) & 0x0Fu)
+		| (static_cast<u32>(nCC & 0x7Fu) << 8)
+		| (static_cast<u32>(nValue & 0x7Fu) << 16);
+
+	RouteShortMessage(nMessage);
+	return true;
+}
+
+bool CMT32Pi::ExecuteMappedCCAction(CConfig::TMIDICCAction Action, u8 nChannel, u8 nCC, u8 nValue)
 {
 	switch (Action)
 	{
 		case CConfig::TMIDICCAction::None:
 			return false;
+
+		case CConfig::TMIDICCAction::SustainCC64:
+			return ForwardMappedCCAsNormalCC(nChannel, 64, nValue);
 
 		case CConfig::TMIDICCAction::SelectMT32:
 		case CConfig::TMIDICCAction::SelectSoundFont:
@@ -993,7 +1006,7 @@ bool CMT32Pi::HandleMappedControlChange(u8 nChannel, u8 nCC, u8 nValue)
 	else
 		return false;
 
-	return ExecuteMappedCCAction(Action, nCC, nValue);
+	return ExecuteMappedCCAction(Action, nChannel, nCC, nValue);
 }
 
 // ========== MT-32 Sound Parameters ==========

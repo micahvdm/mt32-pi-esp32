@@ -133,6 +133,7 @@ public:
 	int GetSoundFontPolyphony() const;
 	bool SetSoundFontChannelType(int nChannel, int nType);
 	bool HandleMappedControlChange(u8 nChannel, u8 nCC, u8 nValue);
+	bool ForwardMappedCCAsNormalCC(u8 nChannel, u8 nCC, u8 nValue);
 	u16 GetSoundFontPercussionMask() const;
 
 	// MT-32 Sound Parameters
@@ -450,7 +451,7 @@ private:
 	bool SelectRelativeSoundFont(int nDelta);
 	bool SelectRelativeMT32ROM(int nDelta);
 	bool HandleMappedButtonAction(CConfig::TMIDICCAction Action, u8 nCC, u8 nValue);
-	bool ExecuteMappedCCAction(CConfig::TMIDICCAction Action, u8 nCC, u8 nValue);
+	bool ExecuteMappedCCAction(CConfig::TMIDICCAction Action, u8 nChannel, u8 nCC, u8 nValue);
 
 	const char* GetNetworkDeviceShortName() const;
 	void LEDOn();
