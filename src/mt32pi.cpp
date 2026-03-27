@@ -887,11 +887,16 @@ bool CMT32Pi::HandleMappedButtonAction(CConfig::TMIDICCAction Action, u8 nCC, u8
 
 bool CMT32Pi::ForwardMappedCCAsNormalCC(u8 nChannel, u8 nCC, u8 nValue)
 {
-	const u32 nMessage = 0xB0u | (static_cast<u32>(nChannel) & 0x0Fu)
+	const u32 nMessage = 0xB0u
+		| (static_cast<u32>(nChannel) & 0x0Fu)
 		| (static_cast<u32>(nCC & 0x7Fu) << 8)
 		| (static_cast<u32>(nValue & 0x7Fu) << 16);
 
-	RouteShortMessage(nMessage);
+	if (m_bMixerEnabled)
+		m_MIDIRouter.RouteShortMessage(nMessage);
+	else
+		m_pCurrentSynth->HandleMIDIShortMessage(nMessage);
+
 	return true;
 }
 
