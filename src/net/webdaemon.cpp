@@ -88,6 +88,7 @@ namespace
 		System,
 		Audio,
 		MIDI,
+		MIDICCMap,
 		Control,
 		MT32Emu,
 		FluidSynth,
@@ -573,6 +574,8 @@ namespace
 			return TConfigSection::Audio;
 		if (std::strcmp(pTrimmed, "[midi]") == 0)
 			return TConfigSection::MIDI;
+		if (std::strcmp(pTrimmed, "[midi_cc_map]") == 0)
+			return TConfigSection::MIDICCMap;
 		if (std::strcmp(pTrimmed, "[control]") == 0)
 			return TConfigSection::Control;
 		if (std::strcmp(pTrimmed, "[mt32emu]") == 0)
@@ -1752,6 +1755,18 @@ THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
 		char MIDIGPIOBaudRate[16];
 		char MIDIGPIOThru[16];
 		char MIDIUSBSerialBaudRate[16];
+		char MIDICC21[128];
+		char MIDICC22[128];
+		char MIDICC23[128];
+		char MIDICC24[128];
+		char MIDICC25[128];
+		char MIDICC26[128];
+		char MIDICC27[128];
+		char MIDICC28[128];
+		char MIDICC104[128];
+		char MIDICC105[128];
+		char MIDICC106[128];
+		char MIDICC107[128];
 		char ControlScheme[32];
 		char EncoderType[32];
 		char EncoderReversed[16];
@@ -1813,6 +1828,18 @@ THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
 		 || !GetFormValue(pFormData, "midi_gpio_baud_rate", MIDIGPIOBaudRate, sizeof(MIDIGPIOBaudRate))
 		 || !GetFormValue(pFormData, "midi_gpio_thru", MIDIGPIOThru, sizeof(MIDIGPIOThru))
 		 || !GetFormValue(pFormData, "midi_usb_serial_baud_rate", MIDIUSBSerialBaudRate, sizeof(MIDIUSBSerialBaudRate))
+		 || !GetFormValue(pFormData, "midi_cc_21", MIDICC21, sizeof(MIDICC21))
+		 || !GetFormValue(pFormData, "midi_cc_22", MIDICC22, sizeof(MIDICC22))
+		 || !GetFormValue(pFormData, "midi_cc_23", MIDICC23, sizeof(MIDICC23))
+		 || !GetFormValue(pFormData, "midi_cc_24", MIDICC24, sizeof(MIDICC24))
+		 || !GetFormValue(pFormData, "midi_cc_25", MIDICC25, sizeof(MIDICC25))
+		 || !GetFormValue(pFormData, "midi_cc_26", MIDICC26, sizeof(MIDICC26))
+		 || !GetFormValue(pFormData, "midi_cc_27", MIDICC27, sizeof(MIDICC27))
+		 || !GetFormValue(pFormData, "midi_cc_28", MIDICC28, sizeof(MIDICC28))
+		 || !GetFormValue(pFormData, "midi_cc_104", MIDICC104, sizeof(MIDICC104))
+		 || !GetFormValue(pFormData, "midi_cc_105", MIDICC105, sizeof(MIDICC105))
+		 || !GetFormValue(pFormData, "midi_cc_106", MIDICC106, sizeof(MIDICC106))
+		 || !GetFormValue(pFormData, "midi_cc_107", MIDICC107, sizeof(MIDICC107))
 		 || !GetFormValue(pFormData, "control_scheme", ControlScheme, sizeof(ControlScheme))
 		 || !GetFormValue(pFormData, "encoder_type", EncoderType, sizeof(EncoderType))
 		 || !GetFormValue(pFormData, "encoder_reversed", EncoderReversed, sizeof(EncoderReversed))
@@ -1988,6 +2015,23 @@ THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
 			return HTTPBadRequest;
 		}
 
+		CConfig::TMIDICCMapping ParsedMIDICCMapping;
+		if (!CConfig::ParseMIDICCMapping(MIDICC21, &ParsedMIDICCMapping)
+		 || !CConfig::ParseMIDICCMapping(MIDICC22, &ParsedMIDICCMapping)
+		 || !CConfig::ParseMIDICCMapping(MIDICC23, &ParsedMIDICCMapping)
+		 || !CConfig::ParseMIDICCMapping(MIDICC24, &ParsedMIDICCMapping)
+		 || !CConfig::ParseMIDICCMapping(MIDICC25, &ParsedMIDICCMapping)
+		 || !CConfig::ParseMIDICCMapping(MIDICC26, &ParsedMIDICCMapping)
+		 || !CConfig::ParseMIDICCMapping(MIDICC27, &ParsedMIDICCMapping)
+		 || !CConfig::ParseMIDICCMapping(MIDICC28, &ParsedMIDICCMapping)
+		 || !CConfig::ParseMIDICCMapping(MIDICC104, &ParsedMIDICCMapping)
+		 || !CConfig::ParseMIDICCMapping(MIDICC105, &ParsedMIDICCMapping)
+		 || !CConfig::ParseMIDICCMapping(MIDICC106, &ParsedMIDICCMapping)
+		 || !CConfig::ParseMIDICCMapping(MIDICC107, &ParsedMIDICCMapping))
+		{
+			return HTTPBadRequest;
+		}
+
 		TReplacement Replacements[] = {
 			{TConfigSection::System,     "default_synth",    DefaultSynth,              false},
 			{TConfigSection::System,     "verbose",          SystemVerbose,             false},
@@ -2001,6 +2045,18 @@ THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
 			{TConfigSection::MIDI,       "gpio_baud_rate",   MIDIGPIOBaudRate,          false},
 			{TConfigSection::MIDI,       "gpio_thru",        MIDIGPIOThru,              false},
 			{TConfigSection::MIDI,       "usb_serial_baud_rate", MIDIUSBSerialBaudRate, false},
+			{TConfigSection::MIDICCMap,  "cc21",  			 MIDICC21,  				false},
+			{TConfigSection::MIDICCMap,  "cc22",  			 MIDICC22,  				false},
+			{TConfigSection::MIDICCMap,  "cc23",  			 MIDICC23,  				false},
+			{TConfigSection::MIDICCMap,  "cc24",  			 MIDICC24,  				false},
+			{TConfigSection::MIDICCMap,  "cc25",  			 MIDICC25,  				false},
+			{TConfigSection::MIDICCMap,  "cc26",  			 MIDICC26,  				false},
+			{TConfigSection::MIDICCMap,  "cc27",  			 MIDICC27,  				false},
+			{TConfigSection::MIDICCMap,  "cc28",  			 MIDICC28,  				false},
+			{TConfigSection::MIDICCMap,  "cc104", 			 MIDICC104, 				false},
+			{TConfigSection::MIDICCMap,  "cc105", 			 MIDICC105, 				false},
+			{TConfigSection::MIDICCMap,  "cc106", 			 MIDICC106, 				false},
+			{TConfigSection::MIDICCMap,  "cc107", 			 MIDICC107, 				false},
 			{TConfigSection::Control,    "scheme",           ControlScheme,             false},
 			{TConfigSection::Control,    "encoder_type",     EncoderType,               false},
 			{TConfigSection::Control,    "encoder_reversed", EncoderReversed,           false},
@@ -3691,6 +3747,76 @@ THTTPStatus CWebDaemon::BuildConfigPage(u8* pBuffer, unsigned* pLength, const ch
 		html.Append("<label>GPIO baud rate<small>Baud rate for GPIO MIDI. Standard DIN MIDI: 31250. SoftMPU serial mode: 38400. Range: 300-4000000</small><input name='midi_gpio_baud_rate' type='number' value='"); AppendEscaped(html, MIDIGPIOBaud); html.Append("'></label>");
 		html.Append("<label>GPIO thru<small>on: retransmits on GPIO Tx everything received on Rx. Useful for debugging or passing MIDI to another synth.</small><select name='midi_gpio_thru'><option value='off'"); html.Append(SelectedAttr(!pConfig->MIDIGPIOThru)); html.Append(">off</option><option value='on'"); html.Append(SelectedAttr(pConfig->MIDIGPIOThru)); html.Append(">on</option></select></label>");
 		html.Append("<label>USB serial baud rate<small>Baud rate for MIDI via USB-serial adapter. SoftMPU serial mode: 38400. Range: 9600-115200</small><input name='midi_usb_serial_baud_rate' type='number' value='"); AppendEscaped(html, MIDIUSBBaud); html.Append("'></label>");
+		html.Append("</div></section>");
+
+				// ---- [midi_cc_map] ----
+		auto GetActionText = [](CConfig::TMIDICCAction Action) -> const char*
+		{
+			switch (Action)
+			{
+				case CConfig::TMIDICCAction::None:                return "none";
+				case CConfig::TMIDICCAction::SelectMT32:          return "select_mt32";
+				case CConfig::TMIDICCAction::SelectSoundFont:     return "select_soundfont";
+				case CConfig::TMIDICCAction::PrevRomOrSoundFont:  return "prev_rom_or_soundfont";
+				case CConfig::TMIDICCAction::NextRomOrSoundFont:  return "next_rom_or_soundfont";
+				case CConfig::TMIDICCAction::MainReverb:          return "main_reverb";
+				case CConfig::TMIDICCAction::MasterVolume:        return "master_volume";
+				case CConfig::TMIDICCAction::SoundFontGain:       return "sf_gain";
+				case CConfig::TMIDICCAction::MT32ReverbEnable:    return "mt32_reverb_enable";
+				case CConfig::TMIDICCAction::MT32MIDIDelayMode:   return "mt32_midi_delay_mode";
+				case CConfig::TMIDICCAction::MT32AnalogMode:      return "mt32_analog_mode";
+				case CConfig::TMIDICCAction::MT32DACMode:         return "mt32_dac_mode";
+				case CConfig::TMIDICCAction::MT32RendererType:    return "mt32_renderer_type";
+				case CConfig::TMIDICCAction::MT32PartialCount:    return "mt32_partial_count";
+				case CConfig::TMIDICCAction::SFReverbRoomSize:    return "sf_reverb_roomsize";
+				case CConfig::TMIDICCAction::SFReverbDamping:     return "sf_reverb_damping";
+				case CConfig::TMIDICCAction::SFReverbWidth:       return "sf_reverb_width";
+				case CConfig::TMIDICCAction::SFChorusLevel:       return "sf_chorus_level";
+				case CConfig::TMIDICCAction::SFChorusDepth:       return "sf_chorus_depth";
+				case CConfig::TMIDICCAction::SFChorusSpeed:       return "sf_chorus_speed";
+				default:                                          return "none";
+			}
+		};
+
+		auto GetMappingText = [&](u8 nCC) -> CString
+		{
+			const CConfig::TMIDICCMapping& Mapping = pConfig->GetMIDICCMapping(nCC);
+			CString Value;
+			Value += GetActionText(Mapping.MT32Action);
+			if (Mapping.MT32Action != Mapping.SoundFontAction)
+			{
+				Value += "|";
+				Value += GetActionText(Mapping.SoundFontAction);
+			}
+			return Value;
+		};
+
+		CString CC21  = GetMappingText(21);
+		CString CC22  = GetMappingText(22);
+		CString CC23  = GetMappingText(23);
+		CString CC24  = GetMappingText(24);
+		CString CC25  = GetMappingText(25);
+		CString CC26  = GetMappingText(26);
+		CString CC27  = GetMappingText(27);
+		CString CC28  = GetMappingText(28);
+		CString CC104 = GetMappingText(104);
+		CString CC105 = GetMappingText(105);
+		CString CC106 = GetMappingText(106);
+		CString CC107 = GetMappingText(107);
+
+		html.Append("<section><h2>MIDI CC Mapping</h2><div class='grid'>");
+		html.Append("<label>CC21<small>Main reverb / engine-dependent mapping. Format: action or mt32_action|soundfont_action</small><input name='midi_cc_21' value='"); AppendEscaped(html, CC21); html.Append("'></label>");
+		html.Append("<label>CC22<input name='midi_cc_22' value='"); AppendEscaped(html, CC22); html.Append("'></label>");
+		html.Append("<label>CC23<input name='midi_cc_23' value='"); AppendEscaped(html, CC23); html.Append("'></label>");
+		html.Append("<label>CC24<input name='midi_cc_24' value='"); AppendEscaped(html, CC24); html.Append("'></label>");
+		html.Append("<label>CC25<input name='midi_cc_25' value='"); AppendEscaped(html, CC25); html.Append("'></label>");
+		html.Append("<label>CC26<input name='midi_cc_26' value='"); AppendEscaped(html, CC26); html.Append("'></label>");
+		html.Append("<label>CC27<input name='midi_cc_27' value='"); AppendEscaped(html, CC27); html.Append("'></label>");
+		html.Append("<label>CC28<input name='midi_cc_28' value='"); AppendEscaped(html, CC28); html.Append("'></label>");
+		html.Append("<label>CC104<input name='midi_cc_104' value='"); AppendEscaped(html, CC104); html.Append("'></label>");
+		html.Append("<label>CC105<input name='midi_cc_105' value='"); AppendEscaped(html, CC105); html.Append("'></label>");
+		html.Append("<label>CC106<input name='midi_cc_106' value='"); AppendEscaped(html, CC106); html.Append("'></label>");
+		html.Append("<label>CC107<input name='midi_cc_107' value='"); AppendEscaped(html, CC107); html.Append("'></label>");
 		html.Append("</div></section>");
 
 		// ---- [control] ----
