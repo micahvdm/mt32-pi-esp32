@@ -165,6 +165,26 @@ CMT32Pi::CMT32Pi(CI2CMaster* pI2CMaster, CSPIMaster* pSPIMaster, CInterruptSyste
 	memset(m_activeNotes, 0, sizeof(m_activeNotes));
 	memset(m_nLastMappedCCValue, 0, sizeof(m_nLastMappedCCValue));
 	m_eMidiSource = static_cast<u8>(EMidiSource::Physical);
+
+	m_bPendingSoundFontGain = false;
+	m_bPendingSFReverbRoomSize = false;
+	m_bPendingSFReverbLevel = false;
+	m_bPendingSFReverbDamping = false;
+	m_bPendingSFReverbWidth = false;
+	m_bPendingSFChorusLevel = false;
+	m_bPendingSFChorusDepth = false;
+	m_bPendingSFChorusSpeed = false;
+
+	m_nPendingSoundFontGain = 0.0f;
+	m_nPendingSFReverbRoomSize = 0.0f;
+	m_nPendingSFReverbLevel = 0.0f;
+	m_nPendingSFReverbDamping = 0.0f;
+	m_nPendingSFReverbWidth = 0.0f;
+	m_nPendingSFChorusLevel = 0.0f;
+	m_nPendingSFChorusDepth = 0.0f;
+	m_nPendingSFChorusSpeed = 0.0f;
+
+	m_nLastPendingSoundFontApplyTicks = 0;
 }
 
 CMT32Pi::~CMT32Pi()
