@@ -80,6 +80,25 @@ CConfig::CConfig()
 	#include "config.def"
 
 	s_pThis = this;
+	for (unsigned i = 0; i < 128; ++i)
+	{
+		MIDICCMap[i].MT32Action = TMIDICCAction::None;
+		MIDICCMap[i].SoundFontAction = TMIDICCAction::None;
+	}
+
+	MIDICCMap[104] = { TMIDICCAction::SelectMT32,         TMIDICCAction::SelectMT32 };
+	MIDICCMap[105] = { TMIDICCAction::SelectSoundFont,    TMIDICCAction::SelectSoundFont };
+	MIDICCMap[106] = { TMIDICCAction::PrevRomOrSoundFont, TMIDICCAction::PrevRomOrSoundFont };
+	MIDICCMap[107] = { TMIDICCAction::NextRomOrSoundFont, TMIDICCAction::NextRomOrSoundFont };
+
+	MIDICCMap[21] = { TMIDICCAction::MainReverb,        TMIDICCAction::MainReverb };
+	MIDICCMap[22] = { TMIDICCAction::MT32ReverbEnable,  TMIDICCAction::SFReverbRoomSize };
+	MIDICCMap[23] = { TMIDICCAction::MT32MIDIDelayMode, TMIDICCAction::SFReverbDamping };
+	MIDICCMap[24] = { TMIDICCAction::MT32AnalogMode,    TMIDICCAction::SFReverbWidth };
+	MIDICCMap[25] = { TMIDICCAction::MT32DACMode,       TMIDICCAction::SFChorusLevel };
+	MIDICCMap[26] = { TMIDICCAction::MT32RendererType,  TMIDICCAction::SFChorusDepth };
+	MIDICCMap[27] = { TMIDICCAction::MT32PartialCount,  TMIDICCAction::SFChorusSpeed };
+	MIDICCMap[28] = { TMIDICCAction::MasterVolume,      TMIDICCAction::SoundFontGain };
 }
 
 bool CConfig::Initialize(const char* pPath)
@@ -118,6 +137,25 @@ bool CConfig::Initialize(const char* pPath)
 int CConfig::INIHandler(void* pUser, const char* pSection, const char* pName, const char* pValue)
 {
 	CConfig* const pConfig = static_cast<CConfig*>(pUser);
+
+	if (strcasecmp(pSection, "midi_cc_map") == 0)
+	{
+		if (strncasecmp(pName, "cc", 2) == 0)
+		{
+			const int nCC = atoi(pName + 2);
+			if (nCC >= 0 && nCC < 128)
+			{
+				TMIDICCMapping Mapping;
+				if (ParseMIDICCMapping(pValue, &Mapping))
+				{
+					s_pThis->MIDICCMap[nCC] = Mapping;
+					return 1;
+				}
+			}
+		}
+
+		return 1;
+	}
 
 	//LOGDBG("'%s', '%s', '%s'", pSection, pName,  pValue);
 
@@ -200,6 +238,71 @@ bool CConfig::ParseOption(const char* pString, CIPAddress* pOut)
 	}
 
 	pOut->Set(IPAddress);
+	return true;
+}
+
+CConfig::TMIDICCAction CConfig::ParseMIDICCAction(const char* pValue)
+{
+	if (!pValue || !*pValue)
+		return TMIDICCAction::None;
+
+	if (strcasecmp(pValue, "none") == 0) return TMIDICCAction::None;
+
+	if (strcasecmp(pValue, "select_mt32") == 0) return TMIDICCAction::SelectMT32;
+	if (strcasecmp(pValue, "select_soundfont") == 0) return TMIDICCAction::SelectSoundFont;
+	if (strcasecmp(pValue, "prev_rom_or_soundfont") == 0) return TMIDICCAction::PrevRomOrSoundFont;
+	if (strcasecmp(pValue, "next_rom_or_soundfont") == 0) return TMIDICCAction::NextRomOrSoundFont;
+
+	if (strcasecmp(pValue, "main_reverb") == 0) return TMIDICCAction::MainReverb;
+	if (strcasecmp(pValue, "master_volume") == 0) return TMIDICCAction::MasterVolume;
+	if (strcasecmp(pValue, "sf_gain") == 0) return TMIDICCAction::SoundFontGain;
+
+	if (strcasecmp(pValue, "mt32_reverb_enable") == 0) return TMIDICCAction::MT32ReverbEnable;
+	if (strcasecmp(pValue, "mt32_midi_delay_mode") == 0) return TMIDICCAction::MT32MIDIDelayMode;
+	if (strcasecmp(pValue, "mt32_analog_mode") == 0) return TMIDICCAction::MT32AnalogMode;
+	if (strcasecmp(pValue, "mt32_dac_mode") == 0) return TMIDICCAction::MT32DACMode;
+	if (strcasecmp(pValue, "mt32_renderer_type") == 0) return TMIDICCAction::MT32RendererType;
+	if (strcasecmp(pValue, "mt32_partial_count") == 0) return TMIDICCAction::MT32PartialCount;
+
+	if (strcasecmp(pValue, "sf_reverb_roomsize") == 0) return TMIDICCAction::SFReverbRoomSize;
+	if (strcasecmp(pValue, "sf_reverb_damping") == 0) return TMIDICCAction::SFReverbDamping;
+	if (strcasecmp(pValue, "sf_reverb_width") == 0) return TMIDICCAction::SFReverbWidth;
+	if (strcasecmp(pValue, "sf_chorus_level") == 0) return TMIDICCAction::SFChorusLevel;
+	if (strcasecmp(pValue, "sf_chorus_depth") == 0) return TMIDICCAction::SFChorusDepth;
+	if (strcasecmp(pValue, "sf_chorus_speed") == 0) return TMIDICCAction::SFChorusSpeed;
+
+	return TMIDICCAction::None;
+}
+
+bool CConfig::ParseMIDICCMapping(const char* pValue, TMIDICCMapping* pOut)
+{
+	if (!pValue || !pOut || !*pValue)
+		return false;
+
+	const char* pSep = strchr(pValue, '|');
+	if (!pSep)
+	{
+		const TMIDICCAction Action = ParseMIDICCAction(pValue);
+		pOut->MT32Action = Action;
+		pOut->SoundFontAction = Action;
+		return true;
+	}
+
+	char szLeft[64];
+	char szRight[64];
+
+	const size_t nLeftLen = static_cast<size_t>(pSep - pValue);
+	if (nLeftLen >= sizeof(szLeft))
+		return false;
+
+	strncpy(szLeft, pValue, nLeftLen);
+	szLeft[nLeftLen] = '\0';
+
+	strncpy(szRight, pSep + 1, sizeof(szRight) - 1);
+	szRight[sizeof(szRight) - 1] = '\0';
+
+	pOut->MT32Action = ParseMIDICCAction(szLeft);
+	pOut->SoundFontAction = ParseMIDICCAction(szRight);
 	return true;
 }
 

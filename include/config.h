@@ -89,6 +89,40 @@ public:
 	CONFIG_ENUM(TMixerMode, ENUM_MIXERMODE);
 	CONFIG_ENUM(TYmfmChip, ENUM_YMFMCHIP);
 
+		enum class TMIDICCAction : u8
+	{
+		None = 0,
+
+		SelectMT32,
+		SelectSoundFont,
+		PrevRomOrSoundFont,
+		NextRomOrSoundFont,
+
+		MainReverb,
+		MasterVolume,
+		SoundFontGain,
+
+		MT32ReverbEnable,
+		MT32MIDIDelayMode,
+		MT32AnalogMode,
+		MT32DACMode,
+		MT32RendererType,
+		MT32PartialCount,
+
+		SFReverbRoomSize,
+		SFReverbDamping,
+		SFReverbWidth,
+		SFChorusLevel,
+		SFChorusDepth,
+		SFChorusSpeed,
+	};
+
+	struct TMIDICCMapping
+	{
+		TMIDICCAction MT32Action;
+		TMIDICCAction SoundFontAction;
+	};
+
 	CConfig();
 	bool Initialize(const char* pPath);
 
@@ -117,8 +151,16 @@ public:
 	static bool ParseOption(const char* pString, TNetworkMode* pOut);
 	static bool ParseOption(const char* pString, TMixerMode* pOut);
 	static bool ParseOption(const char* pString, TYmfmChip* pOut);
+	const TMIDICCMapping& GetMIDICCMapping(u8 nCC) const
+	{
+		return MIDICCMap[nCC];
+	}
+
+	static TMIDICCAction ParseMIDICCAction(const char* pValue);
+	static bool ParseMIDICCMapping(const char* pValue, TMIDICCMapping* pOut);
 
 private:
+	TMIDICCMapping MIDICCMap[128];
 	static int INIHandler(void* pUser, const char* pSection, const char* pName, const char* pValue);
 
 	static CConfig* s_pThis;

@@ -449,6 +449,8 @@ private:
 	bool HandleMappedPrevNextCC(u8 nCC, u8 nValue);
 	bool SelectRelativeSoundFont(int nDelta);
 	bool SelectRelativeMT32ROM(int nDelta);
+	bool HandleMappedButtonAction(CConfig::TMIDICCAction Action, u8 nCC, u8 nValue);
+	bool ExecuteMappedCCAction(CConfig::TMIDICCAction Action, u8 nCC, u8 nValue);
 
 	const char* GetNetworkDeviceShortName() const;
 	void LEDOn();
