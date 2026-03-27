@@ -163,6 +163,7 @@ CMT32Pi::CMT32Pi(CI2CMaster* pI2CMaster, CSPIMaster* pSPIMaster, CInterruptSyste
 	m_nSeekHistoryCount   = 0;
 	memset(m_SeekHistory, 0, sizeof(m_SeekHistory));
 	memset(m_activeNotes, 0, sizeof(m_activeNotes));
+	memset(m_nLastMappedCCValue, 0, sizeof(m_nLastMappedCCValue));
 	m_eMidiSource = static_cast<u8>(EMidiSource::Physical);
 }
 
@@ -786,6 +787,143 @@ u16 CMT32Pi::GetSoundFontPercussionMask() const
 		return (1 << 9);
 
 	return m_pSoundFontSynth->GetPercussionMask();
+}
+
+float CMT32Pi::CCToUnitFloat(u8 nValue)
+{
+	return static_cast<float>(nValue) / 127.0f;
+}
+
+float CMT32Pi::CCToRangeFloat(u8 nValue, float nMin, float nMax)
+{
+	return nMin + (nMax - nMin) * CCToUnitFloat(nValue);
+}
+
+int CMT32Pi::CCToPercent(u8 nValue)
+{
+	return static_cast<int>((static_cast<unsigned>(nValue) * 100u + 63u) / 127u);
+}
+
+bool CMT32Pi::SelectRelativeSoundFont(int nDelta)
+{
+	if (!m_pSoundFontSynth)
+		return false;
+
+	const size_t nCount = m_pSoundFontSynth->GetSoundFontManager().GetSoundFontCount();
+	if (nCount == 0)
+		return false;
+
+	const size_t nCurrent = m_pSoundFontSynth->GetSoundFontIndex();
+	size_t nNext = nCurrent;
+
+	if (nDelta < 0)
+		nNext = (nCurrent == 0) ? (nCount - 1) : (nCurrent - 1);
+	else if (nDelta > 0)
+		nNext = (nCurrent + 1) % nCount;
+
+	return SetSoundFontIndex(nNext);
+}
+
+bool CMT32Pi::SelectRelativeMT32ROM(int nDelta)
+{
+	if (!m_pMT32Synth)
+		return false;
+
+	int nCurrent = static_cast<int>(m_pMT32Synth->GetROMSet());
+	constexpr int nFirst = 0;
+	constexpr int nLast  = static_cast<int>(TMT32ROMSet::Any) - 1;
+
+	if (nCurrent < nFirst || nCurrent > nLast)
+		return false;
+
+	int nNext = nCurrent + nDelta;
+	if (nNext < nFirst)
+		nNext = nLast;
+	else if (nNext > nLast)
+		nNext = nFirst;
+
+	return SetMT32ROMSet(static_cast<TMT32ROMSet>(nNext));
+}
+
+bool CMT32Pi::HandleMappedPrevNextCC(u8 nCC, u8 nValue)
+{
+	if (nCC != 106 && nCC != 107)
+		return false;
+
+	if (nValue < 64)
+	{
+		m_nLastMappedCCValue[nCC] = nValue;
+		return true;
+	}
+
+	if (m_nLastMappedCCValue[nCC] >= 64)
+		return true;
+
+	m_nLastMappedCCValue[nCC] = nValue;
+
+	const int nDelta = (nCC == 106) ? -1 : +1;
+
+	if (m_pCurrentSynth == m_pMT32Synth)
+		return SelectRelativeMT32ROM(nDelta);
+
+	if (m_pCurrentSynth == m_pSoundFontSynth)
+		return SelectRelativeSoundFont(nDelta);
+
+	return false;
+}
+
+bool CMT32Pi::HandleMappedControlChange(u8 nChannel, u8 nCC, u8 nValue)
+{
+	(void) nChannel;
+
+	if (HandleMappedPrevNextCC(nCC, nValue))
+		return true;
+
+	switch (nCC)
+	{
+		case 21:
+			if (m_pCurrentSynth == m_pMT32Synth)
+				return SetMT32ReverbOutputGain(CCToRangeFloat(nValue, 0.0f, 4.0f));
+			if (m_pCurrentSynth == m_pSoundFontSynth)
+				return SetSoundFontReverbLevel(CCToUnitFloat(nValue));
+			return false;
+
+		case 22:
+			return (m_pCurrentSynth == m_pSoundFontSynth)
+				? SetSoundFontReverbRoomSize(CCToUnitFloat(nValue))
+				: false;
+
+		case 23:
+			return (m_pCurrentSynth == m_pSoundFontSynth)
+				? SetSoundFontReverbDamping(CCToUnitFloat(nValue))
+				: false;
+
+		case 24:
+			return (m_pCurrentSynth == m_pSoundFontSynth)
+				? SetSoundFontReverbWidth(CCToRangeFloat(nValue, 0.0f, 100.0f))
+				: false;
+
+		case 25:
+			return (m_pCurrentSynth == m_pSoundFontSynth)
+				? SetSoundFontChorusLevel(CCToUnitFloat(nValue))
+				: false;
+
+		case 26:
+			return (m_pCurrentSynth == m_pSoundFontSynth)
+				? SetSoundFontChorusDepth(CCToRangeFloat(nValue, 0.0f, 20.0f))
+				: false;
+
+		case 27:
+			return (m_pCurrentSynth == m_pSoundFontSynth)
+				? SetSoundFontChorusSpeed(CCToRangeFloat(nValue, 0.29f, 5.0f))
+				: false;
+
+		case 28:
+			return SetMasterVolumePercent(CCToPercent(nValue));
+
+		default:
+			return false;
+	}
 }
 
 // ========== MT-32 Sound Parameters ==========
@@ -1947,6 +2085,13 @@ void CMT32Pi::OnShortMessage(u32 nMessage)
 	const u8 status = nMessage & 0xFF;
 	const u8 type   = status & 0xF0;
 	const u8 ch     = status & 0x0F;
+	if (type == 0xB0)
+	{
+		const u8 nCC    = (nMessage >> 8) & 0x7F;
+		const u8 nValue = (nMessage >> 16) & 0x7F;
+		if (HandleMappedControlChange(ch, nCC, nValue))
+			return;
+	}
 	if (type == 0x90)
 	{
 		const u8 note = (nMessage >> 8) & 0x7F;

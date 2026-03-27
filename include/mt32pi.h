@@ -132,6 +132,7 @@ public:
 	bool SetSoundFontPolyphony(int nPolyphony);
 	int GetSoundFontPolyphony() const;
 	bool SetSoundFontChannelType(int nChannel, int nType);
+	bool HandleMappedControlChange(u8 nChannel, u8 nCC, u8 nValue);
 	u16 GetSoundFontPercussionMask() const;
 
 	// MT-32 Sound Parameters
@@ -442,6 +443,12 @@ private:
 	void SwitchSoundFont(size_t nIndex);
 	void DeferSwitchSoundFont(size_t nIndex);
 	void SetMasterVolume(s32 nVolume);
+	static float CCToUnitFloat(u8 nValue);
+	static float CCToRangeFloat(u8 nValue, float nMin, float nMax);
+	static int CCToPercent(u8 nValue);
+	bool HandleMappedPrevNextCC(u8 nCC, u8 nValue);
+	bool SelectRelativeSoundFont(int nDelta);
+	bool SelectRelativeMT32ROM(int nDelta);
 
 	const char* GetNetworkDeviceShortName() const;
 	void LEDOn();
@@ -548,6 +555,7 @@ private:
 	// MIDI receive buffers
 	CRingBuffer<u8, MIDIRxBufferSize> m_MIDIRxBuffer;
 	CRingBuffer<u8, MIDIRxBufferSize> m_WebMIDIRxBuffer;  // Web keyboard → Core 0
+	u8 m_nLastMappedCCValue[128];
 
 	// ---- Sequencer (FluidSequencer, runs entirely on Core 0) ----
 	static constexpr size_t SeqPathMax = 260;
