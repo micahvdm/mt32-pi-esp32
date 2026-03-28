@@ -8,11 +8,12 @@
 
 LOGMODULE("ssd1327");
 
-CSSD1327::CSSD1327(CI2CMaster* pI2CMaster, u8 nAddress, u8 nWidth, u8 nHeight, TLCDRotation Rotation)
+CSSD1327::CSSD1327(CI2CMaster* pI2CMaster, u8 nAddress, u8 nWidth, u8 nHeight, TLCDRotation Rotation, TLCDMirror Mirror)
 	: CLCD(nWidth, nHeight),
 	  m_pI2CMaster(pI2CMaster),
 	  m_nAddress(nAddress),
-	  m_Rotation(Rotation)
+	  m_Rotation(Rotation),
+	  m_Mirror(Mirror)
 {
 	// 128 * 128 / 8 = 2048 bytes for 1-bit buffer
 	m_nBufferSize = (static_cast<size_t>(nWidth) * nHeight) / 8;
@@ -25,10 +26,18 @@ CSSD1327::~CSSD1327()
 	delete[] m_pBuffer;
 }
 
-void CSSD1327::SendCommand(u8 nCommand)
+void CSSD1327::WriteCommand(u8 nCommand) const
 {
 	u8 buffer[2] = { 0x00, nCommand }; // Co=0, D/C#=0
 	m_pI2CMaster->Write(m_nAddress, buffer, sizeof(buffer));
+}
+
+void CSSD1327::WriteCommand(const u8* pData, size_t nSize) const
+{
+	u8 buffer[16];
+	buffer[0] = 0x00; // Co=0, D/C#=0
+	memcpy(buffer + 1, pData, nSize > 15 ? 15 : nSize);
+	m_pI2CMaster->Write(m_nAddress, buffer, nSize + 1);
 }
 
 void CSSD1327::SendData(const u8* pData, size_t nSize)
@@ -45,57 +54,40 @@ bool CSSD1327::Initialize()
 {
 	LOGNOTE("Initializing SSD1327 at I2C address 0x%02x", m_nAddress);
 
-	SendCommand(0xAE); // Display OFF
+	WriteCommand(0xAE); // Display OFF
 
-	SendCommand(0x15); // Set Column Address
-	SendCommand(0x00); // Start
-	SendCommand(0x7F); // End
+	// Set column address: 0 to 63 (covers 128 pixels at 2 pixels/byte)
+	u8 colAddr[] = { 0x15, 0x00, 0x3F };
+	WriteCommand(colAddr, 3);
 
-	SendCommand(0x75); // Set Row Address
-	SendCommand(0x00); // Start
-	SendCommand(0x7F); // End
+	// Set row address: 0 to 127
+	u8 rowAddr[] = { 0x75, 0x00, 0x7F };
+	WriteCommand(rowAddr, 3);
 
-	SendCommand(0x81); // Set Contrast
-	SendCommand(0x80);
+	WriteCommand(0x81); // Set Contrast
+	WriteCommand(0x80);
 
-	SendCommand(0xA0); // Set Re-map
-	// 0x51: Horizontal increment, Column address 0 mapped to SEG0,
-	// Nibble remap (Pixel 0 = bits 4-7), Scan COM0 to COM[N-1]
-	SendCommand(m_Rotation == TLCDRotation::Inverted ? 0x42 : 0x51); 
+	// Re-map setting
+	// Default 0x51: Horiz inc, Col 0 -> SEG0, Nibble remap, Scan COM0->N-1
+	u8 nRemap = 0x51;
+	if (m_Rotation == TLCDRotation::Inverted) nRemap ^= 0x13; // Flips columns and rows
+	if (m_Mirror == TLCDMirror::Mirrored)     nRemap ^= 0x02; // Flips nibbles/columns
+	WriteCommand(0xA0);
+	WriteCommand(nRemap);
 
-	SendCommand(0xA1); // Set Display Start Line
-	SendCommand(0x00);
+	WriteCommand(0xA1); WriteCommand(0x00); // Start line
+	WriteCommand(0xA2); WriteCommand(0x00); // Display offset
+	WriteCommand(0xA4);                     // Normal display
+	WriteCommand(0xA8); WriteCommand(0x7F); // 128 MUX
+	WriteCommand(0xAB); WriteCommand(0x01); // Enable internal VDD
+	WriteCommand(0xB1); WriteCommand(0xF1); // Phase length
+	WriteCommand(0xB3); WriteCommand(0x00); // Oscillator freq
+	WriteCommand(0xB6); WriteCommand(0x0F); // Pre-charge
+	WriteCommand(0xBC); WriteCommand(0x08); // Pre-charge voltage
+	WriteCommand(0xBE); WriteCommand(0x07); // VCOMH
+	WriteCommand(0xBF); WriteCommand(0x02); // Enable internal VSL
 
-	SendCommand(0xA2); // Set Display Offset
-	SendCommand(0x00);
-
-	SendCommand(0xA4); // Normal Display Mode
-
-	SendCommand(0xA8); // Set Multiplex Ratio
-	SendCommand(0x7F); // 128 MUX
-
-	SendCommand(0xAB); // Function Selection A
-	SendCommand(0x01); // Enable internal VDD regulator
-
-	SendCommand(0xB1); // Set Phase Length
-	SendCommand(0xF1);
-
-	SendCommand(0xB3); // Set Front Clock Divider / Oscillator Frequency
-	SendCommand(0x00);
-
-	SendCommand(0xB6); // Set Second Pre-charge Period
-	SendCommand(0x0F);
-
-	SendCommand(0xBC); // Set Pre-charge Voltage
-	SendCommand(0x08);
-
-	SendCommand(0xBE); // Set VCOMH
-	SendCommand(0x07);
-
-	SendCommand(0xBF); // Set VSL
-	SendCommand(0x02); // Enable internal VSL
-
-	SendCommand(0xAF); // Display ON
+	WriteCommand(0xAF); // Display ON
 
 	Clear(true);
 	return true;
@@ -135,8 +127,8 @@ bool CSSD1327::GetPixel(u8 x, u8 y) const
 void CSSD1327::Flip()
 {
 	// Reset pointers to start of display
-	SendCommand(0x15); SendCommand(0x00); SendCommand(0x7F);
-	SendCommand(0x75); SendCommand(0x00); SendCommand(0x7F);
+	u8 col[] = { 0x15, 0x00, 0x3F }; WriteCommand(col, 3);
+	u8 row[] = { 0x75, 0x00, 0x7F }; WriteCommand(row, 3);
 
 	// Convert 1-bit buffer to 4-bit nibbles and send row by row
 	for (u8 y = 0; y < m_nHeight; y++)
