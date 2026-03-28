@@ -2515,7 +2515,8 @@ THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
 		AppendJSONPairInt(JSON,  "state",    static_cast<int>(s.nState));
 		AppendJSONPairBool(JSON, "enabled",  s.bEnabled);
 		AppendJSONPairInt(JSON,  "bpm",      s.nBPM);
-		AppendJSONPairInt(JSON,  "quantize", s.nQuantize, false);
+		AppendJSONPairInt(JSON,  "quantize", s.nQuantize);
+		AppendJSONPairFloat(JSON, "gain",    s.fPlaybackGain, false);
 		JSON += "}";
 		const unsigned nLen = JSON.GetLength();
 		if (*pLength < nLen) return HTTPInternalServerError;
@@ -2569,12 +2570,15 @@ THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
 	{
 		char BPMVal[16] = {};
 		char QuantizeVal[16] = {};
+		char GainVal[16] = {};
 		if (pFormData && *pFormData)
 		{
 			if (GetFormValue(pFormData, "bpm", BPMVal, sizeof(BPMVal)))
 				m_pMT32Pi->LooperSetBPM(atoi(BPMVal));
 			if (GetFormValue(pFormData, "quantize", QuantizeVal, sizeof(QuantizeVal)))
 				m_pMT32Pi->LooperSetQuantize(atoi(QuantizeVal));
+			if (GetFormValue(pFormData, "gain", GainVal, sizeof(GainVal)))
+				m_pMT32Pi->LooperSetPlaybackGain(atof(GainVal));
 		}
 		const char* pBody = "{\"ok\":true}";
 		const unsigned nLen = static_cast<unsigned>(std::strlen(pBody));

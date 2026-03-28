@@ -388,8 +388,7 @@ bool CMT32Pi::Initialize(bool bSerialMIDIAvailable)
 	m_RhythmLooper.SetEnabled(m_pConfig->RhythmLooperEnabled);
 	m_RhythmLooper.SetBPM(m_pConfig->RhythmLooperBPM);
 	m_RhythmLooper.SetQuantize(m_pConfig->RhythmLooperQuantize);
-	// We'll set a default if the config field doesn't exist yet
-	m_RhythmLooper.SetPlaybackGain(0.8f); 
+	m_RhythmLooper.SetPlaybackGain(m_pConfig->RhythmLooperPlaybackGain);
 
 	// Configure post-mix audio effects from config
 	{

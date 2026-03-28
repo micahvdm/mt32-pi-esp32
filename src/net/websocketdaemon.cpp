@@ -221,7 +221,7 @@ static int BuildStatusJSON(char* buf, size_t bufSize, CMT32Pi* pPi)
 			",\"mt32_cpu\":%u,\"fluid_cpu\":%u,\"ymfm_cpu\":%u,\"mixer_cpu\":%u"
 			",\"recording\":%s"
 			",\"pl_count\":%u,\"pl_idx\":%u,\"pl_repeat\":%s,\"pl_shuffle\":%s"
-			",\"looper\":{\"state\":%d,\"enabled\":%s,\"bpm\":%d,\"quantize\":%d}}",
+			",\"looper\":{\"state\":%d,\"enabled\":%s,\"bpm\":%d,\"quantize\":%d,\"gain\":%.2f}}",
 			st.Mixer.nRenderUs, st.Mixer.nRenderAvgUs, st.Mixer.nDeadlineUs, st.Mixer.nCpuLoadPercent,
 			st.Mixer.nMT32RenderUs, st.Mixer.nFluidRenderUs, st.Mixer.nYmfmRenderUs, st.Mixer.nMixerRenderUs,
 			st.Mixer.nMT32LoadPercent, st.Mixer.nFluidLoadPercent, st.Mixer.nYmfmLoadPercent, st.Mixer.nMixerLoadPercent,
@@ -229,7 +229,7 @@ static int BuildStatusJSON(char* buf, size_t bufSize, CMT32Pi* pPi)
 			st.nPlaylistCount, st.nPlaylistIndex,
 			st.bPlaylistRepeat  ? "true" : "false",
 			st.bPlaylistShuffle ? "true" : "false",
-			static_cast<int>(lp.nState), lp.bEnabled ? "true" : "false", lp.nBPM, lp.nQuantize);
+			static_cast<int>(lp.nState), lp.bEnabled ? "true" : "false", lp.nBPM, lp.nQuantize, lp.fPlaybackGain);
 		if (added <= 0) return -1;
 		return n + added;
 	}

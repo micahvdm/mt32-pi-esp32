@@ -79,6 +79,14 @@ CConfig::CConfig()
 	#define CFG(_1, _2, MEMBER_NAME, DEFAULT, _3...) MEMBER_NAME = DEFAULT;
 	#include "config.def"
 
+	// Rhythm looper defaults
+	RhythmLooperEnabled      = false;
+	RhythmLooperChannel      = 10;
+	RhythmLooperBPM          = 120;
+	RhythmLooperQuantize     = 16;
+	RhythmLooperMaxBars      = 8;
+	RhythmLooperPlaybackGain = 0.8f;
+
 	s_pThis = this;
 	for (unsigned i = 0; i < 128; ++i)
 	{
