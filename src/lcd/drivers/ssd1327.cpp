@@ -151,22 +151,33 @@ void CSSD1327::Flip()
 
 void CSSD1327::Print(const char* pText, u8 x, u8 y, bool bInverted, bool bUpdate)
 {
-	// This uses the project's standard font handling
+	// nCursorX (x) is character-based; translate to pixels and add offset to center
+	u8 nPixelX = x * 6 + 4;
+	u8 nPixelY = y * 8;
+
 	while (*pText)
 	{
 		u8 nCharacter = static_cast<u8>(*pText++);
-		if (nCharacter < 0x20 || nCharacter > 0x7F) nCharacter = ' ';
 
-		for (u8 i = 0; i < 6; i++) // Standard Font6x8 width
+		// Special character handling matching other drivers
+		if (nCharacter == 0xFF)
+			nCharacter = 0x80;
+		else if (nCharacter < 0x20 || nCharacter > 0x7F)
+			nCharacter = ' ';
+
+		for (u8 row = 0; row < 8; row++) // Font6x8 is 8 pixels high
 		{
-			u8 nLine = Font6x8[nCharacter - 0x20][i];
-			for (u8 j = 0; j < 8; j++) // Standard Font6x8 height
+			u8 nRowData = Font6x8[nCharacter - 0x20][row];
+			for (u8 col = 0; col < 6; col++) // Font6x8 is 6 pixels wide
 			{
-				bool bOn = (nLine >> j) & 0x01;
-				SetPixel(x + i, (y * 8) + j, bInverted ? !bOn : bOn);
+				// Bits 5-0 are the character pixels (left-to-right)
+				bool bOn = (nRowData >> (5 - col)) & 0x01;
+				SetPixel(nPixelX + col, nPixelY + row, bInverted ? !bOn : bOn);
 			}
 		}
-		x += 6;
+		nPixelX += 6;
+		if (nPixelX + 6 > m_nWidth)
+			break;
 	}
 
 	if (bUpdate)
