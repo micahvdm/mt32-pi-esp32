@@ -24,7 +24,7 @@ CRhythmLooper::CRhythmLooper()
 	  m_nLastProcessedMidiTick(0),
 	  m_nEventCount(0),
 	  m_pRouter(nullptr),
-	  m_nLastMetronomeBeatTick(0),
+	  m_nLastMetronomeBeatTick(0xFFFFFFFF),
 	  m_pSynth(nullptr)
 {
 }
@@ -59,11 +59,14 @@ u32 CRhythmLooper::QuantizeTick(u32 nTick) const
 
 void CRhythmLooper::ArmStop()
 {
+	const u32 step = (m_nQuantize > 0) ? (PPQN * 4) / m_nQuantize : 1;
+
 	switch (m_State)
 	{
 		case TState::Idle:
 			m_State = TState::Armed;
 			LOGNOTE("Looper Armed");
+			m_nLastMetronomeBeatTick = 0xFFFFFFFF;
 			break;
 
 		case TState::StoppedWithLoop:
@@ -83,15 +86,16 @@ void CRhythmLooper::ArmStop()
 		{
 			// Close the loop
 			// Determine loop length based on the last recorded event, not button press time
+			// This snaps the loop end to the nearest quantization step after the last note.
 			u32 maxEventTick = 0;
 			if (m_nEventCount > 0)
 			{
 				for (u32 i = 0; i < m_nEventCount; ++i)
 				{
-					if (m_Events[i].nTick > maxEventTick) maxEventTick = m_Events[i].nTick;
+					if (m_Events[i].nTick >= maxEventTick) maxEventTick = m_Events[i].nTick;
 				}
 			}
-			m_nLoopLengthMidiTicks = QuantizeTick(maxEventTick + 1); // +1 tick to ensure the last note is fully included
+			m_nLoopLengthMidiTicks = QuantizeTick(maxEventTick + step / 2);
 			if (m_nLoopLengthMidiTicks == 0) m_nLoopLengthMidiTicks = (PPQN * 4); // Min 1 bar
 
 			// Quantization wrap-around: ensure all events are within [0, LoopLength-1]
@@ -148,6 +152,7 @@ void CRhythmLooper::OnShortMessage(u32 nMessage, u32 nTicksNow)
 	if (m_State == TState::Armed)
 	{
 		m_State = TState::Recording;
+		m_nLastMetronomeBeatTick = 0xFFFFFFFF;
 		m_nLoopStartSystemTick = nTicksNow;
 		m_nEventCount = 0;
 		LOGNOTE("Looper Recording started");
@@ -183,28 +188,22 @@ void CRhythmLooper::Update(u32 nTicksNow)
 	// Metronome logic
 	if (m_bMetronomeEnabled && (m_State == TState::Armed || m_State == TState::Recording || m_State == TState::Overdubbing))
 	{
-		u32 currentMidiTick = GetCurrentMidiTick(nTicksNow);
-		u32 beatLength = PPQN; // 1 beat = 1 quarter note
-
-		// If recording, loop the metronome based on loop length
-		if (m_State == TState::Recording || m_State == TState::Overdubbing)
+		u32 midiTick = GetCurrentMidiTick(nTicksNow);
+		if (m_nLoopLengthMidiTicks > 0 && (m_State == TState::Recording || m_State == TState::Overdubbing))
 		{
-			if (m_nLoopLengthMidiTicks > 0)
-			{
-				currentMidiTick %= m_nLoopLengthMidiTicks;
-			}
+			midiTick %= m_nLoopLengthMidiTicks;
 		}
 
-		u32 nextBeatTick = QuantizeTick(currentMidiTick); // Quantize to the nearest beat
+		// Trigger click every quarter note (Beat boundary)
+		u32 currentBeat = midiTick / PPQN;
 
-		if (nextBeatTick >= m_nLastMetronomeBeatTick + beatLength || (nextBeatTick < m_nLastMetronomeBeatTick && m_nLoopLengthMidiTicks > 0))
+		if (currentBeat != m_nLastMetronomeBeatTick)
 		{
-			// Play metronome click
-			u8 note = (nextBeatTick % (PPQN * 4) == 0) ? 36 : 38; // Note 36 (Bass Drum 1) for beat 1, 38 (Snare Drum 1) for others
-			u8 vel = (nextBeatTick % (PPQN * 4) == 0) ? 100 : 80;
-			PlayEvent({0, (u32)(0x90 | (m_nChannel - 1)) | (u32)(note << 8) | (u32)(vel << 16)}); // Note On
-			PlayEvent({0, (u32)(0x80 | (m_nChannel - 1)) | (u32)(note << 8) | (u32)(0 << 16)});  // Note Off (immediate)
-			m_nLastMetronomeBeatTick = nextBeatTick;
+			u8 note = (currentBeat % 4 == 0) ? 37 : 39; // Side Stick for beat 1, Hand Clap for others
+			u8 vel = (currentBeat % 4 == 0) ? 110 : 80;
+			PlayEvent({0, 0x00000099u | (u32)(note << 8) | (u32)(vel << 16)}); // Note On (Ch 10)
+			PlayEvent({0, 0x00000089u | (u32)(note << 8) | (u32)(0 << 16)});   // Note Off
+			m_nLastMetronomeBeatTick = currentBeat;
 		}
 	}
 	if ((m_State != TState::Playing && m_State != TState::Overdubbing) || m_nLoopLengthMidiTicks == 0) return;
