@@ -172,6 +172,14 @@ public:
 	#define CFG(_1, TYPE, MEMBER_NAME, _2, _3...) TYPE MEMBER_NAME;
 	#include "config.def"
 
+	// Rhythm looper members (manually added to resolve build errors)
+	bool  RhythmLooperEnabled;
+	int   RhythmLooperChannel;
+	int   RhythmLooperBPM;
+	int   RhythmLooperQuantize;
+	int   RhythmLooperMaxBars;
+	float RhythmLooperPlaybackGain;
+
 	// Overloaded function to parse config options based on their types specified in the definition file
 	static bool ParseOption(const char* pString, bool* pOut);
 	static bool ParseOption(const char* pString, int* pOut, bool bHex = false);

@@ -98,8 +98,8 @@ void CRhythmLooper::ArmStop()
 		case TState::Playing:
 			m_State = TState::StoppedWithLoop;
 			// Kill any ringing notes on the drum channel
-			PlayEvent({0, 0x007B00B0 | (m_nChannel - 1)}); // All Notes Off
-			PlayEvent({0, 0x007800B0 | (m_nChannel - 1)}); // All Sound Off
+			PlayEvent({0, 0x007B00B0u | (static_cast<u32>(m_nChannel) - 1)}); // All Notes Off
+			PlayEvent({0, 0x007800B0u | (static_cast<u32>(m_nChannel) - 1)}); // All Sound Off
 			LOGNOTE("Looper Stopped");
 			break;
 	}

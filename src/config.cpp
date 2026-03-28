@@ -183,6 +183,23 @@ int CConfig::INIHandler(void* pUser, const char* pSection, const char* pName, co
 		return 1;
 	}
 
+	if (strcasecmp(pSection, "rhythm_looper") == 0)
+	{
+		if (strcasecmp(pName, "enabled") == 0)
+			return ParseOption(pValue, &pConfig->RhythmLooperEnabled);
+		if (strcasecmp(pName, "channel") == 0)
+			return ParseOption(pValue, &pConfig->RhythmLooperChannel);
+		if (strcasecmp(pName, "bpm") == 0)
+			return ParseOption(pValue, &pConfig->RhythmLooperBPM);
+		if (strcasecmp(pName, "quantize") == 0)
+			return ParseOption(pValue, &pConfig->RhythmLooperQuantize);
+		if (strcasecmp(pName, "max_bars") == 0)
+			return ParseOption(pValue, &pConfig->RhythmLooperMaxBars);
+		if (strcasecmp(pName, "playback_gain") == 0)
+			return ParseOption(pValue, &pConfig->RhythmLooperPlaybackGain);
+		return 1;
+	}
+
 	//LOGDBG("'%s', '%s', '%s'", pSection, pName,  pValue);
 
 	// Automatically generate ParseOption() calls from macro definition file
