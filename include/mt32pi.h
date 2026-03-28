@@ -585,6 +585,11 @@ private:
 	// MIDI receive buffers
 	CRingBuffer<u8, MIDIRxBufferSize> m_MIDIRxBuffer;
 	CRingBuffer<u8, MIDIRxBufferSize> m_WebMIDIRxBuffer;  // Web keyboard → Core 0
+
+	// Rhythm looper control state
+	unsigned m_nLooperButtonPressTicks;
+	bool     m_bLooperButtonHeld;
+	bool     m_bLooperLongPressTriggered;
 	u8 m_nLastMappedCCValue[128];
 
 	// ---- Deferred SoundFont control updates ----

@@ -141,6 +141,9 @@ CMT32Pi::CMT32Pi(CI2CMaster* pI2CMaster, CSPIMaster* pSPIMaster, CInterruptSyste
 	  m_nRenderYmfmUs(0),
 	  m_nRenderMixerUs(0),
 	  m_bAutoReducePartials(true),
+	  m_nLooperButtonPressTicks(0),
+	  m_bLooperButtonHeld(false),
+	  m_bLooperLongPressTriggered(false),
 	  m_bMenuLongPressConsumed(false),
 
 	  m_pFluidSequencer(nullptr),
@@ -1124,8 +1127,26 @@ bool CMT32Pi::ExecuteMappedCCAction(CConfig::TMIDICCAction Action, u8 nChannel, 
 			return false;
 
 		case CConfig::TMIDICCAction::LooperArmStop:
-			if (nValue >= 64 && m_nLastMappedCCValue[nCC] < 64)
-				LooperArmStop();
+			if (nValue >= 64 && m_nLastMappedCCValue[nCC] < 64) // Press
+			{
+				m_nLooperButtonPressTicks = m_pTimer->GetTicks();
+				m_bLooperButtonHeld = true;
+				m_bLooperLongPressTriggered = false;
+			}
+			else if (nValue < 64 && m_nLastMappedCCValue[nCC] >= 64) // Release
+			{
+				if (m_bLooperButtonHeld && !m_bLooperLongPressTriggered)
+				{
+					LooperArmStop();
+					const char* pStatus = 
+						m_RhythmLooper.GetState() == CRhythmLooper::TState::Armed ? "Looper: Armed" :
+						m_RhythmLooper.GetState() == CRhythmLooper::TState::Playing ? "Looper: Playing" :
+						m_RhythmLooper.GetState() == CRhythmLooper::TState::StoppedWithLoop ? "Looper: Stopped" :
+						"Looper: Idle";
+					LCDLog(TLCDLogType::Notice, pStatus);
+				}
+				m_bLooperButtonHeld = false;
+			}
 			m_nLastMappedCCValue[nCC] = nValue;
 			return true;
 
@@ -1142,13 +1163,19 @@ bool CMT32Pi::ExecuteMappedCCAction(CConfig::TMIDICCAction Action, u8 nChannel, 
 
 		case CConfig::TMIDICCAction::LooperSave:
 			if (nValue >= 64 && m_nLastMappedCCValue[nCC] < 64)
+			{
 				LooperSave();
+				LCDLog(TLCDLogType::Notice, "Loop: Saving...");
+			}
 			m_nLastMappedCCValue[nCC] = nValue;
 			return true;
 
 		case CConfig::TMIDICCAction::LooperClear:
 			if (nValue >= 64 && m_nLastMappedCCValue[nCC] < 64)
+			{
 				LooperClear();
+				LCDLog(TLCDLogType::Notice, "Loop: Cleared");
+			}
 			m_nLastMappedCCValue[nCC] = nValue;
 			return true;
 
@@ -1526,6 +1553,17 @@ void CMT32Pi::MainTask()
 
 		// Update Rhythm Looper playback
 		m_RhythmLooper.Update(m_pTimer->GetClockTicks());
+
+		// Check for looper button long press (Hold to Clear)
+		if (m_bLooperButtonHeld && !m_bLooperLongPressTriggered)
+		{
+			if (m_pTimer->GetTicks() - m_nLooperButtonPressTicks >= HZ) // 1 second threshold
+			{
+				LooperClear();
+				LCDLog(TLCDLogType::Notice, "Loop: Cleared");
+				m_bLooperLongPressTriggered = true;
+			}
+		}
 
 		if ((m_pTimer->GetTicks() - m_nLastPendingSoundFontApplyTicks) >= MSEC2HZ(5))
 		{
