@@ -1124,7 +1124,9 @@ bool CMT32Pi::ExecuteMappedCCAction(CConfig::TMIDICCAction Action, u8 nChannel, 
 			return false;
 
 		case CConfig::TMIDICCAction::LooperArmStop:
-			LooperArmStop();
+			if (nValue >= 64 && m_nLastMappedCCValue[nCC] < 64)
+				LooperArmStop();
+			m_nLastMappedCCValue[nCC] = nValue;
 			return true;
 
 		case CConfig::TMIDICCAction::LooperBPM:
@@ -1139,11 +1141,15 @@ bool CMT32Pi::ExecuteMappedCCAction(CConfig::TMIDICCAction Action, u8 nChannel, 
 			return true;
 
 		case CConfig::TMIDICCAction::LooperSave:
-			LooperSave();
+			if (nValue >= 64 && m_nLastMappedCCValue[nCC] < 64)
+				LooperSave();
+			m_nLastMappedCCValue[nCC] = nValue;
 			return true;
 
 		case CConfig::TMIDICCAction::LooperClear:
-			LooperClear();
+			if (nValue >= 64 && m_nLastMappedCCValue[nCC] < 64)
+				LooperClear();
+			m_nLastMappedCCValue[nCC] = nValue;
 			return true;
 
 		default:
@@ -1163,6 +1169,8 @@ bool CMT32Pi::HandleMappedControlChange(u8 nChannel, u8 nCC, u8 nValue)
 		Action = Mapping.MT32Action;
 	else if (m_pCurrentSynth == m_pSoundFontSynth)
 		Action = Mapping.SoundFontAction;
+	else if (m_pCurrentSynth == m_pYmfmSynth)
+		Action = Mapping.MT32Action; // Fallback to MT-32 mapping for global looper actions
 	else
 		return false;
 
