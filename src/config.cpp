@@ -300,12 +300,21 @@ void CConfig::RebuildMIDICCMap()
 		MIDICCMap[i].SoundFontAction = TMIDICCAction::None;
 	}
 
-	auto Bind = [this](TMIDICCBindingID id, TMIDICCAction mt32, TMIDICCAction sf)
+	bool Used[128] = {};
+
+	auto Bind = [this, &Used](TMIDICCBindingID id, TMIDICCAction mt32, TMIDICCAction sf)
 	{
 		const int cc = MIDICCBindingCC[static_cast<unsigned>(id)];
 		if (cc < 0 || cc > 127)
 			return;
 
+		if (Used[cc])
+		{
+			LOGWARN("Ignoring duplicate MIDI CC binding on CC %d", cc);
+			return;
+		}
+
+		Used[cc] = true;
 		MIDICCMap[cc].MT32Action = mt32;
 		MIDICCMap[cc].SoundFontAction = sf;
 	};
