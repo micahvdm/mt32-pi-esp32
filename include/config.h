@@ -117,6 +117,12 @@ public:
 		SFChorusLevel,
 		SFChorusDepth,
 		SFChorusSpeed,
+
+		LooperArmStop,
+		LooperBPM,
+		LooperQuantize,
+		LooperSave,
+		LooperClear,
 	};
 
 	enum class TMIDICCBindingID : u8
@@ -135,6 +141,10 @@ public:
 		PrevRomOrSoundFont,
 		NextRomOrSoundFont,
 		LooperArmStop,
+		LooperBPM,
+		LooperQuantize,
+		LooperSave,
+		LooperClear,
 		SustainCC64,
 
 		Count

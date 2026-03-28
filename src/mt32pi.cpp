@@ -378,6 +378,10 @@ bool CMT32Pi::Initialize(bool bSerialMIDIAvailable)
 	// Initialize MIDI Router + Audio Mixer + Effects
 	SetupMixerRouting();
 
+	// Initialize Rhythm Looper
+	m_RhythmLooper.SetRouter(&m_MIDIRouter);
+	m_RhythmLooper.SetSynth(m_pCurrentSynth);
+
 	// Configure post-mix audio effects from config
 	{
 		CAudioEffects::TConfig fx;
@@ -1119,6 +1123,29 @@ bool CMT32Pi::ExecuteMappedCCAction(CConfig::TMIDICCAction Action, u8 nChannel, 
 			}
 			return false;
 
+		case CConfig::TMIDICCAction::LooperArmStop:
+			LooperArmStop();
+			return true;
+
+		case CConfig::TMIDICCAction::LooperBPM:
+			LooperSetBPM(20 + (nValue * (300 - 20) / 127));
+			return true;
+
+		case CConfig::TMIDICCAction::LooperQuantize:
+			{
+				static const int q[] = {4, 8, 16, 32};
+				LooperSetQuantize(q[(nValue * 3) / 127]);
+			}
+			return true;
+
+		case CConfig::TMIDICCAction::LooperSave:
+			LooperSave();
+			return true;
+
+		case CConfig::TMIDICCAction::LooperClear:
+			LooperClear();
+			return true;
+
 		default:
 			return false;
 	}
@@ -1488,6 +1515,9 @@ void CMT32Pi::MainTask()
 	{
 		// Process MIDI data
 		UpdateMIDI();
+
+		// Update Rhythm Looper playback
+		m_RhythmLooper.Update(m_pTimer->GetClockTicks());
 
 		if ((m_pTimer->GetTicks() - m_nLastPendingSoundFontApplyTicks) >= MSEC2HZ(5))
 		{
@@ -2349,6 +2379,9 @@ void CMT32Pi::OnShortMessage(u32 nMessage)
 		m_MIDIRouter.RouteShortMessage(nMessage);
 	else
 		m_pCurrentSynth->HandleMIDIShortMessage(nMessage);
+
+	// Pass to looper for recording
+	m_RhythmLooper.OnShortMessage(nMessage, CTimer::GetClockTicks());
 
 	// Record to SD card if active
 	m_MidiRecorder.RecordShortMessage(nMessage, CTimer::GetClockTicks());
@@ -3774,6 +3807,7 @@ void CMT32Pi::SwitchSynth(TSynth NewSynth)
 
 	m_pCurrentSynth->AllSoundOff();
 	m_pCurrentSynth = pNewSynth;
+	m_RhythmLooper.SetSynth(pNewSynth);
 	const char* pMode = NewSynth == TSynth::MT32 ? "MT-32 mode" :
 	                    NewSynth == TSynth::SoundFont ? "SoundFont mode" : "OPL3 mode";
 	LOGNOTE("Switching to %s", pMode);

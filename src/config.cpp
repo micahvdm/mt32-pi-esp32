@@ -91,6 +91,12 @@ CConfig::CConfig()
 	MIDICCMap[106] = { TMIDICCAction::PrevRomOrSoundFont, TMIDICCAction::PrevRomOrSoundFont };
 	MIDICCMap[107] = { TMIDICCAction::NextRomOrSoundFont, TMIDICCAction::NextRomOrSoundFont };
 	MIDICCMap[109] = { TMIDICCAction::SustainCC64, 		  TMIDICCAction::SustainCC64 };
+	
+	MIDICCMap[108] = { TMIDICCAction::LooperArmStop,      TMIDICCAction::LooperArmStop };
+	MIDICCMap[110] = { TMIDICCAction::LooperBPM,          TMIDICCAction::LooperBPM };
+	MIDICCMap[111] = { TMIDICCAction::LooperQuantize,     TMIDICCAction::LooperQuantize };
+	MIDICCMap[112] = { TMIDICCAction::LooperSave,         TMIDICCAction::LooperSave };
+	MIDICCMap[113] = { TMIDICCAction::LooperClear,        TMIDICCAction::LooperClear };
 
 	MIDICCMap[21] = { TMIDICCAction::MainReverb,        TMIDICCAction::MainReverb };
 	MIDICCMap[22] = { TMIDICCAction::MT32ReverbEnable,  TMIDICCAction::SFReverbRoomSize };
@@ -118,6 +124,10 @@ CConfig::CConfig()
 	MIDICCBindingCC[static_cast<unsigned>(TMIDICCBindingID::PrevRomOrSoundFont)] = 106;
 	MIDICCBindingCC[static_cast<unsigned>(TMIDICCBindingID::NextRomOrSoundFont)] = 107;
 	MIDICCBindingCC[static_cast<unsigned>(TMIDICCBindingID::LooperArmStop)]     = 108;
+	MIDICCBindingCC[static_cast<unsigned>(TMIDICCBindingID::LooperBPM)]         = 110;
+	MIDICCBindingCC[static_cast<unsigned>(TMIDICCBindingID::LooperQuantize)]    = 111;
+	MIDICCBindingCC[static_cast<unsigned>(TMIDICCBindingID::LooperSave)]        = 112;
+	MIDICCBindingCC[static_cast<unsigned>(TMIDICCBindingID::LooperClear)]       = 113;
 	MIDICCBindingCC[static_cast<unsigned>(TMIDICCBindingID::SustainCC64)]       = 109;
 
 	RebuildMIDICCMap();
@@ -289,6 +299,12 @@ CConfig::TMIDICCAction CConfig::ParseMIDICCAction(const char* pValue)
 	if (strcasecmp(pValue, "sf_chorus_depth") == 0) return TMIDICCAction::SFChorusDepth;
 	if (strcasecmp(pValue, "sf_chorus_speed") == 0) return TMIDICCAction::SFChorusSpeed;
 
+	if (strcasecmp(pValue, "looper_arm_stop") == 0) return TMIDICCAction::LooperArmStop;
+	if (strcasecmp(pValue, "looper_bpm") == 0) return TMIDICCAction::LooperBPM;
+	if (strcasecmp(pValue, "looper_quantize") == 0) return TMIDICCAction::LooperQuantize;
+	if (strcasecmp(pValue, "looper_save") == 0) return TMIDICCAction::LooperSave;
+	if (strcasecmp(pValue, "looper_clear") == 0) return TMIDICCAction::LooperClear;
+
 	return TMIDICCAction::None;
 }
 
@@ -333,9 +349,12 @@ void CConfig::RebuildMIDICCMap()
 	Bind(TMIDICCBindingID::PrevRomOrSoundFont, TMIDICCAction::PrevRomOrSoundFont, TMIDICCAction::PrevRomOrSoundFont);
 	Bind(TMIDICCBindingID::NextRomOrSoundFont, TMIDICCAction::NextRomOrSoundFont, TMIDICCAction::NextRomOrSoundFont);
 	Bind(TMIDICCBindingID::SustainCC64,        TMIDICCAction::SustainCC64,        TMIDICCAction::SustainCC64);
-
-	// Add when implemented:
-	// Bind(TMIDICCBindingID::LooperArmStop, TMIDICCAction::LooperArmStop, TMIDICCAction::LooperArmStop);
+	
+	Bind(TMIDICCBindingID::LooperArmStop,     TMIDICCAction::LooperArmStop,      TMIDICCAction::LooperArmStop);
+	Bind(TMIDICCBindingID::LooperBPM,         TMIDICCAction::LooperBPM,          TMIDICCAction::LooperBPM);
+	Bind(TMIDICCBindingID::LooperQuantize,    TMIDICCAction::LooperQuantize,     TMIDICCAction::LooperQuantize);
+	Bind(TMIDICCBindingID::LooperSave,        TMIDICCAction::LooperSave,         TMIDICCAction::LooperSave);
+	Bind(TMIDICCBindingID::LooperClear,       TMIDICCAction::LooperClear,        TMIDICCAction::LooperClear);
 }
 
 bool CConfig::ParseMIDICCMapping(const char* pValue, TMIDICCMapping* pOut)
@@ -425,6 +444,14 @@ bool CConfig::ParseMIDICCBindingKey(const char* pName, TMIDICCBindingID* pOut)
 		*pOut = TMIDICCBindingID::NextRomOrSoundFont;
 	else if (strcasecmp(pName, "looper_arm_stop") == 0)
 		*pOut = TMIDICCBindingID::LooperArmStop;
+	else if (strcasecmp(pName, "looper_bpm") == 0)
+		*pOut = TMIDICCBindingID::LooperBPM;
+	else if (strcasecmp(pName, "looper_quantize") == 0)
+		*pOut = TMIDICCBindingID::LooperQuantize;
+	else if (strcasecmp(pName, "looper_save") == 0)
+		*pOut = TMIDICCBindingID::LooperSave;
+	else if (strcasecmp(pName, "looper_clear") == 0)
+		*pOut = TMIDICCBindingID::LooperClear;
 	else if (strcasecmp(pName, "sustain_cc64") == 0)
 		*pOut = TMIDICCBindingID::SustainCC64;
 	else
