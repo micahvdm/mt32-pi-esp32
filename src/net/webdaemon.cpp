@@ -843,6 +843,11 @@ THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
 	const bool bIsSeqLoopPath       = strcmp(pPath, "/api/sequencer/loop")  == 0;
 	const bool bIsSeqSeekPath       = strcmp(pPath, "/api/sequencer/seek")  == 0;
 	const bool bIsSeqTempoPath      = strcmp(pPath, "/api/sequencer/tempo") == 0;
+	const bool bIsLooperStatusPath  = strcmp(pPath, "/api/looper/status") == 0;
+	const bool bIsLooperArmStopPath = strcmp(pPath, "/api/looper/arm_stop") == 0;
+	const bool bIsLooperSavePath    = strcmp(pPath, "/api/looper/save") == 0;
+	const bool bIsLooperClearPath   = strcmp(pPath, "/api/looper/clear") == 0;
+	const bool bIsLooperSetPath     = strcmp(pPath, "/api/looper/set") == 0;
 	const bool bIsMidiNotePath      = strcmp(pPath, "/api/midi/note")        == 0;
 	const bool bIsMidiRawPath       = strcmp(pPath, "/api/midi/raw")         == 0;
 	const bool bIsMidiLogPath       = strcmp(pPath, "/api/midi/log")         == 0;
@@ -2498,6 +2503,85 @@ THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
 		return bOK ? HTTPOK : HTTPBadRequest;
 	}
 
+	// ---- GET /api/looper/status ----
+	if (bIsLooperStatusPath)
+	{
+		const CMT32Pi::TLooperStatus s = m_pMT32Pi->GetLooperStatus();
+		CString JSON;
+		JSON += "{";
+		AppendJSONPairInt(JSON,  "state",    static_cast<int>(s.nState));
+		AppendJSONPairBool(JSON, "enabled",  s.bEnabled);
+		AppendJSONPairInt(JSON,  "bpm",      s.nBPM);
+		AppendJSONPairInt(JSON,  "quantize", s.nQuantize, false);
+		JSON += "}";
+		const unsigned nLen = JSON.GetLength();
+		if (*pLength < nLen) return HTTPInternalServerError;
+		memcpy(pBuffer, static_cast<const char*>(JSON), nLen);
+		*pLength = nLen;
+		*ppContentType = "application/json; charset=utf-8";
+		return HTTPOK;
+	}
+
+	// ---- POST /api/looper/arm_stop ----
+	if (bIsLooperArmStopPath)
+	{
+		m_pMT32Pi->LooperArmStop();
+		const char* pBody = "{\"ok\":true}";
+		const unsigned nLen = static_cast<unsigned>(std::strlen(pBody));
+		if (*pLength < nLen) return HTTPInternalServerError;
+		memcpy(pBuffer, pBody, nLen);
+		*pLength = nLen;
+		*ppContentType = "application/json; charset=utf-8";
+		return HTTPOK;
+	}
+
+	// ---- POST /api/looper/save ----
+	if (bIsLooperSavePath)
+	{
+		m_pMT32Pi->LooperSave();
+		const char* pBody = "{\"ok\":true}";
+		const unsigned nLen = static_cast<unsigned>(std::strlen(pBody));
+		if (*pLength < nLen) return HTTPInternalServerError;
+		memcpy(pBuffer, pBody, nLen);
+		*pLength = nLen;
+		*ppContentType = "application/json; charset=utf-8";
+		return HTTPOK;
+	}
+
+	// ---- POST /api/looper/clear ----
+	if (bIsLooperClearPath)
+	{
+		m_pMT32Pi->LooperClear();
+		const char* pBody = "{\"ok\":true}";
+		const unsigned nLen = static_cast<unsigned>(std::strlen(pBody));
+		if (*pLength < nLen) return HTTPInternalServerError;
+		memcpy(pBuffer, pBody, nLen);
+		*pLength = nLen;
+		*ppContentType = "application/json; charset=utf-8";
+		return HTTPOK;
+	}
+
+	// ---- POST /api/looper/set (body: bpm=120&quantize=16) ----
+	if (bIsLooperSetPath)
+	{
+		char BPMVal[16] = {};
+		char QuantizeVal[16] = {};
+		if (pFormData && *pFormData)
+		{
+			if (GetFormValue(pFormData, "bpm", BPMVal, sizeof(BPMVal)))
+				m_pMT32Pi->LooperSetBPM(atoi(BPMVal));
+			if (GetFormValue(pFormData, "quantize", QuantizeVal, sizeof(QuantizeVal)))
+				m_pMT32Pi->LooperSetQuantize(atoi(QuantizeVal));
+		}
+		const char* pBody = "{\"ok\":true}";
+		const unsigned nLen = static_cast<unsigned>(std::strlen(pBody));
+		if (*pLength < nLen) return HTTPInternalServerError;
+		memcpy(pBuffer, pBody, nLen);
+		*pLength = nLen;
+		*ppContentType = "application/json; charset=utf-8";
+		return HTTPOK;
+	}
+
 	// ---- POST /api/recorder/stop ----
 	if (bIsRecStopPath)
 	{
@@ -2929,6 +3013,23 @@ THTTPStatus CWebDaemon::BuildSequencerPage(u8* pBuffer, unsigned* pLength, const
 		html.Append("</div></div>");
 		html.Append("</div></div>"); // close sq-body + sq-card
 
+		// ── Rhythm Looper ───────────────────────────────────────────────────
+		html.Append("<div id='sq-card' style='margin-top:14px;'>");
+		html.Append("<div id='sq-hdr'><h1>&#129345; Rhythm Looper</h1></div>");
+		html.Append("<div id='sq-body'>");
+		html.Append("<div id='sq-status-row'><span id='lp-badge' class='badge'>Idle</span></div>");
+		html.Append("<div id='sq-transport' style='margin-top:10px;'>");
+		html.Append("<button class='trn-btn' id='lp-arm' onclick='lpArm()' title='Arm / Stop'>&#9210;</button>");
+		html.Append("<button class='trn-btn' onclick='lpClear()' title='Clear'>&#10006;</button>");
+		html.Append("<button class='trn-btn' onclick='lpSave()' title='Save to MIDI'>&#128190;</button>");
+		html.Append("</div>");
+		html.Append("<div id='sq-tempo-row' style='border:none;padding:0;margin-bottom:10px;'>");
+		html.Append("<label style='flex:1;'>BPM<input id='lp-bpm' type='number' min='20' max='300' onchange='lpSet()'></label>");
+		html.Append("<label style='flex:1;'>Quantize<select id='lp-q' onchange='lpSet()'>");
+		html.Append("<option value='4'>1/4</option><option value='8'>1/8</option><option value='16'>1/16</option><option value='32'>1/32</option>");
+		html.Append("</select></label></div>");
+		html.Append("</div></div>");
+
 		// ── Playlist ──────────────────────────────────────────────────────────
 		html.Append("<div id='sq-pl' style='margin-top:14px;'>");
 		html.Append("<div id='sq-pl-hdr'>");
@@ -2997,6 +3098,13 @@ THTTPStatus CWebDaemon::BuildSequencerPage(u8* pBuffer, unsigned* pLength, const
 		// Loop / auto-next pills
 		html.Append("_setPill('tgl-loop',!!d.loop_enabled);");
 		html.Append("_setPill('tgl-autonext',!!d.auto_next);");
+		// Looper
+		html.Append("if(d.looper){var ls=['Idle','Armed','Recording','Playing','Stopped'];");
+		html.Append("var lpb=document.getElementById('lp-badge');if(lpb){lpb.textContent=ls[d.looper.state]||'Unknown';");
+		html.Append("var lc=['','loading','recording','playing','paused'];lpb.className='badge '+lc[d.looper.state];}");
+		html.Append("var lab=document.getElementById('lp-arm');if(lab)lab.textContent=(d.looper.state===2||d.looper.state===3)?'\\u23F9':'\\u23FA';");
+		html.Append("if(document.activeElement.id!=='lp-bpm')document.getElementById('lp-bpm').value=d.looper.bpm;");
+		html.Append("if(document.activeElement.id!=='lp-q')document.getElementById('lp-q').value=d.looper.quantize;}");
 		// Playlist state
 		html.Append("if(typeof d.pl_count!=='undefined'){");
 		html.Append("var pc=document.getElementById('pl-count');if(pc)pc.textContent=d.pl_count>0?'('+d.pl_count+' tracks)':'';");
@@ -3037,6 +3145,12 @@ THTTPStatus CWebDaemon::BuildSequencerPage(u8* pBuffer, unsigned* pLength, const
 		html.Append("_qs('/api/sequencer/loop','enabled='+(on?'on':'off'),function(){_setPill('tgl-loop',on);});}");
 		html.Append("function toggleAutoNext(){var on=!document.getElementById('tgl-autonext').classList.contains('on');");
 		html.Append("_qs('/api/sequencer/autonext','enabled='+(on?'on':'off'),function(){_setPill('tgl-autonext',on);});}");
+		// Looper
+		html.Append("function lpArm(){_qs('/api/looper/arm_stop');}");
+		html.Append("function lpClear(){if(confirm('Clear loop?'))_qs('/api/looper/clear');}");
+		html.Append("function lpSave(){_qs('/api/looper/save');}");
+		html.Append("function lpSet(){var b=document.getElementById('lp-bpm').value,q=document.getElementById('lp-q').value;");
+		html.Append("_qs('/api/looper/set','bpm='+b+'&quantize='+q);}");
 		// Playlist
 		html.Append("function loadPlaylist(){_qs('/api/playlist','',function(d){");
 		html.Append("if(!d)return;_plCnt=d.count;_plShuffle=d.shuffle;_plRepeat=d.repeat;");

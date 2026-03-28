@@ -123,6 +123,7 @@ static int ParseClientFrame(const u8* pBuf, size_t nLen, u8* pOpcode, u8* pPaylo
 static int BuildStatusJSON(char* buf, size_t bufSize, CMT32Pi* pPi)
 {
 	const CMT32Pi::TSystemState st = pPi->GetSystemState();
+	const CMT32Pi::TLooperStatus lp = pPi->GetLooperStatus();
 
 	u8 activeNotes[16][128];
 	pPi->GetActiveNotes(activeNotes);
@@ -219,14 +220,16 @@ static int BuildStatusJSON(char* buf, size_t bufSize, CMT32Pi* pPi)
 			",\"mt32_render_us\":%u,\"fluid_render_us\":%u,\"ymfm_render_us\":%u,\"mixer_render_us\":%u"
 			",\"mt32_cpu\":%u,\"fluid_cpu\":%u,\"ymfm_cpu\":%u,\"mixer_cpu\":%u"
 			",\"recording\":%s"
-			",\"pl_count\":%u,\"pl_idx\":%u,\"pl_repeat\":%s,\"pl_shuffle\":%s}",
+			",\"pl_count\":%u,\"pl_idx\":%u,\"pl_repeat\":%s,\"pl_shuffle\":%s"
+			",\"looper\":{\"state\":%d,\"enabled\":%s,\"bpm\":%d,\"quantize\":%d}}",
 			st.Mixer.nRenderUs, st.Mixer.nRenderAvgUs, st.Mixer.nDeadlineUs, st.Mixer.nCpuLoadPercent,
 			st.Mixer.nMT32RenderUs, st.Mixer.nFluidRenderUs, st.Mixer.nYmfmRenderUs, st.Mixer.nMixerRenderUs,
 			st.Mixer.nMT32LoadPercent, st.Mixer.nFluidLoadPercent, st.Mixer.nYmfmLoadPercent, st.Mixer.nMixerLoadPercent,
 			st.bMidiRecording ? "true" : "false",
 			st.nPlaylistCount, st.nPlaylistIndex,
 			st.bPlaylistRepeat  ? "true" : "false",
-			st.bPlaylistShuffle ? "true" : "false");
+			st.bPlaylistShuffle ? "true" : "false",
+			static_cast<int>(lp.nState), lp.bEnabled ? "true" : "false", lp.nBPM, lp.nQuantize);
 		if (added <= 0) return -1;
 		return n + added;
 	}

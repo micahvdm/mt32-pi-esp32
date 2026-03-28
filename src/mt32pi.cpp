@@ -2208,6 +2208,16 @@ void CMT32Pi::PlaylistAdd(const char* pPath)
 	m_Playlist.Add(pPath);
 }
 
+CMT32Pi::TLooperStatus CMT32Pi::GetLooperStatus() const
+{
+	return {
+		m_RhythmLooper.GetState(),
+		m_RhythmLooper.IsEnabled(),
+		m_RhythmLooper.GetBPM(),
+		m_RhythmLooper.GetQuantize()
+	};
+}
+
 void CMT32Pi::PlaylistRemove(unsigned nIndex)
 {
 	m_Playlist.Remove(nIndex);
