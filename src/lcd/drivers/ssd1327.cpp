@@ -76,27 +76,20 @@ bool CSSD1327::Initialize()
 
 	// Re-map setting (Command 0xA0)
 	// Bit 0: Address increment (0=Horizontal, 1=Vertical) - Must be 0 for our Flip() logic
-	// Bit 1: Column Address Remap (0=Normal, 1=Remapped)
-	// Bit 4: COM Scan Direction (0=Normal, 1=Remapped)
-	// Bit 6: COM Split Odd/Even (1=Enable)
-	u8 nRemap = 0x00; // Start with base (Horizontal Address Increment, COM Split Disabled)
+	// Re-map setting (Command 0xA0)
+	// Most 128x128 SSD1327 modules require Bit 6 (COM Split) and Bit 0 (Vertical Increment)
+	// to map a standard row-major buffer to the physical glass orientation.
+	// 0x51: Vertical increment, COM Remap enabled, COM Split enabled.
+	u8 nRemap = 0x51; 
 
-	// Always enable COM Split Odd/Even for 128x128 displays (Bit 6)
-	nRemap |= (1 << 6); // 0x40
+	if (m_Rotation == TLCDRotation::Inverted) 
+		nRemap ^= 0x12; // Flip COM and Column scan
 
-	switch (m_Rotation)
-	{
-		case TLCDRotation::Normal:
-			nRemap |= (0 << 1) | (1 << 4); // Column Normal, COM Remapped (0x10) -> 0x50
-			break;
-		case TLCDRotation::Inverted:
-			nRemap |= (1 << 1) | (0 << 4); // Column Remapped, COM Normal (0x02) -> 0x42
-			break;
-		case TLCDRotation::Rotated90:
-			nRemap |= (0 << 1) | (0 << 4); // Column Normal, COM Normal (0x00) -> 0x40
-			break;
-	}
-	if (m_Mirror == TLCDMirror::Mirrored) nRemap ^= 0x02; // Flip Column (00000010)
+	if (m_Mirror == TLCDMirror::Mirrored)     
+		nRemap ^= 0x02; // Flip Column remap
+
+	u8 remapSeq[] = { 0xA0, nRemap };
+	WriteCommand(remapSeq, 2);
 
 	u8 remapSeq[] = { 0xA0, nRemap };
 	WriteCommand(remapSeq, 2);
@@ -128,29 +121,13 @@ void CSSD1327::Clear(bool bUpdate)
 
 void CSSD1327::SetPixel(u8 x, u8 y, bool bOn)
 {
-	u8 actualX = x;
-	u8 actualY = y;
-
-	switch (m_Rotation)
-	{
-		case TLCDRotation::Rotated90:
-			actualX = y;
-			actualY = m_nWidth - 1 - x;
-			break;
-		case TLCDRotation::Inverted:
-			actualX = m_nWidth - 1 - x;
-			actualY = m_nHeight - 1 - y;
-			break;
-		case TLCDRotation::Normal:
-		default:
-			break;
-	}
-
-	if (actualX >= m_nWidth || actualY >= m_nHeight)
+	// Direct 1:1 mapping to the internal buffer. 
+	// Hardware Re-map (0x51) handles the 90-degree physical rotation.
+	if (x >= m_nWidth || y >= m_nHeight)
 		return;
 
-	u16 nIndex = (actualY * (m_nWidth / 8)) + (actualX / 8);
-	u8  nBit   = 7 - (actualX % 8);
+	u16 nIndex = (y * (m_nWidth / 8)) + (x / 8);
+	u8  nBit   = 7 - (x % 8);
 
 	if (bOn)
 		m_pBuffer[nIndex] |= (1 << nBit);
@@ -160,29 +137,11 @@ void CSSD1327::SetPixel(u8 x, u8 y, bool bOn)
 
 bool CSSD1327::GetPixel(u8 x, u8 y) const
 {
-	u8 actualX = x;
-	u8 actualY = y;
-
-	switch (m_Rotation)
-	{
-		case TLCDRotation::Rotated90:
-			actualX = y;
-			actualY = m_nWidth - 1 - x;
-			break;
-		case TLCDRotation::Inverted:
-			actualX = m_nWidth - 1 - x;
-			actualY = m_nHeight - 1 - y;
-			break;
-		case TLCDRotation::Normal:
-		default:
-			break;
-	}
-
-	if (actualX >= m_nWidth || actualY >= m_nHeight)
+	if (x >= m_nWidth || y >= m_nHeight)
 		return false;
 
-	u16 nIndex = (actualY * (m_nWidth / 8)) + (actualX / 8);
-	u8  nBit   = 7 - (actualX % 8);
+	u16 nIndex = (y * (m_nWidth / 8)) + (x / 8);
+	u8  nBit   = 7 - (x % 8);
 	return (m_pBuffer[nIndex] & (1 << nBit)) != 0;
 }
 
