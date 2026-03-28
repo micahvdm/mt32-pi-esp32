@@ -59,14 +59,13 @@ u32 CRhythmLooper::QuantizeTick(u32 nTick) const
 
 void CRhythmLooper::ArmStop()
 {
-	const u32 step = (m_nQuantize > 0) ? (PPQN * 4) / m_nQuantize : 1;
-
 	switch (m_State)
 	{
 		case TState::Idle:
 			m_State = TState::Armed;
 			LOGNOTE("Looper Armed");
 			m_nLastMetronomeBeatTick = 0xFFFFFFFF;
+			m_nLoopStartSystemTick = CTimer::GetClockTicks(); // Start clock for metronome clicks
 			break;
 
 		case TState::StoppedWithLoop:
@@ -93,10 +92,10 @@ void CRhythmLooper::ArmStop()
 			{
 				for (u32 i = 0; i < m_nEventCount; ++i)
 				{
-					if (m_Events[i].nTick >= maxEventTick) maxEventTick = m_Events[i].nTick;
+					if (m_Events[i].nTick > maxEventTick) maxEventTick = m_Events[i].nTick;
 				}
 			}
-			m_nLoopLengthMidiTicks = ((maxEventTick + step - 1) / step) * step; // Round up to next quantization step
+			m_nLoopLengthMidiTicks = ((maxEventTick + PPQN - 1) / PPQN) * PPQN;
 			if (m_nLoopLengthMidiTicks == 0) m_nLoopLengthMidiTicks = (PPQN * 4); // Min 1 bar
 
 			// Quantization wrap-around: ensure all events are within [0, LoopLength-1]
@@ -153,9 +152,8 @@ void CRhythmLooper::OnShortMessage(u32 nMessage, u32 nTicksNow)
 	if (m_State == TState::Armed)
 	{
 		m_State = TState::Recording;
-		m_nLoopStartSystemTick = nTicksNow; // Metronome starts here
-		m_nLastMetronomeBeatTick = 0xFFFFFFFF;
-		m_nLoopStartSystemTick = nTicksNow;
+		m_nLoopStartSystemTick = nTicksNow; // Snap metronome and grid to the first note
+		m_nLastMetronomeBeatTick = 0xFFFFFFFF; 
 		m_nEventCount = 0;
 		LOGNOTE("Looper Recording started");
 	}
