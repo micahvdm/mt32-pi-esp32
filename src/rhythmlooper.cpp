@@ -81,6 +81,7 @@ void CRhythmLooper::ArmStop()
 			m_State = TState::Idle;
 			LOGNOTE("Looper Disarmed");
 			break;
+
 			
 		case TState::Recording:
 		{
@@ -95,7 +96,7 @@ void CRhythmLooper::ArmStop()
 					if (m_Events[i].nTick >= maxEventTick) maxEventTick = m_Events[i].nTick;
 				}
 			}
-			m_nLoopLengthMidiTicks = QuantizeTick(maxEventTick + step / 2);
+			m_nLoopLengthMidiTicks = ((maxEventTick + step - 1) / step) * step; // Round up to next quantization step
 			if (m_nLoopLengthMidiTicks == 0) m_nLoopLengthMidiTicks = (PPQN * 4); // Min 1 bar
 
 			// Quantization wrap-around: ensure all events are within [0, LoopLength-1]
@@ -152,6 +153,7 @@ void CRhythmLooper::OnShortMessage(u32 nMessage, u32 nTicksNow)
 	if (m_State == TState::Armed)
 	{
 		m_State = TState::Recording;
+		m_nLoopStartSystemTick = nTicksNow; // Metronome starts here
 		m_nLastMetronomeBeatTick = 0xFFFFFFFF;
 		m_nLoopStartSystemTick = nTicksNow;
 		m_nEventCount = 0;
