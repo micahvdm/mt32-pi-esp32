@@ -67,16 +67,11 @@ bool CSSD1327::Initialize()
 	WriteCommand(0x81); // Set Contrast
 	WriteCommand(0x80);
 
-	// Re-map setting (Command 0xA0)
-	// Bit 0: Address increment (0=Horizontal, 1=Vertical) - Must be 0 for our Flip() logic
-	// Bit 1: Column Address Remap (0=Normal, 1=Remapped)
-	// Bit 4: COM Scan Direction (0=Normal, 1=Remapped)
-	// Bit 6: COM Split Odd/Even (1=Enable)
-	u8 nRemap = 0x42; // Default: Horizontal, Col Remap enabled, COM Split enabled
-	if (m_Rotation == TLCDRotation::Inverted) nRemap ^= 0x12; // Flip Column and COM Scan
-	if (m_Mirror == TLCDMirror::Mirrored)     nRemap ^= 0x02; // Flip Column
-
-	u8 remapSeq[] = { 0xA0, nRemap };
+	// Re-map setting (Command 0xA0) - Fixed at standard configuration.
+	// Rotation and mirroring are handled in software via coordinate transformation
+	// in SetPixel to avoid hardware-specific bit/nibble-order quirks.
+	// Bits: 0x42 = Horizontal increment, Column Remap enabled, COM Split enabled.
+	u8 remapSeq[] = { 0xA0, 0x42 };
 	WriteCommand(remapSeq, 2);
 
 	WriteCommand(0xA1); WriteCommand(0x00); // Start line
@@ -106,11 +101,27 @@ void CSSD1327::Clear(bool bUpdate)
 
 void CSSD1327::SetPixel(u8 x, u8 y, bool bOn)
 {
-	if (x >= m_nWidth || y >= m_nHeight)
+	u8 nPhysX = x;
+	u8 nPhysY = y;
+
+	// Apply software rotation
+	if (m_Rotation == TLCDRotation::Inverted)
+	{
+		nPhysX = m_nWidth - 1 - nPhysX;
+		nPhysY = m_nHeight - 1 - nPhysY;
+	}
+
+	// Apply software mirroring
+	if (m_Mirror == TLCDMirror::Mirrored)
+	{
+		nPhysX = m_nWidth - 1 - nPhysX;
+	}
+
+	if (nPhysX >= m_nWidth || nPhysY >= m_nHeight)
 		return;
 
-	u16 nIndex = (y * (m_nWidth / 8)) + (x / 8);
-	u8  nBit   = 7 - (x % 8);
+	u16 nIndex = (nPhysY * (m_nWidth / 8)) + (nPhysX / 8);
+	u8  nBit   = 7 - (nPhysX % 8);
 
 	if (bOn)
 		m_pBuffer[nIndex] |= (1 << nBit);
@@ -119,6 +130,25 @@ void CSSD1327::SetPixel(u8 x, u8 y, bool bOn)
 }
 
 bool CSSD1327::GetPixel(u8 x, u8 y) const
+{
+	u8 nPhysX = x;
+	u8 nPhysY = y;
+
+	if (m_Rotation == TLCDRotation::Inverted)
+	{
+		nPhysX = m_nWidth - 1 - nPhysX;
+		nPhysY = m_nHeight - 1 - nPhysY;
+	}
+
+	if (m_Mirror == TLCDMirror::Mirrored)
+	{
+		nPhysX = m_nWidth - 1 - nPhysX;
+	}
+
+	return GetPhysicalPixel(nPhysX, nPhysY);
+}
+
+bool CSSD1327::GetPhysicalPixel(u8 x, u8 y) const
 {
 	if (x >= m_nWidth || y >= m_nHeight)
 		return false;
@@ -141,8 +171,8 @@ void CSSD1327::Flip()
 		for (u8 x = 0; x < 64; x++)
 		{
 			// Map monochrome to 4-bit grayscale (0x0 or 0xF)
-			u8 p1 = GetPixel(x * 2,     y) ? 0xF0 : 0x00;
-			u8 p2 = GetPixel(x * 2 + 1, y) ? 0x0F : 0x00;
+			u8 p1 = GetPhysicalPixel(x * 2,     y) ? 0xF0 : 0x00;
+			u8 p2 = GetPhysicalPixel(x * 2 + 1, y) ? 0x0F : 0x00;
 			row[x] = p1 | p2;
 		}
 		SendData(row, sizeof(row));
