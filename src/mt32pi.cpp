@@ -2269,7 +2269,8 @@ CMT32Pi::TLooperStatus CMT32Pi::GetLooperStatus() const
 		m_RhythmLooper.IsEnabled(),
 		m_RhythmLooper.GetBPM(),
 		m_RhythmLooper.GetQuantize(),
-		m_RhythmLooper.GetMetronomeEnabled()
+		m_RhythmLooper.GetMetronomeEnabled(),
+		m_RhythmLooper.GetPlaybackGain()
 	};
 }
 

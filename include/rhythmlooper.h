@@ -73,12 +73,12 @@ private:
 	u32 m_nLoopLengthMidiTicks;
 	u32 m_nLastProcessedMidiTick;
 
-	u32 m_nLastMetronomeBeatTick;
 	static constexpr u32 MaxEvents = 2048;
 	TLoopEvent m_Events[MaxEvents];
 	u32 m_nEventCount;
 
 	CMIDIRouter* m_pRouter;
+	u32 m_nLastMetronomeBeatTick;
 	CSynthBase*  m_pSynth;
 
 	static constexpr u32 PPQN = 480;

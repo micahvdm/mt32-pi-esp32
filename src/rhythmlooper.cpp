@@ -4,6 +4,8 @@
 #include "rhythmlooper.h"
 #include "midirouter.h"
 #include <fatfs/ff.h>
+#include <cstdio>
+#include <new>
 #include "synth/synthbase.h"
 
 LOGMODULE("looper");
@@ -80,8 +82,7 @@ void CRhythmLooper::ArmStop()
 		case TState::Recording:
 		{
 			// Close the loop
-			u32 nTicksNow = CTimer::GetClockTicks();
-			u32 totalTicks = GetCurrentMidiTick(nTicksNow);
+			u32 totalTicks = GetCurrentMidiTick(CTimer::GetClockTicks());
 			
 			// Determine loop length based on the last recorded event, not button press time
 			u32 maxEventTick = 0;

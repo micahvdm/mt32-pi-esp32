@@ -257,6 +257,7 @@ public:
 	void LooperClear()   { m_RhythmLooper.Clear(); }
 	void LooperSetBPM(int nBPM) { m_RhythmLooper.SetBPM(nBPM); }
 	void LooperSetQuantize(int nQuantize) { m_RhythmLooper.SetQuantize(nQuantize); }
+	void LooperSetMetronomeEnabled(bool bEnabled) { m_RhythmLooper.SetMetronomeEnabled(bEnabled); }
 	void LooperSetPlaybackGain(float fGain) { m_RhythmLooper.SetPlaybackGain(fGain); }
 
 	struct TLooperStatus
