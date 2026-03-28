@@ -373,7 +373,7 @@ void CConfig::RebuildMIDICCMap()
 	Bind(TMIDICCBindingID::ChorusParam1,       TMIDICCAction::MT32DACMode,        TMIDICCAction::SFChorusLevel);
 	Bind(TMIDICCBindingID::ChorusParam2,       TMIDICCAction::MT32RendererType,   TMIDICCAction::SFChorusDepth);
 	Bind(TMIDICCBindingID::ChorusParam3,       TMIDICCAction::MT32PartialCount,   TMIDICCAction::SFChorusSpeed);
-	Bind(TMIDICCBindingID::MasterOrGain,       TMIDICCAction::MasterVolume,       TMIDICCAction::SoundFontGain);
+	Bind(TMIDICCBindingID::MasterOrGain,       TMIDICCAction::MasterVolume,       TMIDICCAction::MasterVolume);
 
 	Bind(TMIDICCBindingID::SelectMT32,         TMIDICCAction::SelectMT32,         TMIDICCAction::SelectMT32);
 	Bind(TMIDICCBindingID::SelectSoundFont,    TMIDICCAction::SelectSoundFont,    TMIDICCAction::SelectSoundFont);

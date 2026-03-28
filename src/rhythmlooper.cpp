@@ -16,6 +16,7 @@ CRhythmLooper::CRhythmLooper()
 	  m_nChannel(10),
 	  m_nBPM(120),
 	  m_nQuantize(16),
+	  m_bMixerEnabled(false),
 	  m_bMetronomeEnabled(false),
 	  m_fPlaybackGain(0.8f),
 	  m_nMaxBars(8),
@@ -249,7 +250,7 @@ void CRhythmLooper::PlayEvent(const TLoopEvent& Event)
 		}
 	}
 
-	if (m_pRouter)
+	if (m_pRouter && m_bMixerEnabled)
 		m_pRouter->RouteShortMessage(nMessage);
 	else if (m_pSynth)
 		m_pSynth->HandleMIDIShortMessage(nMessage);

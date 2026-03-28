@@ -385,6 +385,7 @@ bool CMT32Pi::Initialize(bool bSerialMIDIAvailable)
 	// Initialize Rhythm Looper
 	m_RhythmLooper.SetRouter(&m_MIDIRouter);
 	m_RhythmLooper.SetSynth(m_pCurrentSynth);
+	m_RhythmLooper.SetMixerEnabled(m_pConfig->MixerEnabled);
 	m_RhythmLooper.SetEnabled(true); // Always enable the subsystem if present
 	m_RhythmLooper.SetBPM(m_pConfig->RhythmLooperBPM);
 	m_RhythmLooper.SetQuantize(m_pConfig->RhythmLooperQuantize);
@@ -1022,40 +1023,42 @@ bool CMT32Pi::HandleMappedButtonAction(CConfig::TMIDICCAction Action, u8 nCC, u8
 
 bool CMT32Pi::ExecuteMappedCCAction(CConfig::TMIDICCAction Action, u8 nChannel, u8 nCC, u8 nValue)
 {
+	const u8 nPrevValue = m_nLastMappedCCValue[nCC];
+	m_nLastMappedCCValue[nCC] = nValue;
+
 	switch (Action)
 	{
 		case CConfig::TMIDICCAction::None:
 			return false;
 
 		case CConfig::TMIDICCAction::SustainCC64:
-			// Handled in OnShortMessage() before ExecuteMappedCCAction() is called
-			break;
+			return true;
 
 		case CConfig::TMIDICCAction::SelectMT32:
-			if (nValue >= 64 && m_nLastMappedCCValue[nCC] < 64)
+			if (nValue >= 64 && nPrevValue < 64)
 				SetActiveSynth(TSynth::MT32);
-			break;
+			return true;
 
 		case CConfig::TMIDICCAction::SelectSoundFont:
-			if (nValue >= 64 && m_nLastMappedCCValue[nCC] < 64)
+			if (nValue >= 64 && nPrevValue < 64)
 				SetActiveSynth(TSynth::SoundFont);
-			break;
+			return true;
 
 		case CConfig::TMIDICCAction::PrevRomOrSoundFont:
-			if (nValue >= 64 && m_nLastMappedCCValue[nCC] < 64)
+			if (nValue >= 64 && nPrevValue < 64)
 			{
 				if (m_pCurrentSynth == m_pMT32Synth) SelectRelativeMT32ROM(-1);
 				else if (m_pCurrentSynth == m_pSoundFontSynth) SelectRelativeSoundFont(-1);
 			}
-			break;
+			return true;
 
 		case CConfig::TMIDICCAction::NextRomOrSoundFont:
-			if (nValue >= 64 && m_nLastMappedCCValue[nCC] < 64)
+			if (nValue >= 64 && nPrevValue < 64)
 			{
 				if (m_pCurrentSynth == m_pMT32Synth) SelectRelativeMT32ROM(+1);
 				else if (m_pCurrentSynth == m_pSoundFontSynth) SelectRelativeSoundFont(+1);
 			}
-			break;
+			return true;
 
 		case CConfig::TMIDICCAction::MainReverb:
 			if (m_pCurrentSynth == m_pMT32Synth)
@@ -1157,13 +1160,13 @@ bool CMT32Pi::ExecuteMappedCCAction(CConfig::TMIDICCAction Action, u8 nChannel, 
 			return false;
 
 		case CConfig::TMIDICCAction::LooperArmStop:
-			if (nValue >= 64 && m_nLastMappedCCValue[nCC] < 64) // Press
+			if (nValue >= 64 && nPrevValue < 64) // Press
 			{
 				m_nLooperButtonPressTicks = m_pTimer->GetTicks();
 				m_bLooperButtonHeld = true;
 				m_bLooperLongPressTriggered = false;
 			}
-			else if (nValue < 64 && m_nLastMappedCCValue[nCC] >= 64) // Release
+			else if (nValue < 64 && nPrevValue >= 64) // Release
 			{
 				if (m_bLooperButtonHeld && !m_bLooperLongPressTriggered)
 				{
@@ -1189,7 +1192,6 @@ bool CMT32Pi::ExecuteMappedCCAction(CConfig::TMIDICCAction Action, u8 nChannel, 
 				}
 				m_bLooperButtonHeld = false;
 			}
-			m_nLastMappedCCValue[nCC] = nValue;
 			return true;
 
 		case CConfig::TMIDICCAction::LooperBPM:
@@ -1204,34 +1206,30 @@ bool CMT32Pi::ExecuteMappedCCAction(CConfig::TMIDICCAction Action, u8 nChannel, 
 			return true;
 
 		case CConfig::TMIDICCAction::LooperSave:
-			if (nValue >= 64 && m_nLastMappedCCValue[nCC] < 64)
+			if (nValue >= 64 && nPrevValue < 64)
 			{
 				LooperSave();
 				LCDLog(TLCDLogType::Notice, "Loop: Saving...");
 			}
-			m_nLastMappedCCValue[nCC] = nValue;
 			return true;
 
 		case CConfig::TMIDICCAction::LooperMetronome:
-			if (nValue >= 64 && m_nLastMappedCCValue[nCC] < 64)
+			if (nValue >= 64 && nPrevValue < 64)
 			{
 				LooperSetMetronomeEnabled(!m_RhythmLooper.GetMetronomeEnabled());
 				LCDLog(TLCDLogType::Notice, "Metronome: %s", m_RhythmLooper.GetMetronomeEnabled() ? "On" : "Off");
 			}
-			break;
+			return true;
 
 		case CConfig::TMIDICCAction::LooperClear:
-			if (nValue >= 64 && m_nLastMappedCCValue[nCC] < 64)
+			if (nValue >= 64 && nPrevValue < 64)
 			{
 				LooperClear();
 				LCDLog(TLCDLogType::Notice, "Loop: Cleared");
 			}
-			m_nLastMappedCCValue[nCC] = nValue;
 			return true;
-
 	}
-	m_nLastMappedCCValue[nCC] = nValue;
-	return true;
+	return false;
 }
 
 bool CMT32Pi::HandleMappedControlChange(u8 nChannel, u8 nCC, u8 nValue)
@@ -3410,6 +3408,7 @@ CMT32Pi::TMixerStatus CMT32Pi::GetMixerStatus() const
 bool CMT32Pi::SetMixerEnabled(bool bEnabled)
 {
 	m_bMixerEnabled = bEnabled;
+	m_RhythmLooper.SetMixerEnabled(bEnabled);
 
 	if (bEnabled)
 	{

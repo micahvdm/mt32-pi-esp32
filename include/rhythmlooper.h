@@ -52,6 +52,9 @@ public:
 	void  SetPlaybackGain(float fGain) { m_fPlaybackGain = fGain; }
 	float GetPlaybackGain() const { return m_fPlaybackGain; }
 
+	void SetMixerEnabled(bool bEnabled) { m_bMixerEnabled = bEnabled; }
+	bool IsMixerEnabled() const { return m_bMixerEnabled; }
+
 	void SetRouter(CMIDIRouter* pRouter) { m_pRouter = pRouter; }
 	void SetSynth(CSynthBase* pSynth) { m_pSynth = pSynth; }
 
@@ -65,6 +68,7 @@ private:
 	u8     m_nChannel;
 	int    m_nBPM;
 	int    m_nQuantize;
+	bool   m_bMixerEnabled;
 	bool   m_bMetronomeEnabled;
 	float  m_fPlaybackGain;
 	u32    m_nMaxBars;
