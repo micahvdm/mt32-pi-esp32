@@ -23,31 +23,50 @@
 // ---------------------------------------------------------------------------
 // Helpers (file-static)
 // ---------------------------------------------------------------------------
+enum class TMenuLevel : u8
+{
+	Main,
+	Synth,
+	Mixer,
+	Looper,
+	MIDI,
+	Network,
+	System
+};
+
+static TMenuLevel s_nMenuLevel = TMenuLevel::Main;
+static size_t s_nMenuMainCursor = 0;
 
 static constexpr size_t MenuVisibleRows = 16;
 static constexpr size_t MixerMenuItems  = 5;
 
-// Number of menu items per synth (+ mixer items always appended)
-static size_t GetMenuItemCount(const CSynthBase* pCurrent,
-                               CSoundFontSynth* pSF,
-                               CMT32Synth* pMT32,
-                               CMT32Pi* pMT32Pi)
+static size_t GetMenuItemCount(TMenuLevel Level, const CSynthBase* pCurrent,
+                               CSoundFontSynth* pSF, CMT32Synth* pMT32)
 {
-	size_t n = 0;
-	if (pCurrent == pSF && pSF)    n = 12;
-	else if (pCurrent == pMT32 && pMT32) n = 12;
-	else if (pCurrent && pCurrent->GetType() == TSynth::Ymfm) n = 3;
-	if (n > 0 && pMT32Pi) n += MixerMenuItems;
-	return n;
+	switch (Level)
+	{
+	case TMenuLevel::Main:    return 9;
+	case TMenuLevel::Mixer:   return MixerMenuItems;
+	case TMenuLevel::Looper:  return 6;
+	case TMenuLevel::MIDI:    return 3;
+	case TMenuLevel::Network: return 3;
+	case TMenuLevel::System:  return 4;
+	case TMenuLevel::Synth:
+		if (pCurrent == pSF && pSF)    return 12;
+		if (pCurrent == pMT32 && pMT32) return 12;
+		if (pCurrent && pCurrent->GetType() == TSynth::Ymfm) return 3;
+		return 0;
+	default: return 0;
+	}
 }
 
-// Label for item nItem
-static const char* GetMenuItemLabel(const CSynthBase* pCurrent,
-                                    CSoundFontSynth* pSF,
-                                    CMT32Synth* pMT32,
+static const char* GetMenuItemLabel(TMenuLevel Level, const CSynthBase* pCurrent,
+                                    CSoundFontSynth* pSF, CMT32Synth* pMT32,
                                     size_t nItem)
 {
-	if (pCurrent == pSF && pSF)
+	if (Level == TMenuLevel::Synth)
+	{
+		if (pCurrent == pSF && pSF)
 	{
 		static const char* sfLabels[] =
 			{ "SoundFont", "Gain",
@@ -55,22 +74,41 @@ static const char* GetMenuItemLabel(const CSynthBase* pCurrent,
 			  "Chorus", "Cho.Depth", "Cho.Level", "Cho.Voices", "Cho.Speed" };
 		return (nItem < 12) ? sfLabels[nItem] : nullptr;
 	}
-	if (pCurrent == pMT32 && pMT32)
+		if (pCurrent == pMT32 && pMT32)
 	{
 		static const char* mt32Labels[] = {
 			"ROM Set", "Gain", "Rev.Gain",
 			"Reverb", "NiceAmp", "NicePan",
 			"NiceMix", "DAC", "MIDIDelay",
-			"Analog", "Render", "Partials"
+				"Analog", "Render", "Partials"
 		};
 		return (nItem < 12) ? mt32Labels[nItem] : nullptr;
 	}
-	if (pCurrent && pCurrent->GetType() == TSynth::Ymfm)
+		if (pCurrent && pCurrent->GetType() == TSynth::Ymfm)
 	{
 		static const char* opl3Labels[] = { "Bank", "Chip", "Volume" };
 		return (nItem < 3) ? opl3Labels[nItem] : nullptr;
 	}
-	return nullptr;
+	}
+
+	switch (Level)
+	{
+	case TMenuLevel::Main:
+	{
+		static const char* mainLabels[] = { "Active Synth", "Synth FX", "Mixer", "Looper", "MIDI", "Network", "System", "Reboot Pi", "Exit" };
+		return (nItem < 9) ? mainLabels[nItem] : nullptr;
+	}
+	case TMenuLevel::Mixer:   return GetMixerMenuItemLabel(nItem);
+	case TMenuLevel::Looper:
+	{
+		static const char* looperLabels[] = { "Status", "BPM", "Quantize", "Metronome", "Gain", "Clear Loop" };
+		return (nItem < 6) ? looperLabels[nItem] : nullptr;
+	}
+	case TMenuLevel::MIDI:    { static const char* labels[] = { "MIDI Thru", "GPIO Baud", "USB Baud" }; return (nItem < 3) ? labels[nItem] : nullptr; }
+	case TMenuLevel::Network: { static const char* labels[] = { "Status", "Mode", "DHCP" }; return (nItem < 3) ? labels[nItem] : nullptr; }
+	case TMenuLevel::System:  { static const char* labels[] = { "Verbose", "USB", "I2C Baud", "Power Save" }; return (nItem < 4) ? labels[nItem] : nullptr; }
+	default: return nullptr;
+	}
 }
 
 static const char* GetMixerMenuItemLabel(size_t nMixerIdx)
@@ -102,10 +140,13 @@ static void FormatMenuValue(char* pBuf, size_t nBufSize,
 							int nMT32AnalogMode, int nMT32RendererType,
 							int nMT32PartialCount)
 {
+	(void)nROMSet; (void)nMT32DACMode; (void)nMT32MIDIDelay; (void)nMT32AnalogMode; (void)nMT32RendererType; // Silence unused variable warnings
 	pBuf[0] = '\0';
 
+	// Logic remains valid but shared across submenu renders
 	if (pCurrent == pSF && pSF)
 	{
+		if (nItem >= 12) return;
 		switch (nItem)
 		{
 		case 0:
@@ -131,6 +172,7 @@ static void FormatMenuValue(char* pBuf, size_t nBufSize,
 	}
 	else if (pCurrent == pMT32 && pMT32)
 	{
+		if (nItem >= 12) return;
 		switch (nItem)
 		{
 		case 0:
@@ -193,13 +235,14 @@ void CUserInterface::EnterMenu(CSoundFontSynth* pSF, CMT32Synth* pMT32,
 	m_pMenuMT32Pi       = pMT32Pi;
 	m_nMenuCursor       = 0;
 	m_nMenuScroll       = 0;
+	s_nMenuLevel        = TMenuLevel::Main;
+	s_nMenuMainCursor   = 0;
 	m_bMenuEditing      = false;
 
 	// Snapshot current values from active synth
 	if (pCurrent == pSF && pSF)
 	{
 		m_fMenuGain           = pSF->GetGain();
-		m_bMenuReverbActive   = pSF->GetReverbActive();
 		m_fMenuReverbDamping  = pSF->GetReverbDamping();
 		m_fMenuReverbRoomSize = pSF->GetReverbRoomSize();
 		m_fMenuReverbLevel    = pSF->GetReverbLevel();
@@ -209,6 +252,7 @@ void CUserInterface::EnterMenu(CSoundFontSynth* pSF, CMT32Synth* pMT32,
 		m_fMenuChorusLevel    = pSF->GetChorusLevel();
 		m_nMenuChorusVoices   = pSF->GetChorusVoices();
 		m_fMenuChorusSpeed    = pSF->GetChorusSpeed();
+		m_bMenuReverbActive   = pSF->GetReverbActive();
 		m_nMenuSoundFont      = static_cast<int>(pSF->GetSoundFontIndex());
 		m_nMenuROMSet         = 0;
 	}
@@ -268,18 +312,15 @@ bool CUserInterface::MenuEncoderEvent(s8 nDelta)
 	if (m_State != TState::InMenu)
 		return false;
 
-	const size_t nItems =
-		GetMenuItemCount(m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, m_pMenuMT32Pi);
+	const size_t nItems = GetMenuItemCount(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32);
 	if (nItems == 0)
 		return true;
 
 	if (m_bMenuEditing)
 	{
-		// Mixer items (appended after synth items)
-		const size_t nSynthItems = m_pMenuMT32Pi ? (nItems - MixerMenuItems) : nItems;
-		if (m_nMenuCursor >= nSynthItems && m_pMenuMT32Pi)
+		if (s_nMenuLevel == TMenuLevel::Mixer && m_pMenuMT32Pi)
 		{
-			switch (m_nMenuCursor - nSynthItems)
+			switch (m_nMenuCursor)
 			{
 			case 0: // Mixer ON/OFF
 				m_bMenuMixerEnabled = !m_bMenuMixerEnabled;
@@ -463,6 +504,98 @@ bool CUserInterface::MenuEncoderEvent(s8 nDelta)
 				break;
 			}
 		}
+		else if (s_nMenuLevel == TMenuLevel::Main)
+		{
+			if (m_nMenuCursor == 0) // Switch active synth
+			{
+				const TSynth eCurrent = m_pMenuCurrentSynth->GetType();
+				const TSynth eNew = (eCurrent == TSynth::MT32) ? TSynth::SoundFont :
+				                    (eCurrent == TSynth::SoundFont) ? TSynth::Ymfm : TSynth::MT32;
+				m_pMenuMT32Pi->SetActiveSynth(eNew);
+				ExitMenu(); // Exit to allow main logic to refresh synth pointers
+			}
+		}
+		else if (s_nMenuLevel == TMenuLevel::Looper)
+		{
+			switch (m_nMenuCursor)
+			{
+			case 1: m_pMenuMT32Pi->LooperSetBPM(m_pMenuMT32Pi->GetLooperStatus().nBPM + nDelta); break;
+			case 2:
+			{
+				static const int q[] = { 4, 8, 16, 32 };
+				int cur = m_pMenuMT32Pi->GetLooperStatus().nQuantize;
+				int idx = 0; for (int i = 0; i < 4; i++) if (q[i] == cur) idx = i;
+				m_pMenuMT32Pi->LooperSetQuantize(q[(idx + nDelta + 4) % 4]);
+				break;
+			}
+			case 3: m_pMenuMT32Pi->LooperSetMetronomeEnabled(!m_pMenuMT32Pi->GetLooperStatus().bMetronomeEnabled); break;
+			case 4: m_pMenuMT32Pi->LooperSetPlaybackGain(Utility::Clamp(m_pMenuMT32Pi->GetLooperStatus().fPlaybackGain + nDelta * 0.05f, 0.0f, 1.0f)); break;
+			default: break;
+			}
+		}
+		else if (s_nMenuLevel == TMenuLevel::MIDI)
+		{
+			CConfig* pCfg = const_cast<CConfig*>(m_pMenuMT32Pi->GetConfig());
+			switch (m_nMenuCursor)
+			{
+			case 0: m_pMenuMT32Pi->SetMIDIThruEnabled(!m_pMenuMT32Pi->GetMixerStatus().bMIDIThruEnabled); break;
+			case 1: pCfg->MIDIGPIOBaudRate = Utility::Clamp(pCfg->MIDIGPIOBaudRate + nDelta * 100, 300, 4000000); break;
+			case 2: pCfg->MIDIUSBSerialBaudRate = Utility::Clamp(pCfg->MIDIUSBSerialBaudRate + nDelta * 100, 9600, 115200); break;
+			}
+		}
+		else if (s_nMenuLevel == TMenuLevel::Network)
+		{
+			CConfig* pCfg = const_cast<CConfig*>(m_pMenuMT32Pi->GetConfig());
+			switch (m_nMenuCursor)
+			{
+			case 1:
+			{
+				int m = static_cast<int>(pCfg->NetworkMode);
+				pCfg->NetworkMode = static_cast<CConfig::TNetworkMode>((m + nDelta + 3) % 3);
+				break;
+			}
+			case 2: pCfg->NetworkDHCP = !pCfg->NetworkDHCP; break;
+			}
+		}
+		else if (s_nMenuLevel == TMenuLevel::System)
+		{
+			CConfig* pCfg = const_cast<CConfig*>(m_pMenuMT32Pi->GetConfig());
+			switch (m_nMenuCursor)
+			{
+			case 0: pCfg->SystemVerbose = !pCfg->SystemVerbose; break;
+			case 1: pCfg->SystemUSB = !pCfg->SystemUSB; break;
+			case 2:
+			{
+				static const int speeds[] = { 100000, 400000, 1000000 };
+				int cur = pCfg->SystemI2CBaudRate;
+				int idx = 1; for (int i = 0; i < 3; i++) if (speeds[i] == cur) idx = i;
+				pCfg->SystemI2CBaudRate = speeds[(idx + nDelta + 3) % 3];
+				break;
+			}
+			case 3: pCfg->SystemPowerSaveTimeout = Utility::Clamp(pCfg->SystemPowerSaveTimeout + nDelta * 10, 0, 3600); break;
+			}
+		}
+
+		// Snapshot current values again to reflect immediate changes in the UI formatting
+		if (s_nMenuLevel != TMenuLevel::Main)
+		{
+			if (m_pMenuCurrentSynth == m_pMenuSF && m_pMenuSF)
+			{
+				m_fMenuGain = m_pMenuSF->GetGain();
+				m_bMenuReverbActive = m_pMenuSF->GetReverbActive();
+			}
+			else if (m_pMenuCurrentSynth == m_pMenuMT32 && m_pMenuMT32)
+			{
+				m_fMenuMT32Gain = m_pMenuMT32->GetOutputGain();
+				m_fMenuMT32ReverbGain = m_pMenuMT32->GetReverbOutputGain();
+			}
+			if (m_pMenuMT32Pi)
+			{
+				const auto ms = m_pMenuMT32Pi->GetMixerStatus();
+				m_bMenuMixerEnabled = ms.bEnabled;
+				m_nMenuMixerMT32Vol = static_cast<int>(ms.fMT32Volume * 100.0f + 0.5f);
+			}
+		}
 	}
 	else
 	{
@@ -495,8 +628,39 @@ bool CUserInterface::MenuSelectEvent()
 	if (m_State != TState::InMenu)
 		return false;
 
+	if (s_nMenuLevel == TMenuLevel::Main)
+	{
+		switch (m_nMenuCursor)
+		{
+		case 0: m_bMenuEditing = true; break; // Toggle Synth
+		case 1: s_nMenuLevel = TMenuLevel::Synth;   s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
+		case 2: s_nMenuLevel = TMenuLevel::Mixer;   s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
+		case 3: s_nMenuLevel = TMenuLevel::Looper;  s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
+		case 4: s_nMenuLevel = TMenuLevel::MIDI;    s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
+		case 5: s_nMenuLevel = TMenuLevel::Network; s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
+		case 6: s_nMenuLevel = TMenuLevel::System;  s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
+		case 7: m_pMenuMT32Pi->RequestReboot(); ExitMenu(); break;
+		case 8: ExitMenu(); break;
+		}
+		return true;
+	}
+
+	// Action items (non-editing)
+	if (s_nMenuLevel == TMenuLevel::Looper && m_nMenuCursor == 5)
+	{
+		m_pMenuMT32Pi->LooperClear();
+		return true;
+	}
+
 	// Toggle edit mode for the selected item
-	m_bMenuEditing = !m_bMenuEditing;
+	const char* pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, m_nMenuCursor);
+	if (pLabel)
+	{
+		// Don't allow editing "Status" or "Clear" items
+		if (strcmp(pLabel, "Status") == 0 || strstr(pLabel, "Clear") != nullptr)
+			return true;
+		m_bMenuEditing = !m_bMenuEditing;
+	}
 	return true;
 }
 
@@ -507,6 +671,12 @@ bool CUserInterface::MenuBackEvent()
 
 	if (m_bMenuEditing)
 		m_bMenuEditing = false;
+	else if (s_nMenuLevel != TMenuLevel::Main)
+	{
+		s_nMenuLevel = TMenuLevel::Main;
+		m_nMenuCursor = s_nMenuMainCursor;
+		m_nMenuScroll = 0;
+	}
 	else
 		ExitMenu();
 
@@ -521,11 +691,26 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 		return;
 	}
 
-	const size_t nItems =
-		GetMenuItemCount(m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, m_pMenuMT32Pi);
-	const size_t nSynthItems = m_pMenuMT32Pi ? (nItems > MixerMenuItems ? nItems - MixerMenuItems : 0) : nItems;
+	const size_t nItems = GetMenuItemCount(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32);
 
-	for (size_t i = 0; i < MenuVisibleRows; ++i)
+	// Draw Submenu Header
+	const char* pTitle = "Main Menu";
+	switch (s_nMenuLevel)
+	{
+	case TMenuLevel::Synth:   pTitle = "Synth FX"; break;
+	case TMenuLevel::Mixer:   pTitle = "Mixer";    break;
+	case TMenuLevel::Looper:  pTitle = "Looper";   break;
+	case TMenuLevel::MIDI:    pTitle = "MIDI";     break;
+	case TMenuLevel::Network: pTitle = "Network";  break;
+	case TMenuLevel::System:  pTitle = "System";   break;
+	default: break;
+	}
+	char titleBuf[22]; snprintf(titleBuf, sizeof(titleBuf), "[ %s ]", pTitle);
+	LCD.Print(titleBuf, CenterMessageOffset(LCD, titleBuf), 0, true, false);
+
+	// Display up to 7 items (reserving row 0 for the title)
+	const size_t nVisibleRows = (LCD.Height() / 8) - 1;
+	for (size_t i = 0; i < nVisibleRows; ++i)
 	{
 		const size_t nItemIdx = m_nMenuScroll + i;
 		if (nItemIdx >= nItems)
@@ -534,10 +719,10 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 		const char* pLabel = nullptr;
 		char valBuf[7] = "";
 
-		if (nItemIdx >= nSynthItems)
+		if (s_nMenuLevel == TMenuLevel::Mixer && m_pMenuMT32Pi)
 		{
 			// Mixer item
-			const size_t nMixerIdx = nItemIdx - nSynthItems;
+			const size_t nMixerIdx = nItemIdx;
 			pLabel = GetMixerMenuItemLabel(nMixerIdx);
 			switch (nMixerIdx)
 			{
@@ -555,11 +740,60 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 			default: break;
 			}
 		}
-		else if (m_pMenuYmfm && m_pMenuCurrentSynth == m_pMenuYmfm)
+		else if (s_nMenuLevel == TMenuLevel::Main)
+		{
+			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, nItemIdx);
+			if (nItemIdx == 0) snprintf(valBuf, sizeof(valBuf), "%s", m_pMenuCurrentSynth->GetName());
+			else if (nItemIdx < 7) snprintf(valBuf, sizeof(valBuf), ">");
+		}
+		else if (s_nMenuLevel == TMenuLevel::Looper)
+		{
+			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, nItemIdx);
+			const auto ls = m_pMenuMT32Pi->GetLooperStatus();
+			switch (nItemIdx)
+			{
+			case 0: { static const char* states[] = { "Idle", "Arm", "Rec", "Play", "Ovd", "Stop" }; snprintf(valBuf, sizeof(valBuf), "%s", states[static_cast<int>(ls.nState)]); break; }
+			case 1: snprintf(valBuf, sizeof(valBuf), "%d", ls.nBPM); break;
+			case 2: snprintf(valBuf, sizeof(valBuf), "1/%d", ls.nQuantize); break;
+			case 3: snprintf(valBuf, sizeof(valBuf), "%s", ls.bMetronomeEnabled ? "ON" : "OFF"); break;
+			case 4: snprintf(valBuf, sizeof(valBuf), "%.1f", static_cast<double>(ls.fPlaybackGain)); break;
+			default: break;
+			}
+		}
+		else if (s_nMenuLevel == TMenuLevel::MIDI)
+		{
+			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, nItemIdx);
+			const auto ms = m_pMenuMT32Pi->GetMixerStatus();
+			const auto cfg = m_pMenuMT32Pi->GetConfig();
+			if (nItemIdx == 0) snprintf(valBuf, sizeof(valBuf), "%s", ms.bMIDIThruEnabled ? "ON" : "OFF");
+			else if (nItemIdx == 1) snprintf(valBuf, sizeof(valBuf), "%d", cfg->MIDIGPIOBaudRate);
+			else if (nItemIdx == 2) snprintf(valBuf, sizeof(valBuf), "%d", cfg->MIDIUSBSerialBaudRate);
+		}
+		else if (s_nMenuLevel == TMenuLevel::Network)
+		{
+			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, nItemIdx);
+			const auto cfg = m_pMenuMT32Pi->GetConfig();
+			if (nItemIdx == 0) snprintf(valBuf, sizeof(valBuf), "%s", m_pMenuMT32Pi->IsNetworkReady() ? "OK" : "NO");
+			else if (nItemIdx == 1) { static const char* modes[] = { "OFF", "Eth", "WiFi" }; snprintf(valBuf, sizeof(valBuf), "%s", modes[static_cast<int>(cfg->NetworkMode)]); }
+			else if (nItemIdx == 2) snprintf(valBuf, sizeof(valBuf), "%s", cfg->NetworkDHCP ? "ON" : "OFF");
+		}
+		else if (s_nMenuLevel == TMenuLevel::System)
+		{
+			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, nItemIdx);
+			const auto cfg = m_pMenuMT32Pi->GetConfig();
+			if (nItemIdx == 0) snprintf(valBuf, sizeof(valBuf), "%s", cfg->SystemVerbose ? "ON" : "OFF");
+			else if (nItemIdx == 1) snprintf(valBuf, sizeof(valBuf), "%s", cfg->SystemUSB ? "ON" : "OFF");
+			else if (nItemIdx == 2)
+			{
+				if (cfg->SystemI2CBaudRate >= 1000000) snprintf(valBuf, sizeof(valBuf), "%dM", cfg->SystemI2CBaudRate / 1000000);
+				else snprintf(valBuf, sizeof(valBuf), "%dk", cfg->SystemI2CBaudRate / 1000);
+			}
+			else if (nItemIdx == 3) snprintf(valBuf, sizeof(valBuf), "%ds", cfg->SystemPowerSaveTimeout);
+		}
+		else if (m_pMenuYmfm && m_pMenuCurrentSynth == m_pMenuYmfm && s_nMenuLevel == TMenuLevel::Synth)
 		{
 			// OPL3 items — label + value inline
-			static const char* opl3Labels[] = { "Bank", "Chip", "Volume" };
-			pLabel = (nItemIdx < 3) ? opl3Labels[nItemIdx] : nullptr;
+			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, nItemIdx);
 			if (nItemIdx == 0)
 				snprintf(valBuf, sizeof(valBuf), "%.6s", m_pMenuYmfm->GetBankName());
 			else if (nItemIdx == 1)
@@ -568,9 +802,9 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 			else if (nItemIdx == 2)
 				snprintf(valBuf, sizeof(valBuf), "%d%%", m_nMenuYmfmVol);
 		}
-		else
+		else if (s_nMenuLevel == TMenuLevel::Synth)
 		{
-			pLabel = GetMenuItemLabel(m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, nItemIdx);
+			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, nItemIdx);
 			FormatMenuValue(valBuf, sizeof(valBuf),
 			                m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32,
 			                nItemIdx,
@@ -597,6 +831,6 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 		const char cSel = bSelected ? (m_bMenuEditing ? '*' : '>') : ' ';
 		snprintf(rowBuf, sizeof(rowBuf), "%c%-13.13s%6.6s", cSel, pLabel, valBuf);
 
-		LCD.Print(rowBuf, 0, static_cast<u8>(i), /*bClearLine=*/false, /*bImmediate=*/false);
+		LCD.Print(rowBuf, 0, static_cast<u8>(i + 1), /*bClearLine=*/false, /*bImmediate=*/false);
 	}
 }
