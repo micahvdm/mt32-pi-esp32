@@ -91,9 +91,6 @@ bool CSSD1327::Initialize()
 	u8 remapSeq[] = { 0xA0, nRemap };
 	WriteCommand(remapSeq, 2);
 
-	u8 remapSeq[] = { 0xA0, nRemap };
-	WriteCommand(remapSeq, 2);
-
 	WriteCommand(0xA1); WriteCommand(0x00); // Start line
 	WriteCommand(0xA2); WriteCommand(0x00); // Display offset
 	WriteCommand(0xA4);                     // Normal display
