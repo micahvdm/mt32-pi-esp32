@@ -35,7 +35,8 @@ class CSSD1306 : public CLCD
 public:
 	#define ENUM_LCDROTATION(ENUM) \
 		ENUM(Normal, normal)       \
-		ENUM(Inverted, inverted)
+		ENUM(Inverted, inverted)   \
+		ENUM(Rotated90, rotated90)
 
 	#define ENUM_LCDMIRROR(ENUM) \
 		ENUM(Normal, normal)       \

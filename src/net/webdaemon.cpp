@@ -224,6 +224,8 @@ namespace
 		{
 			case CConfig::TLCDRotation::Inverted:
 				return "Inverted";
+			case CConfig::TLCDRotation::Rotated90:
+				return "Rotated 90";
 			case CConfig::TLCDRotation::Normal:
 			default:
 				return "Normal";

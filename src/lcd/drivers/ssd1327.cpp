@@ -21,6 +21,13 @@ CSSD1327::CSSD1327(CI2CMaster* pI2CMaster, u8 nAddress, u8 nWidth, u8 nHeight, T
 	memset(m_pBuffer, 0, m_nBufferSize);
 }
 
+bool CSSD1327::GetBufferPixel(u8 x, u8 y) const
+{
+	u16 nIndex = (y * (m_nWidth / 8)) + (x / 8);
+	u8  nBit   = 7 - (x % 8);
+	return (m_pBuffer[nIndex] & (1 << nBit)) != 0;
+}
+
 CSSD1327::~CSSD1327()
 {
 	delete[] m_pBuffer;
@@ -184,8 +191,8 @@ void CSSD1327::Flip()
 		for (u8 x = 0; x < 64; x++)
 		{
 			// Map monochrome to 4-bit grayscale (0x0 or 0xF)
-			u8 p1 = GetPixel(x * 2,     y) ? 0xF0 : 0x00;
-			u8 p2 = GetPixel(x * 2 + 1, y) ? 0x0F : 0x00;
+			u8 p1 = GetBufferPixel(x * 2,     y) ? 0xF0 : 0x00;
+			u8 p2 = GetBufferPixel(x * 2 + 1, y) ? 0x0F : 0x00;
 			row[x] = p1 | p2;
 		}
 		SendData(row, sizeof(row));
