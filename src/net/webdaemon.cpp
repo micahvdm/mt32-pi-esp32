@@ -4048,6 +4048,7 @@ THTTPStatus CWebDaemon::BuildConfigPage(u8* pBuffer, unsigned* pLength, const ch
 		html.Append("<label>Rotation<small>normal: no rotation; inverted: 180 degree rotation. Graphic LCDs only (sh1106, ssd1306).</small><select name='lcd_rotation'>");
 		html.Append("<option value='normal'");   html.Append(SelectedAttr(pConfig->LCDRotation == CConfig::TLCDRotation::Normal));   html.Append(">normal</option>");
 		html.Append("<option value='inverted'"); html.Append(SelectedAttr(pConfig->LCDRotation == CConfig::TLCDRotation::Inverted)); html.Append(">inverted</option>");
+		html.Append("<option value='rotated90'"); html.Append(SelectedAttr(pConfig->LCDRotation == CConfig::TLCDRotation::Rotated90)); html.Append(">rotated90</option>");
 		html.Append("</select></label>");
 		html.Append("<label>Mirror<small>normal: no mirror; mirrored: horizontal reflection. Graphic LCDs only (sh1106, ssd1306).</small><select name='lcd_mirror'>");
 		html.Append("<option value='normal'");   html.Append(SelectedAttr(pConfig->LCDMirror == CConfig::TLCDMirror::Normal));   html.Append(">normal</option>");

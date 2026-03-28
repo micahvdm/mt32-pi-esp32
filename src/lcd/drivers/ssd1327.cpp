@@ -72,9 +72,16 @@ bool CSSD1327::Initialize()
 	// Bit 1: Column Address Remap (0=Normal, 1=Remapped)
 	// Bit 4: COM Scan Direction (0=Normal, 1=Remapped)
 	// Bit 6: COM Split Odd/Even (1=Enable)
-	u8 nRemap = 0x42; // Default: Horizontal, Col Remap enabled, COM Split enabled
-	if (m_Rotation == TLCDRotation::Inverted) nRemap ^= 0x12; // Flip Column and COM Scan
-	if (m_Mirror == TLCDMirror::Mirrored)     nRemap ^= 0x02; // Flip Column
+	u8 nRemap = 0x42; // Default: Horizontal, Col Remap enabled, COM Split enabled (01000010)
+	if (m_Rotation == TLCDRotation::Inverted) {
+		nRemap ^= 0x12; // Flip Column and COM Scan (00010010) -> 0x50 (01010000)
+	} else if (m_Rotation == TLCDRotation::Rotated90) {
+		// For 90-degree clockwise rotation, we need to swap X and Y.
+		// This means flipping both Column Address Remap (Bit 1) and COM Scan Direction (Bit 4)
+		// relative to the default 0x42.
+		nRemap ^= 0x12; // Flip Column and COM Scan (00010010) -> 0x50 (01010000)
+	}
+	if (m_Mirror == TLCDMirror::Mirrored) nRemap ^= 0x02; // Flip Column (00000010)
 
 	u8 remapSeq[] = { 0xA0, nRemap };
 	WriteCommand(remapSeq, 2);
@@ -106,11 +113,29 @@ void CSSD1327::Clear(bool bUpdate)
 
 void CSSD1327::SetPixel(u8 x, u8 y, bool bOn)
 {
-	if (x >= m_nWidth || y >= m_nHeight)
+	u8 actualX = x;
+	u8 actualY = y;
+
+	switch (m_Rotation)
+	{
+		case TLCDRotation::Rotated90:
+			actualX = y;
+			actualY = m_nWidth - 1 - x;
+			break;
+		case TLCDRotation::Inverted:
+			actualX = m_nWidth - 1 - x;
+			actualY = m_nHeight - 1 - y;
+			break;
+		case TLCDRotation::Normal:
+		default:
+			break;
+	}
+
+	if (actualX >= m_nWidth || actualY >= m_nHeight)
 		return;
 
-	u16 nIndex = (y * (m_nWidth / 8)) + (x / 8);
-	u8  nBit   = 7 - (x % 8);
+	u16 nIndex = (actualY * (m_nWidth / 8)) + (actualX / 8);
+	u8  nBit   = 7 - (actualX % 8);
 
 	if (bOn)
 		m_pBuffer[nIndex] |= (1 << nBit);
@@ -120,11 +145,29 @@ void CSSD1327::SetPixel(u8 x, u8 y, bool bOn)
 
 bool CSSD1327::GetPixel(u8 x, u8 y) const
 {
-	if (x >= m_nWidth || y >= m_nHeight)
+	u8 actualX = x;
+	u8 actualY = y;
+
+	switch (m_Rotation)
+	{
+		case TLCDRotation::Rotated90:
+			actualX = y;
+			actualY = m_nWidth - 1 - x;
+			break;
+		case TLCDRotation::Inverted:
+			actualX = m_nWidth - 1 - x;
+			actualY = m_nHeight - 1 - y;
+			break;
+		case TLCDRotation::Normal:
+		default:
+			break;
+	}
+
+	if (actualX >= m_nWidth || actualY >= m_nHeight)
 		return false;
 
-	u16 nIndex = (y * (m_nWidth / 8)) + (x / 8);
-	u8  nBit   = 7 - (x % 8);
+	u16 nIndex = (actualY * (m_nWidth / 8)) + (actualX / 8);
+	u8  nBit   = 7 - (actualX % 8);
 	return (m_pBuffer[nIndex] & (1 << nBit)) != 0;
 }
 
