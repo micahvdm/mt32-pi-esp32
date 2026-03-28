@@ -89,7 +89,7 @@ public:
 	CONFIG_ENUM(TMixerMode, ENUM_MIXERMODE);
 	CONFIG_ENUM(TYmfmChip, ENUM_YMFMCHIP);
 
-		enum class TMIDICCAction : u8
+	enum class TMIDICCAction : u8
 	{
 		None = 0,
 
@@ -119,11 +119,39 @@ public:
 		SFChorusSpeed,
 	};
 
+	enum class TMIDICCBindingID : u8
+	{
+		MainReverb = 0,
+		ReverbParam1,
+		ReverbParam2,
+		ReverbParam3,
+		ChorusParam1,
+		ChorusParam2,
+		ChorusParam3,
+		MasterOrGain,
+
+		SelectMT32,
+		SelectSoundFont,
+		PrevRomOrSoundFont,
+		NextRomOrSoundFont,
+		LooperArmStop,
+		SustainCC64,
+
+		Count
+	};
+
 	struct TMIDICCMapping
 	{
 		TMIDICCAction MT32Action;
 		TMIDICCAction SoundFontAction;
 	};
+
+	int MIDICCBindingCC[static_cast<unsigned>(TMIDICCBindingID::Count)];
+
+	int GetMIDICCBindingCC(TMIDICCBindingID id) const
+	{
+		return MIDICCBindingCC[static_cast<unsigned>(id)];
+	}
 
 	CConfig();
 	bool Initialize(const char* pPath);
@@ -153,6 +181,9 @@ public:
 	static bool ParseOption(const char* pString, TNetworkMode* pOut);
 	static bool ParseOption(const char* pString, TMixerMode* pOut);
 	static bool ParseOption(const char* pString, TYmfmChip* pOut);
+	static bool ParseMIDICCNumber(const char* pValue, int* pOut);
+	static bool ParseMIDICCBindingKey(const char* pName, TMIDICCBindingID* pOut);
+	void RebuildMIDICCMap();
 	const TMIDICCMapping& GetMIDICCMapping(u8 nCC) const
 	{
 		return MIDICCMap[nCC];

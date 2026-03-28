@@ -1755,19 +1755,20 @@ THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
 		char MIDIGPIOBaudRate[16];
 		char MIDIGPIOThru[16];
 		char MIDIUSBSerialBaudRate[16];
-		char MIDICC21[128];
-		char MIDICC22[128];
-		char MIDICC23[128];
-		char MIDICC24[128];
-		char MIDICC25[128];
-		char MIDICC26[128];
-		char MIDICC27[128];
-		char MIDICC28[128];
-		char MIDICC104[128];
-		char MIDICC105[128];
-		char MIDICC106[128];
-		char MIDICC107[128];
-		char MIDICC109[128];
+		char MIDICCMainReverb[16];
+		char MIDICCReverbParam1[16];
+		char MIDICCReverbParam2[16];
+		char MIDICCReverbParam3[16];
+		char MIDICCChorusParam1[16];
+		char MIDICCChorusParam2[16];
+		char MIDICCChorusParam3[16];
+		char MIDICCMasterOrGain[16];
+		char MIDICCSelectMT32[16];
+		char MIDICCSelectSoundFont[16];
+		char MIDICCPrevRomOrSoundFont[16];
+		char MIDICCNextRomOrSoundFont[16];
+		char MIDICCLooperArmStop[16];
+		char MIDICCSustainCC64[16];
 		char ControlScheme[32];
 		char EncoderType[32];
 		char EncoderReversed[16];
@@ -1829,19 +1830,20 @@ THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
 		 || !GetFormValue(pFormData, "midi_gpio_baud_rate", MIDIGPIOBaudRate, sizeof(MIDIGPIOBaudRate))
 		 || !GetFormValue(pFormData, "midi_gpio_thru", MIDIGPIOThru, sizeof(MIDIGPIOThru))
 		 || !GetFormValue(pFormData, "midi_usb_serial_baud_rate", MIDIUSBSerialBaudRate, sizeof(MIDIUSBSerialBaudRate))
-		 || !GetFormValue(pFormData, "midi_cc_21", MIDICC21, sizeof(MIDICC21))
-		 || !GetFormValue(pFormData, "midi_cc_22", MIDICC22, sizeof(MIDICC22))
-		 || !GetFormValue(pFormData, "midi_cc_23", MIDICC23, sizeof(MIDICC23))
-		 || !GetFormValue(pFormData, "midi_cc_24", MIDICC24, sizeof(MIDICC24))
-		 || !GetFormValue(pFormData, "midi_cc_25", MIDICC25, sizeof(MIDICC25))
-		 || !GetFormValue(pFormData, "midi_cc_26", MIDICC26, sizeof(MIDICC26))
-		 || !GetFormValue(pFormData, "midi_cc_27", MIDICC27, sizeof(MIDICC27))
-		 || !GetFormValue(pFormData, "midi_cc_28", MIDICC28, sizeof(MIDICC28))
-		 || !GetFormValue(pFormData, "midi_cc_104", MIDICC104, sizeof(MIDICC104))
-		 || !GetFormValue(pFormData, "midi_cc_105", MIDICC105, sizeof(MIDICC105))
-		 || !GetFormValue(pFormData, "midi_cc_106", MIDICC106, sizeof(MIDICC106))
-		 || !GetFormValue(pFormData, "midi_cc_107", MIDICC107, sizeof(MIDICC107))
-		 || !GetFormValue(pFormData, "midi_cc_109", MIDICC109, sizeof(MIDICC109))
+		 || !GetFormValue(pFormData, "midi_cc_main_reverb", MIDICCMainReverb, sizeof(MIDICCMainReverb))
+		 || !GetFormValue(pFormData, "midi_cc_reverb_param1", MIDICCReverbParam1, sizeof(MIDICCReverbParam1))
+		 || !GetFormValue(pFormData, "midi_cc_reverb_param2", MIDICCReverbParam2, sizeof(MIDICCReverbParam2))
+		 || !GetFormValue(pFormData, "midi_cc_reverb_param3", MIDICCReverbParam3, sizeof(MIDICCReverbParam3))
+		 || !GetFormValue(pFormData, "midi_cc_chorus_param1", MIDICCChorusParam1, sizeof(MIDICCChorusParam1))
+		 || !GetFormValue(pFormData, "midi_cc_chorus_param2", MIDICCChorusParam2, sizeof(MIDICCChorusParam2))
+		 || !GetFormValue(pFormData, "midi_cc_chorus_param3", MIDICCChorusParam3, sizeof(MIDICCChorusParam3))
+		 || !GetFormValue(pFormData, "midi_cc_master_or_gain", MIDICCMasterOrGain, sizeof(MIDICCMasterOrGain))
+		 || !GetFormValue(pFormData, "midi_cc_select_mt32", MIDICCSelectMT32, sizeof(MIDICCSelectMT32))
+		 || !GetFormValue(pFormData, "midi_cc_select_soundfont", MIDICCSelectSoundFont, sizeof(MIDICCSelectSoundFont))
+		 || !GetFormValue(pFormData, "midi_cc_prev_rom_or_soundfont", MIDICCPrevRomOrSoundFont, sizeof(MIDICCPrevRomOrSoundFont))
+		 || !GetFormValue(pFormData, "midi_cc_next_rom_or_soundfont", MIDICCNextRomOrSoundFont, sizeof(MIDICCNextRomOrSoundFont))
+		 || !GetFormValue(pFormData, "midi_cc_looper_arm_stop", MIDICCLooperArmStop, sizeof(MIDICCLooperArmStop))
+		 || !GetFormValue(pFormData, "midi_cc_sustain_cc64", MIDICCSustainCC64, sizeof(MIDICCSustainCC64))
 		 || !GetFormValue(pFormData, "control_scheme", ControlScheme, sizeof(ControlScheme))
 		 || !GetFormValue(pFormData, "encoder_type", EncoderType, sizeof(EncoderType))
 		 || !GetFormValue(pFormData, "encoder_reversed", EncoderReversed, sizeof(EncoderReversed))
@@ -2017,20 +2019,21 @@ THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
 			return HTTPBadRequest;
 		}
 
-		CConfig::TMIDICCMapping ParsedMIDICCMapping;
-		if (!CConfig::ParseMIDICCMapping(MIDICC21, &ParsedMIDICCMapping)
-		 || !CConfig::ParseMIDICCMapping(MIDICC22, &ParsedMIDICCMapping)
-		 || !CConfig::ParseMIDICCMapping(MIDICC23, &ParsedMIDICCMapping)
-		 || !CConfig::ParseMIDICCMapping(MIDICC24, &ParsedMIDICCMapping)
-		 || !CConfig::ParseMIDICCMapping(MIDICC25, &ParsedMIDICCMapping)
-		 || !CConfig::ParseMIDICCMapping(MIDICC26, &ParsedMIDICCMapping)
-		 || !CConfig::ParseMIDICCMapping(MIDICC27, &ParsedMIDICCMapping)
-		 || !CConfig::ParseMIDICCMapping(MIDICC28, &ParsedMIDICCMapping)
-		 || !CConfig::ParseMIDICCMapping(MIDICC104, &ParsedMIDICCMapping)
-		 || !CConfig::ParseMIDICCMapping(MIDICC105, &ParsedMIDICCMapping)
-		 || !CConfig::ParseMIDICCMapping(MIDICC106, &ParsedMIDICCMapping)
-		 || !CConfig::ParseMIDICCMapping(MIDICC107, &ParsedMIDICCMapping)
-		 || !CConfig::ParseMIDICCMapping(MIDICC109, &ParsedMIDICCMapping))
+		int ParsedMIDICCNumber = -1;
+		if (!CConfig::ParseMIDICCNumber(MIDICCMainReverb, &ParsedMIDICCNumber)
+		 || !CConfig::ParseMIDICCNumber(MIDICCReverbParam1, &ParsedMIDICCNumber)
+		 || !CConfig::ParseMIDICCNumber(MIDICCReverbParam2, &ParsedMIDICCNumber)
+		 || !CConfig::ParseMIDICCNumber(MIDICCReverbParam3, &ParsedMIDICCNumber)
+		 || !CConfig::ParseMIDICCNumber(MIDICCChorusParam1, &ParsedMIDICCNumber)
+		 || !CConfig::ParseMIDICCNumber(MIDICCChorusParam2, &ParsedMIDICCNumber)
+		 || !CConfig::ParseMIDICCNumber(MIDICCChorusParam3, &ParsedMIDICCNumber)
+		 || !CConfig::ParseMIDICCNumber(MIDICCMasterOrGain, &ParsedMIDICCNumber)
+		 || !CConfig::ParseMIDICCNumber(MIDICCSelectMT32, &ParsedMIDICCNumber)
+		 || !CConfig::ParseMIDICCNumber(MIDICCSelectSoundFont, &ParsedMIDICCNumber)
+		 || !CConfig::ParseMIDICCNumber(MIDICCPrevRomOrSoundFont, &ParsedMIDICCNumber)
+		 || !CConfig::ParseMIDICCNumber(MIDICCNextRomOrSoundFont, &ParsedMIDICCNumber)
+		 || !CConfig::ParseMIDICCNumber(MIDICCLooperArmStop, &ParsedMIDICCNumber)
+		 || !CConfig::ParseMIDICCNumber(MIDICCSustainCC64, &ParsedMIDICCNumber))
 		{
 			return HTTPBadRequest;
 		}
@@ -2048,19 +2051,20 @@ THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
 			{TConfigSection::MIDI,       "gpio_baud_rate",   MIDIGPIOBaudRate,          false},
 			{TConfigSection::MIDI,       "gpio_thru",        MIDIGPIOThru,              false},
 			{TConfigSection::MIDI,       "usb_serial_baud_rate", MIDIUSBSerialBaudRate, false},
-			{TConfigSection::MIDICCMap,  "cc21",  			 MIDICC21,  				false},
-			{TConfigSection::MIDICCMap,  "cc22",  			 MIDICC22,  				false},
-			{TConfigSection::MIDICCMap,  "cc23",  			 MIDICC23,  				false},
-			{TConfigSection::MIDICCMap,  "cc24",  			 MIDICC24,  				false},
-			{TConfigSection::MIDICCMap,  "cc25",  			 MIDICC25,  				false},
-			{TConfigSection::MIDICCMap,  "cc26",  			 MIDICC26,  				false},
-			{TConfigSection::MIDICCMap,  "cc27",  			 MIDICC27,  				false},
-			{TConfigSection::MIDICCMap,  "cc28",  			 MIDICC28,  				false},
-			{TConfigSection::MIDICCMap,  "cc104", 			 MIDICC104, 				false},
-			{TConfigSection::MIDICCMap,  "cc105", 			 MIDICC105, 				false},
-			{TConfigSection::MIDICCMap,  "cc106", 			 MIDICC106, 				false},
-			{TConfigSection::MIDICCMap,  "cc107", 			 MIDICC107, 				false},
-			{TConfigSection::MIDICCMap,  "cc109", 			 MIDICC109, 				false},
+			{TConfigSection::MIDICCMap, "main_reverb", 			MIDICCMainReverb, 		false},
+			{TConfigSection::MIDICCMap, "reverb_param1", 		MIDICCReverbParam1, 	false},
+			{TConfigSection::MIDICCMap, "reverb_param2", 		MIDICCReverbParam2, 	false},
+			{TConfigSection::MIDICCMap, "reverb_param3", 		MIDICCReverbParam3, 	false},
+			{TConfigSection::MIDICCMap, "chorus_param1", 		MIDICCChorusParam1, 	false},
+			{TConfigSection::MIDICCMap, "chorus_param2", 		MIDICCChorusParam2, 	false},
+			{TConfigSection::MIDICCMap, "chorus_param3", 		MIDICCChorusParam3, 	false},
+			{TConfigSection::MIDICCMap, "master_or_gain", 		MIDICCMasterOrGain, 	false},
+			{TConfigSection::MIDICCMap, "select_mt32", 			MIDICCSelectMT32, 		false},
+			{TConfigSection::MIDICCMap, "select_soundfont", 	MIDICCSelectSoundFont, 	false},
+			{TConfigSection::MIDICCMap, "prev_rom_or_soundfont", MIDICCPrevRomOrSoundFont, false},
+			{TConfigSection::MIDICCMap, "next_rom_or_soundfont", MIDICCNextRomOrSoundFont, false},
+			{TConfigSection::MIDICCMap, "looper_arm_stop", 	 MIDICCLooperArmStop, 		false},
+			{TConfigSection::MIDICCMap, "sustain_cc64", 	 MIDICCSustainCC64, 		false},
 			{TConfigSection::Control,    "scheme",           ControlScheme,             false},
 			{TConfigSection::Control,    "encoder_type",     EncoderType,               false},
 			{TConfigSection::Control,    "encoder_reversed", EncoderReversed,           false},
@@ -3251,12 +3255,12 @@ THTTPStatus CWebDaemon::BuildMixerPage(u8* pBuffer, unsigned* pLength, const cha
 		html.Append("document.getElementById('mx-avg').textContent=d.render_avg_us;");
 		html.Append("document.getElementById('mx-peak').textContent=d.render_peak_us;");
 		html.Append("document.getElementById('mx-deadline').textContent=d.deadline_us;");
-html.Append("var cpu=d.cpu_load;document.getElementById('mx-cpu').textContent=cpu;");
-                html.Append("var cpuEl=document.getElementById('mx-cpu');var hint=document.getElementById('mx-cpu-hint');");
-                html.Append("cpuEl.style.color=cpu>=85?'#ef4444':cpu>=65?'#f59e0b':'#22c55e';");
-                html.Append("if(cpu>=85){hint.textContent='\u26a0 underrun risk \u2014 increase chunk_size';hint.style.color='#ef4444';hint.style.display='inline';}");
-                html.Append("else if(cpu>=65){hint.textContent='approaching limit';hint.style.color='#f59e0b';hint.style.display='inline';}");
-                html.Append("else{hint.style.display='none';}");
+		html.Append("var cpu=d.cpu_load;document.getElementById('mx-cpu').textContent=cpu;");
+		html.Append("var cpuEl=document.getElementById('mx-cpu');var hint=document.getElementById('mx-cpu-hint');");
+		html.Append("cpuEl.style.color=cpu>=85?'#ef4444':cpu>=65?'#f59e0b':'#22c55e';");
+		html.Append("if(cpu>=85){hint.textContent='\u26a0 underrun risk \u2014 increase chunk_size';hint.style.color='#ef4444';hint.style.display='inline';}");
+		html.Append("else if(cpu>=65){hint.textContent='approaching limit';hint.style.color='#f59e0b';hint.style.display='inline';}");
+		html.Append("else{hint.style.display='none';}");
 		html.Append("var fxEq=document.getElementById('mx-fx-eq');if(fxEq)fxEq.value=d.fx_eq_enabled?'on':'off';");
 		html.Append("var fxBass=document.getElementById('mx-fx-bass');if(fxBass)fxBass.value=d.fx_eq_bass;");
 		html.Append("var fxTreb=document.getElementById('mx-fx-treble');if(fxTreb)fxTreb.value=d.fx_eq_treble;");
@@ -3753,77 +3757,48 @@ THTTPStatus CWebDaemon::BuildConfigPage(u8* pBuffer, unsigned* pLength, const ch
 		html.Append("<label>USB serial baud rate<small>Baud rate for MIDI via USB-serial adapter. SoftMPU serial mode: 38400. Range: 9600-115200</small><input name='midi_usb_serial_baud_rate' type='number' value='"); AppendEscaped(html, MIDIUSBBaud); html.Append("'></label>");
 		html.Append("</div></section>");
 
-				// ---- [midi_cc_map] ----
-		auto GetActionText = [](CConfig::TMIDICCAction Action) -> const char*
+		// ---- [midi_cc_map] ----
+		auto BindVal = [&](CConfig::TMIDICCBindingID id) -> CString
 		{
-			switch (Action)
-			{
-				case CConfig::TMIDICCAction::None:                return "none";
-				case CConfig::TMIDICCAction::SustainCC64:         return "sustain_cc64";
-				case CConfig::TMIDICCAction::SelectMT32:          return "select_mt32";
-				case CConfig::TMIDICCAction::SelectSoundFont:     return "select_soundfont";
-				case CConfig::TMIDICCAction::PrevRomOrSoundFont:  return "prev_rom_or_soundfont";
-				case CConfig::TMIDICCAction::NextRomOrSoundFont:  return "next_rom_or_soundfont";
-				case CConfig::TMIDICCAction::MainReverb:          return "main_reverb";
-				case CConfig::TMIDICCAction::MasterVolume:        return "master_volume";
-				case CConfig::TMIDICCAction::SoundFontGain:       return "sf_gain";
-				case CConfig::TMIDICCAction::MT32ReverbEnable:    return "mt32_reverb_enable";
-				case CConfig::TMIDICCAction::MT32MIDIDelayMode:   return "mt32_midi_delay_mode";
-				case CConfig::TMIDICCAction::MT32AnalogMode:      return "mt32_analog_mode";
-				case CConfig::TMIDICCAction::MT32DACMode:         return "mt32_dac_mode";
-				case CConfig::TMIDICCAction::MT32RendererType:    return "mt32_renderer_type";
-				case CConfig::TMIDICCAction::MT32PartialCount:    return "mt32_partial_count";
-				case CConfig::TMIDICCAction::SFReverbRoomSize:    return "sf_reverb_roomsize";
-				case CConfig::TMIDICCAction::SFReverbDamping:     return "sf_reverb_damping";
-				case CConfig::TMIDICCAction::SFReverbWidth:       return "sf_reverb_width";
-				case CConfig::TMIDICCAction::SFChorusLevel:       return "sf_chorus_level";
-				case CConfig::TMIDICCAction::SFChorusDepth:       return "sf_chorus_depth";
-				case CConfig::TMIDICCAction::SFChorusSpeed:       return "sf_chorus_speed";
-				default:                                          return "none";
-			}
+			CString v;
+			v.Format("%d", pConfig->GetMIDICCBindingCC(id));
+			return v;
 		};
 
-		auto GetMappingText = [&](u8 nCC) -> CString
-		{
-			const CConfig::TMIDICCMapping& Mapping = pConfig->GetMIDICCMapping(nCC);
-			CString Value;
-			Value += GetActionText(Mapping.MT32Action);
-			if (Mapping.MT32Action != Mapping.SoundFontAction)
-			{
-				Value += "|";
-				Value += GetActionText(Mapping.SoundFontAction);
-			}
-			return Value;
-		};
-
-		CString CC21  = GetMappingText(21);
-		CString CC22  = GetMappingText(22);
-		CString CC23  = GetMappingText(23);
-		CString CC24  = GetMappingText(24);
-		CString CC25  = GetMappingText(25);
-		CString CC26  = GetMappingText(26);
-		CString CC27  = GetMappingText(27);
-		CString CC28  = GetMappingText(28);
-		CString CC104 = GetMappingText(104);
-		CString CC105 = GetMappingText(105);
-		CString CC106 = GetMappingText(106);
-		CString CC107 = GetMappingText(107);
-		CString CC109 = GetMappingText(109);
+		CString BindMainReverb   = BindVal(CConfig::TMIDICCBindingID::MainReverb);
+		CString BindRevParam1    = BindVal(CConfig::TMIDICCBindingID::ReverbParam1);
+		CString BindRevParam2    = BindVal(CConfig::TMIDICCBindingID::ReverbParam2);
+		CString BindRevParam3    = BindVal(CConfig::TMIDICCBindingID::ReverbParam3);
+		CString BindChrParam1    = BindVal(CConfig::TMIDICCBindingID::ChorusParam1);
+		CString BindChrParam2    = BindVal(CConfig::TMIDICCBindingID::ChorusParam2);
+		CString BindChrParam3    = BindVal(CConfig::TMIDICCBindingID::ChorusParam3);
+		CString BindMasterGain   = BindVal(CConfig::TMIDICCBindingID::MasterOrGain);
+		CString BindSelectMT32   = BindVal(CConfig::TMIDICCBindingID::SelectMT32);
+		CString BindSelectSF     = BindVal(CConfig::TMIDICCBindingID::SelectSoundFont);
+		CString BindPrev         = BindVal(CConfig::TMIDICCBindingID::PrevRomOrSoundFont);
+		CString BindNext         = BindVal(CConfig::TMIDICCBindingID::NextRomOrSoundFont);
+		CString BindLooper       = BindVal(CConfig::TMIDICCBindingID::LooperArmStop);
+		CString BindSustain      = BindVal(CConfig::TMIDICCBindingID::SustainCC64);
 
 		html.Append("<section><h2>MIDI CC Mapping</h2><div class='grid'>");
-		html.Append("<label>CC21<small>Main reverb / engine-dependent mapping. Format: action or mt32_action|soundfont_action</small><input name='midi_cc_21' value='"); AppendEscaped(html, CC21); html.Append("'></label>");
-		html.Append("<label>CC22<input name='midi_cc_22' value='"); AppendEscaped(html, CC22); html.Append("'></label>");
-		html.Append("<label>CC23<input name='midi_cc_23' value='"); AppendEscaped(html, CC23); html.Append("'></label>");
-		html.Append("<label>CC24<input name='midi_cc_24' value='"); AppendEscaped(html, CC24); html.Append("'></label>");
-		html.Append("<label>CC25<input name='midi_cc_25' value='"); AppendEscaped(html, CC25); html.Append("'></label>");
-		html.Append("<label>CC26<input name='midi_cc_26' value='"); AppendEscaped(html, CC26); html.Append("'></label>");
-		html.Append("<label>CC27<input name='midi_cc_27' value='"); AppendEscaped(html, CC27); html.Append("'></label>");
-		html.Append("<label>CC28<input name='midi_cc_28' value='"); AppendEscaped(html, CC28); html.Append("'></label>");
-		html.Append("<label>CC104<input name='midi_cc_104' value='"); AppendEscaped(html, CC104); html.Append("'></label>");
-		html.Append("<label>CC105<input name='midi_cc_105' value='"); AppendEscaped(html, CC105); html.Append("'></label>");
-		html.Append("<label>CC106<input name='midi_cc_106' value='"); AppendEscaped(html, CC106); html.Append("'></label>");
-		html.Append("<label>CC107<input name='midi_cc_107' value='"); AppendEscaped(html, CC107); html.Append("'></label>");
-		html.Append("<label>CC109<input name='midi_cc_109' value='"); AppendEscaped(html, CC109); html.Append("'></label>");
+
+		html.Append("<label>Main Reverb<small>Assign any CC number, or -1 to disable.</small><input name='midi_cc_main_reverb' type='number' min='-1' max='127' value='"); AppendEscaped(html, BindMainReverb); html.Append("'></label>");
+		html.Append("<label>Reverb Param 1<small>MT-32: Reverb Enable / SoundFont: Reverb Room Size</small><input name='midi_cc_reverb_param1' type='number' min='-1' max='127' value='"); AppendEscaped(html, BindRevParam1); html.Append("'></label>");
+		html.Append("<label>Reverb Param 2<small>MT-32: MIDI Delay / SoundFont: Reverb Damping</small><input name='midi_cc_reverb_param2' type='number' min='-1' max='127' value='"); AppendEscaped(html, BindRevParam2); html.Append("'></label>");
+		html.Append("<label>Reverb Param 3<small>MT-32: Analog Mode / SoundFont: Reverb Width</small><input name='midi_cc_reverb_param3' type='number' min='-1' max='127' value='"); AppendEscaped(html, BindRevParam3); html.Append("'></label>");
+
+		html.Append("<label>Chorus Param 1<small>MT-32: DAC Mode / SoundFont: Chorus Level</small><input name='midi_cc_chorus_param1' type='number' min='-1' max='127' value='"); AppendEscaped(html, BindChrParam1); html.Append("'></label>");
+		html.Append("<label>Chorus Param 2<small>MT-32: Renderer Type / SoundFont: Chorus Depth</small><input name='midi_cc_chorus_param2' type='number' min='-1' max='127' value='"); AppendEscaped(html, BindChrParam2); html.Append("'></label>");
+		html.Append("<label>Chorus Param 3<small>MT-32: Partial Count / SoundFont: Chorus Speed</small><input name='midi_cc_chorus_param3' type='number' min='-1' max='127' value='"); AppendEscaped(html, BindChrParam3); html.Append("'></label>");
+
+		html.Append("<label>Master Volume / SF Gain<input name='midi_cc_master_or_gain' type='number' min='-1' max='127' value='"); AppendEscaped(html, BindMasterGain); html.Append("'></label>");
+		html.Append("<label>Select MT-32<input name='midi_cc_select_mt32' type='number' min='-1' max='127' value='"); AppendEscaped(html, BindSelectMT32); html.Append("'></label>");
+		html.Append("<label>Select SoundFont<input name='midi_cc_select_soundfont' type='number' min='-1' max='127' value='"); AppendEscaped(html, BindSelectSF); html.Append("'></label>");
+		html.Append("<label>Previous ROM / SoundFont<input name='midi_cc_prev_rom_or_soundfont' type='number' min='-1' max='127' value='"); AppendEscaped(html, BindPrev); html.Append("'></label>");
+		html.Append("<label>Next ROM / SoundFont<input name='midi_cc_next_rom_or_soundfont' type='number' min='-1' max='127' value='"); AppendEscaped(html, BindNext); html.Append("'></label>");
+		html.Append("<label>Looper Arm / Stop<input name='midi_cc_looper_arm_stop' type='number' min='-1' max='127' value='"); AppendEscaped(html, BindLooper); html.Append("'></label>");
+		html.Append("<label>Sustain Rewrite to CC64<input name='midi_cc_sustain_cc64' type='number' min='-1' max='127' value='"); AppendEscaped(html, BindSustain); html.Append("'></label>");
+
 		html.Append("</div></section>");
 
 		// ---- [control] ----

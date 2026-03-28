@@ -100,6 +100,27 @@ CConfig::CConfig()
 	MIDICCMap[26] = { TMIDICCAction::MT32RendererType,  TMIDICCAction::SFChorusDepth };
 	MIDICCMap[27] = { TMIDICCAction::MT32PartialCount,  TMIDICCAction::SFChorusSpeed };
 	MIDICCMap[28] = { TMIDICCAction::MasterVolume,      TMIDICCAction::SoundFontGain };
+
+	for (unsigned i = 0; i < static_cast<unsigned>(TMIDICCBindingID::Count); ++i)
+		MIDICCBindingCC[i] = -1;
+
+	MIDICCBindingCC[static_cast<unsigned>(TMIDICCBindingID::MainReverb)]        = 21;
+	MIDICCBindingCC[static_cast<unsigned>(TMIDICCBindingID::ReverbParam1)]      = 22;
+	MIDICCBindingCC[static_cast<unsigned>(TMIDICCBindingID::ReverbParam2)]      = 23;
+	MIDICCBindingCC[static_cast<unsigned>(TMIDICCBindingID::ReverbParam3)]      = 24;
+	MIDICCBindingCC[static_cast<unsigned>(TMIDICCBindingID::ChorusParam1)]      = 25;
+	MIDICCBindingCC[static_cast<unsigned>(TMIDICCBindingID::ChorusParam2)]      = 26;
+	MIDICCBindingCC[static_cast<unsigned>(TMIDICCBindingID::ChorusParam3)]      = 27;
+	MIDICCBindingCC[static_cast<unsigned>(TMIDICCBindingID::MasterOrGain)]      = 28;
+
+	MIDICCBindingCC[static_cast<unsigned>(TMIDICCBindingID::SelectMT32)]        = 104;
+	MIDICCBindingCC[static_cast<unsigned>(TMIDICCBindingID::SelectSoundFont)]   = 105;
+	MIDICCBindingCC[static_cast<unsigned>(TMIDICCBindingID::PrevRomOrSoundFont)] = 106;
+	MIDICCBindingCC[static_cast<unsigned>(TMIDICCBindingID::NextRomOrSoundFont)] = 107;
+	MIDICCBindingCC[static_cast<unsigned>(TMIDICCBindingID::LooperArmStop)]     = 108;
+	MIDICCBindingCC[static_cast<unsigned>(TMIDICCBindingID::SustainCC64)]       = 109;
+
+	RebuildMIDICCMap();
 }
 
 bool CConfig::Initialize(const char* pPath)
@@ -141,20 +162,14 @@ int CConfig::INIHandler(void* pUser, const char* pSection, const char* pName, co
 
 	if (strcasecmp(pSection, "midi_cc_map") == 0)
 	{
-		if (strncasecmp(pName, "cc", 2) == 0)
+		TMIDICCBindingID BindingID;
+		int nCC;
+		if (ParseMIDICCBindingKey(pName, &BindingID) && ParseMIDICCNumber(pValue, &nCC))
 		{
-			const int nCC = atoi(pName + 2);
-			if (nCC >= 0 && nCC < 128)
-			{
-				TMIDICCMapping Mapping;
-				if (ParseMIDICCMapping(pValue, &Mapping))
-				{
-					s_pThis->MIDICCMap[nCC] = Mapping;
-					return 1;
-				}
-			}
+			s_pThis->MIDICCBindingCC[static_cast<unsigned>(BindingID)] = nCC;
+			s_pThis->RebuildMIDICCMap();
+			return 1;
 		}
-
 		return 1;
 	}
 
@@ -275,6 +290,43 @@ CConfig::TMIDICCAction CConfig::ParseMIDICCAction(const char* pValue)
 	if (strcasecmp(pValue, "sf_chorus_speed") == 0) return TMIDICCAction::SFChorusSpeed;
 
 	return TMIDICCAction::None;
+}
+
+void CConfig::RebuildMIDICCMap()
+{
+	for (unsigned i = 0; i < 128; ++i)
+	{
+		MIDICCMap[i].MT32Action = TMIDICCAction::None;
+		MIDICCMap[i].SoundFontAction = TMIDICCAction::None;
+	}
+
+	auto Bind = [this](TMIDICCBindingID id, TMIDICCAction mt32, TMIDICCAction sf)
+	{
+		const int cc = MIDICCBindingCC[static_cast<unsigned>(id)];
+		if (cc < 0 || cc > 127)
+			return;
+
+		MIDICCMap[cc].MT32Action = mt32;
+		MIDICCMap[cc].SoundFontAction = sf;
+	};
+
+	Bind(TMIDICCBindingID::MainReverb,         TMIDICCAction::MainReverb,         TMIDICCAction::MainReverb);
+	Bind(TMIDICCBindingID::ReverbParam1,       TMIDICCAction::MT32ReverbEnable,   TMIDICCAction::SFReverbRoomSize);
+	Bind(TMIDICCBindingID::ReverbParam2,       TMIDICCAction::MT32MIDIDelayMode,  TMIDICCAction::SFReverbDamping);
+	Bind(TMIDICCBindingID::ReverbParam3,       TMIDICCAction::MT32AnalogMode,     TMIDICCAction::SFReverbWidth);
+	Bind(TMIDICCBindingID::ChorusParam1,       TMIDICCAction::MT32DACMode,        TMIDICCAction::SFChorusLevel);
+	Bind(TMIDICCBindingID::ChorusParam2,       TMIDICCAction::MT32RendererType,   TMIDICCAction::SFChorusDepth);
+	Bind(TMIDICCBindingID::ChorusParam3,       TMIDICCAction::MT32PartialCount,   TMIDICCAction::SFChorusSpeed);
+	Bind(TMIDICCBindingID::MasterOrGain,       TMIDICCAction::MasterVolume,       TMIDICCAction::SoundFontGain);
+
+	Bind(TMIDICCBindingID::SelectMT32,         TMIDICCAction::SelectMT32,         TMIDICCAction::SelectMT32);
+	Bind(TMIDICCBindingID::SelectSoundFont,    TMIDICCAction::SelectSoundFont,    TMIDICCAction::SelectSoundFont);
+	Bind(TMIDICCBindingID::PrevRomOrSoundFont, TMIDICCAction::PrevRomOrSoundFont, TMIDICCAction::PrevRomOrSoundFont);
+	Bind(TMIDICCBindingID::NextRomOrSoundFont, TMIDICCAction::NextRomOrSoundFont, TMIDICCAction::NextRomOrSoundFont);
+	Bind(TMIDICCBindingID::SustainCC64,        TMIDICCAction::SustainCC64,        TMIDICCAction::SustainCC64);
+
+	// Add when implemented:
+	// Bind(TMIDICCBindingID::LooperArmStop, TMIDICCAction::LooperArmStop, TMIDICCAction::LooperArmStop);
 }
 
 bool CConfig::ParseMIDICCMapping(const char* pValue, TMIDICCMapping* pOut)
