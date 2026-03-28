@@ -74,19 +74,15 @@ bool CSSD1327::Initialize()
 	WriteCommand(0x81); // Set Contrast
 	WriteCommand(0x80);
 
-	// Re-map setting (Command 0xA0)
-	// Bit 0: Address increment (0=Horizontal, 1=Vertical) - Must be 0 for our Flip() logic
-	// Re-map setting (Command 0xA0)
-	// Most 128x128 SSD1327 modules require Bit 6 (COM Split) and Bit 0 (Vertical Increment)
-	// to map a standard row-major buffer to the physical glass orientation.
-	// 0x51: Vertical increment, COM Remap enabled, COM Split enabled.
-	u8 nRemap = 0x51; 
+	// Re-map setting (Command 0xA0) - Standard Horizontal Mode
+	// Bit 0: 0 = Horizontal Address Increment (Required for our Flip() loop)
+	// Bit 1: 1 = Column Address Remap (Maps nibbles to correct SEG order)
+	// Bit 4: 0 = Normal COM Scan (or 1 for Inverted)
+	// Bit 6: 1 = COM Split (Required for 128x128 displays)
+	u8 nRemap = 0x42; // Default: Horizontal, Column Remap, COM Split enabled
 
-	if (m_Rotation == TLCDRotation::Inverted) 
-		nRemap ^= 0x12; // Flip COM and Column scan
-
-	if (m_Mirror == TLCDMirror::Mirrored)     
-		nRemap ^= 0x02; // Flip Column remap
+	if (m_Rotation == TLCDRotation::Inverted) nRemap ^= 0x12; // Flip Column and COM scan
+	if (m_Mirror == TLCDMirror::Mirrored)     nRemap ^= 0x02; // Flip Column remap
 
 	u8 remapSeq[] = { 0xA0, nRemap };
 	WriteCommand(remapSeq, 2);
