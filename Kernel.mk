@@ -38,6 +38,7 @@ OBJS		:=	src/config.o \
 			src/net/websocketdaemon.o \
 			src/pisound.o \
 			src/power.o \
+			src/rhythmlooper.o \
 			src/rommanager.o \
 			src/soundfontmanager.o \
 			src/synth/mt32synth.o \
