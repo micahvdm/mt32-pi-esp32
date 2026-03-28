@@ -617,7 +617,6 @@ bool CUserInterface::MenuEncoderEvent(s8 nDelta)
 			if (m_nMenuCursor < 14)
 			{
 				// TMIDICCBindingID enum starts at 0 and follows this order
-				const auto id = static_cast<CConfig::TMIDICCBindingID>(m_nMenuCursor);
 				int cc = pCfg->MIDICCBindingCC[m_nMenuCursor];
 
 				// CC -1 is disabled
@@ -921,7 +920,7 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, nItemIdx);
 			const auto cfg = m_pMenuMT32Pi->GetConfig();
 			if (nItemIdx == 0) { CString ip; m_pMenuMT32Pi->FormatIPAddress(ip); snprintf(valBuf, sizeof(valBuf), "%s", (const char*)ip); }
-			else if (nItemIdx == 1) snprintf(valBuf, sizeof(valBuf), "%.6s", cfg->NetworkHostname);
+			else if (nItemIdx == 1) snprintf(valBuf, sizeof(valBuf), "%.6s", (const char*)cfg->NetworkHostname);
 			else if (nItemIdx == 2) snprintf(valBuf, sizeof(valBuf), "%s", m_pMenuMT32Pi->IsNetworkReady() ? "OK" : "NO");
 			else if (nItemIdx == 3) { static const char* modes[] = { "OFF", "Eth", "WiFi" }; snprintf(valBuf, sizeof(valBuf), "%s", modes[static_cast<int>(cfg->NetworkMode)]); }
 			else if (nItemIdx == 4) snprintf(valBuf, sizeof(valBuf), "%s", cfg->NetworkDHCP ? "ON" : "OFF");
@@ -955,7 +954,7 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 		else if (s_nMenuLevel == TMenuLevel::Synth)
 		{
 			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, nItemIdx);
-			if (nItemIdx == 12) snprintf(valBuf, sizeof(valBuf), "%.4s", m_pMenuSF->GetTuningName());
+			if (nItemIdx == 12) snprintf(valBuf, sizeof(valBuf), "%.4s", m_pMenuSF->GetTuningName(m_pMenuSF->GetTuning()));
 			else if (nItemIdx == 13) snprintf(valBuf, sizeof(valBuf), "%d", m_pMenuSF->GetPolyphony());
 			else FormatMenuValue(valBuf, sizeof(valBuf),
 			                m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32,
