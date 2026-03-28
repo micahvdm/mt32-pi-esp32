@@ -62,6 +62,7 @@ void CRhythmLooper::ArmStop()
 			break;
 
 		case TState::StoppedWithLoop:
+		case TState::Overdubbing:
 			m_nLoopStartSystemTick = CTimer::GetClockTicks();
 			m_nLastProcessedMidiTick = 0;
 			m_State = TState::Playing;
@@ -96,12 +97,21 @@ void CRhythmLooper::ArmStop()
 		}
 			
 		case TState::Playing:
-			m_State = TState::StoppedWithLoop;
-			// Kill any ringing notes on the drum channel
-			PlayEvent({0, 0x007B00B0u | (static_cast<u32>(m_nChannel) - 1)}); // All Notes Off
-			PlayEvent({0, 0x007800B0u | (static_cast<u32>(m_nChannel) - 1)}); // All Sound Off
-			LOGNOTE("Looper Stopped");
+			m_State = TState::Overdubbing;
+			LOGNOTE("Looper Overdubbing");
 			break;
+	}
+}
+
+void CRhythmLooper::StopPlayback()
+{
+	if (m_State == TState::Playing || m_State == TState::Overdubbing)
+	{
+		m_State = TState::StoppedWithLoop;
+		// Kill any ringing notes on the drum channel
+		PlayEvent({0, 0x007B00B0u | (static_cast<u32>(m_nChannel) - 1)}); // All Notes Off
+		PlayEvent({0, 0x007800B0u | (static_cast<u32>(m_nChannel) - 1)}); // All Sound Off
+		LOGNOTE("Looper Stopped");
 	}
 }
 
@@ -132,7 +142,7 @@ void CRhythmLooper::OnShortMessage(u32 nMessage, u32 nTicksNow)
 		LOGNOTE("Looper Recording started");
 	}
 	
-	if (m_State == TState::Recording)
+	if (m_State == TState::Recording || m_State == TState::Overdubbing)
 	{
 		u32 midiTick = GetCurrentMidiTick(nTicksNow);
 		if (midiTick >= m_nMaxBars * PPQN * 4)
@@ -142,16 +152,24 @@ void CRhythmLooper::OnShortMessage(u32 nMessage, u32 nTicksNow)
 			return;
 		}
 
+		// Apply loop wrap-around for overdubbing
+		if (m_State == TState::Overdubbing)
+		{
+			midiTick %= m_nLoopLengthMidiTicks;
+		}
+
 		if (m_nEventCount < MaxEvents)
 		{
-			m_Events[m_nEventCount++] = { QuantizeTick(midiTick), nMessage };
+			u32 quantizedTick = QuantizeTick(midiTick);
+			if (m_nLoopLengthMidiTicks > 0) quantizedTick %= m_nLoopLengthMidiTicks;
+			m_Events[m_nEventCount++] = { quantizedTick, nMessage };
 		}
 	}
 }
 
 void CRhythmLooper::Update(u32 nTicksNow)
 {
-	if (m_State != TState::Playing || m_nLoopLengthMidiTicks == 0) return;
+	if ((m_State != TState::Playing && m_State != TState::Overdubbing) || m_nLoopLengthMidiTicks == 0) return;
 	
 	u32 currentMidiTick = GetCurrentMidiTick(nTicksNow) % m_nLoopLengthMidiTicks;
 	

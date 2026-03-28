@@ -143,6 +143,7 @@ CMT32Pi::CMT32Pi(CI2CMaster* pI2CMaster, CSPIMaster* pSPIMaster, CInterruptSyste
 	  m_bAutoReducePartials(true),
 	  m_bMenuLongPressConsumed(false),
 	  m_nLooperButtonPressTicks(0),
+	  m_nLooperLastTapTicks(0),
 	  m_bLooperButtonHeld(false),
 	  m_bLooperLongPressTriggered(false),
 
@@ -1142,10 +1143,22 @@ bool CMT32Pi::ExecuteMappedCCAction(CConfig::TMIDICCAction Action, u8 nChannel, 
 			{
 				if (m_bLooperButtonHeld && !m_bLooperLongPressTriggered)
 				{
-					LooperArmStop();
+					unsigned now = m_pTimer->GetTicks();
+					// Double tap detection (400ms window)
+					if (now - m_nLooperLastTapTicks < MSEC2HZ(400))
+					{
+						LooperStop();
+					}
+					else
+					{
+						LooperArmStop();
+					}
+					m_nLooperLastTapTicks = now;
+
 					const char* pStatus = 
 						m_RhythmLooper.GetState() == CRhythmLooper::TState::Armed ? "Looper: Armed" :
 						m_RhythmLooper.GetState() == CRhythmLooper::TState::Playing ? "Looper: Playing" :
+						m_RhythmLooper.GetState() == CRhythmLooper::TState::Overdubbing ? "Looper: Overdub" :
 						m_RhythmLooper.GetState() == CRhythmLooper::TState::StoppedWithLoop ? "Looper: Stopped" :
 					"Looper: Armed (New)";
 					LCDLog(TLCDLogType::Notice, pStatus);

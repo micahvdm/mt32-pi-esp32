@@ -252,6 +252,7 @@ public:
 
 	// Rhythm looper
 	void LooperArmStop() { m_RhythmLooper.ArmStop(); }
+	void LooperStop()    { m_RhythmLooper.StopPlayback(); }
 	void LooperSave()    { m_RhythmLooper.SaveToMIDI(); }
 	void LooperClear()   { m_RhythmLooper.Clear(); }
 	void LooperSetBPM(int nBPM) { m_RhythmLooper.SetBPM(nBPM); }
@@ -590,6 +591,7 @@ private:
 	// Rhythm looper control state
 	unsigned m_nLooperButtonPressTicks;
 	bool     m_bLooperButtonHeld;
+	unsigned m_nLooperLastTapTicks;
 	bool     m_bLooperLongPressTriggered;
 	u8 m_nLastMappedCCValue[128];
 

@@ -15,7 +15,8 @@ public:
 		Armed,
 		Recording,
 		Playing,
-		StoppedWithLoop
+		Overdubbing,
+		StoppedWithLoop,
 	};
 
 	struct TLoopEvent
@@ -31,6 +32,7 @@ public:
 	void OnShortMessage(u32 nMessage, u32 nTicksNow);
 
 	void ArmStop();
+	void StopPlayback();
 	void SaveToMIDI();
 	void Clear();
 
