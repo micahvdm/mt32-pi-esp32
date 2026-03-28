@@ -74,14 +74,12 @@ bool CSSD1327::Initialize()
 	WriteCommand(0x81); // Set Contrast
 	WriteCommand(0x80);
 
-	// Re-map setting (Command 0xA0) - Standard Horizontal Mode
-	// Bit 0: 0 = Horizontal Address Increment (Required for our Flip() loop)
-	// Bit 1: 1 = Column Address Remap (Maps nibbles to correct SEG order)
-	// Bit 4: 0 = Normal COM Scan (or 1 for Inverted)
-	// Bit 6: 1 = COM Split (Required for 128x128 displays)
-	u8 nRemap = 0x42; // Default: Horizontal, Column Remap, COM Split enabled
+	// Re-map setting (Command 0xA0)
+	// 0x42: Horizontal increment, Column Remap enabled, COM Split enabled.
+	// This is the "baseline" orientation. We toggle bits relative to this.
+	u8 nRemap = 0x42; 
 
-	if (m_Rotation == TLCDRotation::Inverted) nRemap ^= 0x12; // Flip Column and COM scan
+	if (m_Rotation == TLCDRotation::Inverted) nRemap ^= 0x12; // Flip COM and Column
 	if (m_Mirror == TLCDMirror::Mirrored)     nRemap ^= 0x02; // Flip Column remap
 
 	u8 remapSeq[] = { 0xA0, nRemap };
@@ -119,8 +117,14 @@ void CSSD1327::SetPixel(u8 x, u8 y, bool bOn)
 	if (x >= m_nWidth || y >= m_nHeight)
 		return;
 
-	u16 nIndex = (y * (m_nWidth / 8)) + (x / 8);
-	u8  nBit   = 7 - (x % 8);
+	// Software rotation: Rotate 90 degrees clockwise to fix "on its side" font
+	// UI X advance becomes Hardware Y advance
+	// UI Y advance becomes Hardware 127 - X advance
+	u8 hwX = 127 - y;
+	u8 hwY = x;
+
+	u16 nIndex = (hwY * (m_nWidth / 8)) + (hwX / 8);
+	u8  nBit   = 7 - (hwX % 8);
 
 	if (bOn)
 		m_pBuffer[nIndex] |= (1 << nBit);
@@ -133,8 +137,12 @@ bool CSSD1327::GetPixel(u8 x, u8 y) const
 	if (x >= m_nWidth || y >= m_nHeight)
 		return false;
 
-	u16 nIndex = (y * (m_nWidth / 8)) + (x / 8);
-	u8  nBit   = 7 - (x % 8);
+	// Apply the same rotation as SetPixel
+	u8 hwX = 127 - y;
+	u8 hwY = x;
+
+	u16 nIndex = (hwY * (m_nWidth / 8)) + (hwX / 8);
+	u8  nBit   = 7 - (hwX % 8);
 	return (m_pBuffer[nIndex] & (1 << nBit)) != 0;
 }
 
