@@ -21,13 +21,6 @@ CSSD1327::CSSD1327(CI2CMaster* pI2CMaster, u8 nAddress, u8 nWidth, u8 nHeight, T
 	memset(m_pBuffer, 0, m_nBufferSize);
 }
 
-bool CSSD1327::GetBufferPixel(u8 x, u8 y) const
-{
-	u16 nIndex = (y * (m_nWidth / 8)) + (x / 8);
-	u8  nBit   = 7 - (x % 8);
-	return (m_pBuffer[nIndex] & (1 << nBit)) != 0;
-}
-
 CSSD1327::~CSSD1327()
 {
 	delete[] m_pBuffer;
@@ -75,12 +68,13 @@ bool CSSD1327::Initialize()
 	WriteCommand(0x80);
 
 	// Re-map setting (Command 0xA0)
-	// 0x42: Horizontal increment, Column Remap enabled, COM Split enabled.
-	// This is the "baseline" orientation. We toggle bits relative to this.
-	u8 nRemap = 0x42; 
-
-	if (m_Rotation == TLCDRotation::Inverted) nRemap ^= 0x12; // Flip COM and Column
-	if (m_Mirror == TLCDMirror::Mirrored)     nRemap ^= 0x02; // Flip Column remap
+	// Bit 0: Address increment (0=Horizontal, 1=Vertical) - Must be 0 for our Flip() logic
+	// Bit 1: Column Address Remap (0=Normal, 1=Remapped)
+	// Bit 4: COM Scan Direction (0=Normal, 1=Remapped)
+	// Bit 6: COM Split Odd/Even (1=Enable)
+	u8 nRemap = 0x42; // Default: Horizontal, Col Remap enabled, COM Split enabled
+	if (m_Rotation == TLCDRotation::Inverted) nRemap ^= 0x12; // Flip Column and COM Scan
+	if (m_Mirror == TLCDMirror::Mirrored)     nRemap ^= 0x02; // Flip Column
 
 	u8 remapSeq[] = { 0xA0, nRemap };
 	WriteCommand(remapSeq, 2);
@@ -112,19 +106,11 @@ void CSSD1327::Clear(bool bUpdate)
 
 void CSSD1327::SetPixel(u8 x, u8 y, bool bOn)
 {
-	// Direct 1:1 mapping to the internal buffer. 
-	// Hardware Re-map (0x51) handles the 90-degree physical rotation.
 	if (x >= m_nWidth || y >= m_nHeight)
 		return;
 
-	// Software rotation: Rotate 90 degrees clockwise to fix "on its side" font
-	// UI X advance becomes Hardware Y advance
-	// UI Y advance becomes Hardware 127 - X advance
-	u8 hwX = 127 - y;
-	u8 hwY = x;
-
-	u16 nIndex = (hwY * (m_nWidth / 8)) + (hwX / 8);
-	u8  nBit   = 7 - (hwX % 8);
+	u16 nIndex = (y * (m_nWidth / 8)) + (x / 8);
+	u8  nBit   = 7 - (x % 8);
 
 	if (bOn)
 		m_pBuffer[nIndex] |= (1 << nBit);
@@ -137,12 +123,8 @@ bool CSSD1327::GetPixel(u8 x, u8 y) const
 	if (x >= m_nWidth || y >= m_nHeight)
 		return false;
 
-	// Apply the same rotation as SetPixel
-	u8 hwX = 127 - y;
-	u8 hwY = x;
-
-	u16 nIndex = (hwY * (m_nWidth / 8)) + (hwX / 8);
-	u8  nBit   = 7 - (hwX % 8);
+	u16 nIndex = (y * (m_nWidth / 8)) + (x / 8);
+	u8  nBit   = 7 - (x % 8);
 	return (m_pBuffer[nIndex] & (1 << nBit)) != 0;
 }
 
@@ -159,8 +141,8 @@ void CSSD1327::Flip()
 		for (u8 x = 0; x < 64; x++)
 		{
 			// Map monochrome to 4-bit grayscale (0x0 or 0xF)
-			u8 p1 = GetBufferPixel(x * 2,     y) ? 0xF0 : 0x00;
-			u8 p2 = GetBufferPixel(x * 2 + 1, y) ? 0x0F : 0x00;
+			u8 p1 = GetPixel(x * 2,     y) ? 0xF0 : 0x00;
+			u8 p2 = GetPixel(x * 2 + 1, y) ? 0x0F : 0x00;
 			row[x] = p1 | p2;
 		}
 		SendData(row, sizeof(row));

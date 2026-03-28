@@ -33,7 +33,6 @@ private:
 	// Buffer management
 	void SetPixel(u8 x, u8 y, bool bOn);
 	bool GetPixel(u8 x, u8 y) const;
-	bool GetBufferPixel(u8 x, u8 y) const;
 
 	CI2CMaster*  m_pI2CMaster;
 	u8           m_nAddress;
