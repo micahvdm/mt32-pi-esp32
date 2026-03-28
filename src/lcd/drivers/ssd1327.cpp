@@ -67,13 +67,17 @@ bool CSSD1327::Initialize()
 	WriteCommand(0x81); // Set Contrast
 	WriteCommand(0x80);
 
-	// Re-map setting
-	// Default 0x51: Horiz inc, Col 0 -> SEG0, Nibble remap, Scan COM0->N-1
-	u8 nRemap = 0x51;
-	if (m_Rotation == TLCDRotation::Inverted) nRemap ^= 0x13; // Flips columns and rows
-	if (m_Mirror == TLCDMirror::Mirrored)     nRemap ^= 0x02; // Flips nibbles/columns
-	WriteCommand(0xA0);
-	WriteCommand(nRemap);
+	// Re-map setting (Command 0xA0)
+	// Bit 0: Address increment (0=Horizontal, 1=Vertical) - Must be 0 for our Flip() logic
+	// Bit 1: Column Address Remap (0=Normal, 1=Remapped)
+	// Bit 4: COM Scan Direction (0=Normal, 1=Remapped)
+	// Bit 6: COM Split Odd/Even (1=Enable)
+	u8 nRemap = 0x42; // Default: Horizontal, Col Remap enabled, COM Split enabled
+	if (m_Rotation == TLCDRotation::Inverted) nRemap ^= 0x12; // Flip Column and COM Scan
+	if (m_Mirror == TLCDMirror::Mirrored)     nRemap ^= 0x02; // Flip Column
+
+	u8 remapSeq[] = { 0xA0, nRemap };
+	WriteCommand(remapSeq, 2);
 
 	WriteCommand(0xA1); WriteCommand(0x00); // Start line
 	WriteCommand(0xA2); WriteCommand(0x00); // Display offset
@@ -159,7 +163,7 @@ void CSSD1327::Print(const char* pText, u8 x, u8 y, bool bInverted, bool bUpdate
 			for (u8 j = 0; j < 8; j++) // Standard Font6x8 height
 			{
 				bool bOn = (nLine >> j) & 0x01;
-				SetPixel(x + i, y + j, bInverted ? !bOn : bOn);
+				SetPixel(x + i, (y * 8) + j, bInverted ? !bOn : bOn);
 			}
 		}
 		x += 6;
