@@ -82,8 +82,6 @@ void CRhythmLooper::ArmStop()
 		case TState::Recording:
 		{
 			// Close the loop
-			u32 totalTicks = GetCurrentMidiTick(CTimer::GetClockTicks());
-			
 			// Determine loop length based on the last recorded event, not button press time
 			u32 maxEventTick = 0;
 			if (m_nEventCount > 0)
