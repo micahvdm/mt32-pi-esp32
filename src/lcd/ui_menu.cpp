@@ -40,6 +40,11 @@ static size_t s_nMenuMainCursor = 0;
 static constexpr size_t MenuVisibleRows = 16;
 static constexpr size_t MixerMenuItems  = 5;
 
+static size_t GetMenuItemCount(TMenuLevel Level, const CSynthBase* pCurrent, CSoundFontSynth* pSF, CMT32Synth* pMT32);
+static const char* GetMixerMenuItemLabel(size_t nMixerIdx);
+static const char* GetMenuItemLabel(TMenuLevel Level, const CSynthBase* pCurrent, CSoundFontSynth* pSF, CMT32Synth* pMT32, size_t nItem);
+static void FormatMenuValue(char* pBuf, size_t nBufSize, const CSynthBase* pCurrent, CSoundFontSynth* pSF, CMT32Synth* pMT32, size_t nItem, float fGain, bool bReverbActive, float fReverbRoomSize, float fReverbLevel, float fReverbDamping, float fReverbWidth, bool bChorusActive, float fChorusDepth, float fChorusLevel, int nChorusVoices, float fChorusSpeed, int nROMSet, int nSoundFont, float fMT32Gain, float fMT32ReverbGain, bool bMT32ReverbEnabled, bool bMT32NiceAmp, bool bMT32NicePan, bool bMT32NiceMix, int nMT32DACMode, int nMT32MIDIDelay, int nMT32AnalogMode, int nMT32RendererType, int nMT32PartialCount);
+
 static size_t GetMenuItemCount(TMenuLevel Level, const CSynthBase* pCurrent,
                                CSoundFontSynth* pSF, CMT32Synth* pMT32)
 {
@@ -717,7 +722,7 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 			break;
 
 		const char* pLabel = nullptr;
-		char valBuf[7] = "";
+		char valBuf[16] = "";
 
 		if (s_nMenuLevel == TMenuLevel::Mixer && m_pMenuMT32Pi)
 		{
