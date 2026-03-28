@@ -69,6 +69,7 @@
 #include "midirouter.h"
 #include "midimonitor.h"
 #include "midirecorder.h"
+#include "rhythmlooper.h"
 #include "playlist.h"
 #include "synth/mt32romset.h"
 #include "synth/mt32synth.h"
