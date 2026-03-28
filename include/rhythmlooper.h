@@ -44,6 +44,9 @@ public:
 	void SetQuantize(int nQuantize) { m_nQuantize = nQuantize; }
 	int  GetQuantize() const { return m_nQuantize; }
 	
+	void  SetPlaybackGain(float fGain) { m_fPlaybackGain = fGain; }
+	float GetPlaybackGain() const { return m_fPlaybackGain; }
+
 	void SetRouter(CMIDIRouter* pRouter) { m_pRouter = pRouter; }
 	void SetSynth(CSynthBase* pSynth) { m_pSynth = pSynth; }
 
@@ -57,6 +60,7 @@ private:
 	u8     m_nChannel;
 	int    m_nBPM;
 	int    m_nQuantize;
+	float  m_fPlaybackGain;
 	u32    m_nMaxBars;
 
 	u32 m_nLoopStartSystemTick;

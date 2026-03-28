@@ -263,6 +263,7 @@ public:
 		bool bEnabled;
 		int  nBPM;
 		int  nQuantize;
+		float fPlaybackGain;
 	};
 	TLooperStatus GetLooperStatus() const;
 
