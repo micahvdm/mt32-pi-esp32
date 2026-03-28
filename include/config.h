@@ -64,7 +64,8 @@ public:
 		ENUM(HD44780FourBit, hd44780_4bit) \
 		ENUM(HD44780I2C, hd44780_i2c)      \
 		ENUM(SH1106I2C, sh1106_i2c)        \
-		ENUM(SSD1306I2C, ssd1306_i2c)
+		ENUM(SSD1306I2C, ssd1306_i2c)      \
+		ENUM(SSD1327I2C, ssd1327_i2c)
 
 	#define ENUM_NETWORKMODE(ENUM) \
 		ENUM(Off, off)             \

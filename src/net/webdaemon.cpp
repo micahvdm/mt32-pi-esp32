@@ -166,6 +166,8 @@ namespace
 				return "SH1106 I2C";
 			case CConfig::TLCDType::SSD1306I2C:
 				return "SSD1306 I2C";
+			case CConfig::TLCDType::SSD1327I2C:
+				return "SSD1327 I2C";
 			case CConfig::TLCDType::None:
 			default:
 				return "None";
@@ -4038,6 +4040,7 @@ THTTPStatus CWebDaemon::BuildConfigPage(u8* pBuffer, unsigned* pLength, const ch
 		html.Append("<option value='hd44780_i2c'"); html.Append(SelectedAttr(pConfig->LCDType == CConfig::TLCDType::HD44780I2C));    html.Append(">hd44780_i2c</option>");
 		html.Append("<option value='sh1106_i2c'");  html.Append(SelectedAttr(pConfig->LCDType == CConfig::TLCDType::SH1106I2C));     html.Append(">sh1106_i2c</option>");
 		html.Append("<option value='ssd1306_i2c'"); html.Append(SelectedAttr(pConfig->LCDType == CConfig::TLCDType::SSD1306I2C));    html.Append(">ssd1306_i2c</option>");
+		html.Append("<option value='ssd1327_i2c'"); html.Append(SelectedAttr(pConfig->LCDType == CConfig::TLCDType::SSD1327I2C));    html.Append(">ssd1327_i2c</option>");
 		html.Append("</select></label>");
 		html.Append("<label>LCD width<small>Width in characters (LCD) or pixels (OLED). SSD1305: use 132. Range: 20-132</small><input name='lcd_width' type='number' value='"); AppendEscaped(html, LCDWidth); html.Append("'></label>");
 		html.Append("<label>LCD height<small>Height in characters (LCD) or pixels (OLED). See docs for your model. Range: 2-64</small><input name='lcd_height' type='number' value='"); AppendEscaped(html, LCDHeight); html.Append("'></label>");

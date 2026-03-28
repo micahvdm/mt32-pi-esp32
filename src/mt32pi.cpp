@@ -36,6 +36,7 @@
 
 #include "lcd/drivers/hd44780.h"
 #include "lcd/drivers/ssd1306.h"
+#include "lcd/drivers/ssd1327.h"
 #include "lcd/ui.h"
 #include "mt32pi.h"
 
@@ -218,6 +219,10 @@ bool CMT32Pi::Initialize(bool bSerialMIDIAvailable)
 
 		case CConfig::TLCDType::SSD1306I2C:
 			m_pLCD = new CSSD1306(m_pI2CMaster, m_pConfig->LCDI2CLCDAddress, m_pConfig->LCDWidth, m_pConfig->LCDHeight, m_pConfig->LCDRotation, m_pConfig->LCDMirror);
+			break;
+
+		case CConfig::TLCDType::SSD1327I2C:
+			m_pLCD = new CSSD1327(m_pI2CMaster, m_pConfig->LCDI2CLCDAddress, m_pConfig->LCDWidth, m_pConfig->LCDHeight, m_pConfig->LCDRotation);
 			break;
 
 		default:
