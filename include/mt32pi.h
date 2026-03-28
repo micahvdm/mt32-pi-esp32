@@ -249,6 +249,13 @@ public:
 	bool StartMidiRecording();
 	void StopMidiRecording();  // no-op if not recording
 
+	// Rhythm looper
+	void LooperArmStop() { m_RhythmLooper.ArmStop(); }
+	void LooperSave()    { m_RhythmLooper.SaveToMIDI(); }
+	void LooperClear()   { m_RhythmLooper.Clear(); }
+	void LooperSetBPM(int nBPM) { m_RhythmLooper.SetBPM(nBPM); }
+	void LooperSetQuantize(int nQuantize) { m_RhythmLooper.SetQuantize(nQuantize); }
+
 	// ---- Sequencer control (called from Core 0 / web handler) ----
 	struct TSequencerStatus
 	{
@@ -633,6 +640,9 @@ private:
 
 	// MIDI recorder (Core 0 only)
 	CMidiRecorder m_MidiRecorder;
+
+	// Rhythm looper (Core 0 only)
+	CRhythmLooper m_RhythmLooper;
 
 	// Playlist queue (Core 0 only)
 	CPlaylist m_Playlist;
