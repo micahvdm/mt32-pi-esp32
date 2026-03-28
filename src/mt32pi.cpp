@@ -143,8 +143,8 @@ CMT32Pi::CMT32Pi(CI2CMaster* pI2CMaster, CSPIMaster* pSPIMaster, CInterruptSyste
 	  m_bAutoReducePartials(true),
 	  m_bMenuLongPressConsumed(false),
 	  m_nLooperButtonPressTicks(0),
-	  m_nLooperLastTapTicks(0),
 	  m_bLooperButtonHeld(false),
+	  m_nLooperLastTapTicks(0),
 	  m_bLooperLongPressTriggered(false),
 
 	  m_pFluidSequencer(nullptr),
