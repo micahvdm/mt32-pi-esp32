@@ -27,7 +27,6 @@ public:
 private:
 	void SendCommand(u8 nCommand);
 	void SendData(const u8* pData, size_t nSize);
-	void SetAddressWindow(u8 nXStart, u8 nYStart, u8 nXEnd, u8 nYEnd);
 
 	// Buffer management
 	void SetPixel(u8 x, u8 y, bool bOn);

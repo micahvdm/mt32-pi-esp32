@@ -4,7 +4,7 @@
 #include <cstring>
 
 #include "lcd/drivers/ssd1327.h"
-#include "lcd/font.h"
+#include "lcd/font6x8.h"
 
 LOGMODULE("ssd1327");
 
@@ -34,12 +34,11 @@ void CSSD1327::SendCommand(u8 nCommand)
 void CSSD1327::SendData(const u8* pData, size_t nSize)
 {
 	// SSD1327 I2C data prefix: Co=0, D/C#=1 -> 0x40
-	// We allocate a temp buffer to prepend the control byte for the I2C transaction
-	u8* pBuffer = new u8[nSize + 1];
-	pBuffer[0] = 0x40;
-	memcpy(pBuffer + 1, pData, nSize);
-	m_pI2CMaster->Write(m_nAddress, pBuffer, nSize + 1);
-	delete[] pBuffer;
+	// Using a stack buffer instead of the heap to avoid fragmentation in hot loops
+	u8 buffer[129]; // Max row size + 1
+	buffer[0] = 0x40;
+	memcpy(buffer + 1, pData, nSize > 128 ? 128 : nSize);
+	m_pI2CMaster->Write(m_nAddress, buffer, nSize + 1);
 }
 
 bool CSSD1327::Initialize()
@@ -159,17 +158,19 @@ void CSSD1327::Print(const char* pText, u8 x, u8 y, bool bInverted, bool bUpdate
 	// This uses the project's standard font handling
 	while (*pText)
 	{
-		u8 nCharacter = *pText++;
-		for (u8 i = 0; i < CHAR_WIDTH; i++)
+		u8 nCharacter = static_cast<u8>(*pText++);
+		if (nCharacter < 0x20 || nCharacter > 0x7F) nCharacter = ' ';
+
+		for (u8 i = 0; i < 6; i++) // Standard Font6x8 width
 		{
-			u8 nLine = Font[nCharacter][i];
-			for (u8 j = 0; j < CHAR_HEIGHT; j++)
+			u8 nLine = Font6x8[nCharacter - 0x20][i];
+			for (u8 j = 0; j < 8; j++) // Standard Font6x8 height
 			{
 				bool bOn = (nLine >> j) & 0x01;
 				SetPixel(x + i, y + j, bInverted ? !bOn : bOn);
 			}
 		}
-		x += CHAR_WIDTH;
+		x += 6;
 	}
 
 	if (bUpdate)
