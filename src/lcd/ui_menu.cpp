@@ -24,7 +24,7 @@
 // Helpers (file-static)
 // ---------------------------------------------------------------------------
 
-static constexpr size_t MenuVisibleRows = 4;
+static constexpr size_t MenuVisibleRows = 16;
 static constexpr size_t MixerMenuItems  = 5;
 
 // Number of menu items per synth (+ mixer items always appended)
