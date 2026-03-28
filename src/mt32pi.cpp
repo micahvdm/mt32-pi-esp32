@@ -141,10 +141,10 @@ CMT32Pi::CMT32Pi(CI2CMaster* pI2CMaster, CSPIMaster* pSPIMaster, CInterruptSyste
 	  m_nRenderYmfmUs(0),
 	  m_nRenderMixerUs(0),
 	  m_bAutoReducePartials(true),
+	  m_bMenuLongPressConsumed(false),
 	  m_nLooperButtonPressTicks(0),
 	  m_bLooperButtonHeld(false),
 	  m_bLooperLongPressTriggered(false),
-	  m_bMenuLongPressConsumed(false),
 
 	  m_pFluidSequencer(nullptr),
 	  m_nTempoMultiplier(1.0),
