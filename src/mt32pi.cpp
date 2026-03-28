@@ -1028,10 +1028,30 @@ bool CMT32Pi::ExecuteMappedCCAction(CConfig::TMIDICCAction Action, u8 nChannel, 
 			return false;
 
 		case CConfig::TMIDICCAction::SelectMT32:
+			if (nValue >= 64 && m_nLastMappedCCValue[nCC] < 64)
+				SetActiveSynth(TSynth::MT32);
+			break;
+
 		case CConfig::TMIDICCAction::SelectSoundFont:
+			if (nValue >= 64 && m_nLastMappedCCValue[nCC] < 64)
+				SetActiveSynth(TSynth::SoundFont);
+			break;
+
 		case CConfig::TMIDICCAction::PrevRomOrSoundFont:
+			if (nValue >= 64 && m_nLastMappedCCValue[nCC] < 64)
+			{
+				if (m_pCurrentSynth == m_pMT32Synth) SelectRelativeMT32ROM(-1);
+				else if (m_pCurrentSynth == m_pSoundFontSynth) SelectRelativeSoundFont(-1);
+			}
+			break;
+
 		case CConfig::TMIDICCAction::NextRomOrSoundFont:
-			return HandleMappedButtonAction(Action, nCC, nValue);
+			if (nValue >= 64 && m_nLastMappedCCValue[nCC] < 64)
+			{
+				if (m_pCurrentSynth == m_pMT32Synth) SelectRelativeMT32ROM(+1);
+				else if (m_pCurrentSynth == m_pSoundFontSynth) SelectRelativeSoundFont(+1);
+			}
+			break;
 
 		case CConfig::TMIDICCAction::MainReverb:
 			if (m_pCurrentSynth == m_pMT32Synth)
@@ -1197,9 +1217,9 @@ bool CMT32Pi::ExecuteMappedCCAction(CConfig::TMIDICCAction Action, u8 nChannel, 
 			m_nLastMappedCCValue[nCC] = nValue;
 			return true;
 
-		default:
-			return false;
 	}
+	m_nLastMappedCCValue[nCC] = nValue;
+	return true;
 }
 
 bool CMT32Pi::HandleMappedControlChange(u8 nChannel, u8 nCC, u8 nValue)

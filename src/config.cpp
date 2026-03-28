@@ -99,7 +99,7 @@ CConfig::CConfig()
 	MIDICCMap[105] = { TMIDICCAction::SelectSoundFont,    TMIDICCAction::SelectSoundFont };
 	MIDICCMap[106] = { TMIDICCAction::PrevRomOrSoundFont, TMIDICCAction::PrevRomOrSoundFont };
 	MIDICCMap[107] = { TMIDICCAction::NextRomOrSoundFont, TMIDICCAction::NextRomOrSoundFont };
-	MIDICCMap[109] = { TMIDICCAction::SustainCC64, 		  TMIDICCAction::SustainCC64 };
+	MIDICCMap[109] = { TMIDICCAction::SustainCC64,        TMIDICCAction::SustainCC64 };
 	
 	MIDICCMap[108] = { TMIDICCAction::LooperArmStop,      TMIDICCAction::LooperArmStop };
 	MIDICCMap[110] = { TMIDICCAction::LooperBPM,          TMIDICCAction::LooperBPM };
@@ -114,7 +114,7 @@ CConfig::CConfig()
 	MIDICCMap[25] = { TMIDICCAction::MT32DACMode,       TMIDICCAction::SFChorusLevel };
 	MIDICCMap[26] = { TMIDICCAction::MT32RendererType,  TMIDICCAction::SFChorusDepth };
 	MIDICCMap[27] = { TMIDICCAction::MT32PartialCount,  TMIDICCAction::SFChorusSpeed };
-	MIDICCMap[28] = { TMIDICCAction::MasterVolume,      TMIDICCAction::SoundFontGain };
+	MIDICCMap[28] = { TMIDICCAction::MasterVolume,      TMIDICCAction::MasterVolume };
 
 	for (unsigned i = 0; i < static_cast<unsigned>(TMIDICCBindingID::Count); ++i)
 		MIDICCBindingCC[i] = -1;
