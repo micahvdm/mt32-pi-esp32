@@ -1027,6 +1027,10 @@ bool CMT32Pi::ExecuteMappedCCAction(CConfig::TMIDICCAction Action, u8 nChannel, 
 		case CConfig::TMIDICCAction::None:
 			return false;
 
+		case CConfig::TMIDICCAction::SustainCC64:
+			// Handled in OnShortMessage() before ExecuteMappedCCAction() is called
+			break;
+
 		case CConfig::TMIDICCAction::SelectMT32:
 			if (nValue >= 64 && m_nLastMappedCCValue[nCC] < 64)
 				SetActiveSynth(TSynth::MT32);
@@ -1207,6 +1211,14 @@ bool CMT32Pi::ExecuteMappedCCAction(CConfig::TMIDICCAction Action, u8 nChannel, 
 			}
 			m_nLastMappedCCValue[nCC] = nValue;
 			return true;
+
+		case CConfig::TMIDICCAction::LooperMetronome:
+			if (nValue >= 64 && m_nLastMappedCCValue[nCC] < 64)
+			{
+				LooperSetMetronomeEnabled(!m_RhythmLooper.GetMetronomeEnabled());
+				LCDLog(TLCDLogType::Notice, "Metronome: %s", m_RhythmLooper.GetMetronomeEnabled() ? "On" : "Off");
+			}
+			break;
 
 		case CConfig::TMIDICCAction::LooperClear:
 			if (nValue >= 64 && m_nLastMappedCCValue[nCC] < 64)
