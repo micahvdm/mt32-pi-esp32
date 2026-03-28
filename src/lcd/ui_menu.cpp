@@ -60,6 +60,13 @@ static size_t GetMenuItemCount(TMenuLevel Level, const CSynthBase* pCurrent,
 	}
 }
 
+static const char* GetMixerMenuItemLabel(size_t nMixerIdx)
+{
+	static const char* mixerLabels[] =
+		{ "Mixer", "Preset", "MT32 Vol", "Fluid Vol", "OPL3 Vol" };
+	return (nMixerIdx < MixerMenuItems) ? mixerLabels[nMixerIdx] : nullptr;
+}
+
 static const char* GetMenuItemLabel(TMenuLevel Level, const CSynthBase* pCurrent,
                                     CSoundFontSynth* pSF, CMT32Synth* pMT32,
                                     size_t nItem)
@@ -109,13 +116,6 @@ static const char* GetMenuItemLabel(TMenuLevel Level, const CSynthBase* pCurrent
 	case TMenuLevel::System:  { static const char* labels[] = { "Verbose", "USB", "I2C Baud", "Power Save" }; return (nItem < 4) ? labels[nItem] : nullptr; }
 	default: return nullptr;
 	}
-}
-
-static const char* GetMixerMenuItemLabel(size_t nMixerIdx)
-{
-	static const char* mixerLabels[] =
-		{ "Mixer", "Preset", "MT32 Vol", "Fluid Vol", "OPL3 Vol" };
-	return (nMixerIdx < MixerMenuItems) ? mixerLabels[nMixerIdx] : nullptr;
 }
 
 // Formatted value string for item nItem
