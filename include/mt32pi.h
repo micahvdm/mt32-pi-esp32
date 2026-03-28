@@ -257,6 +257,15 @@ public:
 	void LooperSetBPM(int nBPM) { m_RhythmLooper.SetBPM(nBPM); }
 	void LooperSetQuantize(int nQuantize) { m_RhythmLooper.SetQuantize(nQuantize); }
 
+	struct TLooperStatus
+	{
+		CRhythmLooper::TState nState;
+		bool bEnabled;
+		int  nBPM;
+		int  nQuantize;
+	};
+	TLooperStatus GetLooperStatus() const;
+
 	// ---- Sequencer control (called from Core 0 / web handler) ----
 	struct TSequencerStatus
 	{
