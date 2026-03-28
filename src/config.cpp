@@ -361,6 +361,69 @@ bool CConfig::ParseMIDICCMapping(const char* pValue, TMIDICCMapping* pOut)
 	return true;
 }
 
+bool CConfig::ParseMIDICCNumber(const char* pValue, int* pOut)
+{
+	if (!pValue || !pOut)
+		return false;
+
+	char* pEnd = nullptr;
+	const long nValue = std::strtol(pValue, &pEnd, 10);
+	if (pEnd == pValue)
+		return false;
+
+	while (pEnd && *pEnd)
+	{
+		if (!std::isspace(static_cast<unsigned char>(*pEnd)))
+			return false;
+		++pEnd;
+	}
+
+	if (nValue < -1 || nValue > 127)
+		return false;
+
+	*pOut = static_cast<int>(nValue);
+	return true;
+}
+
+bool CConfig::ParseMIDICCBindingKey(const char* pName, TMIDICCBindingID* pOut)
+{
+	if (!pName || !pOut)
+		return false;
+
+	if (strcasecmp(pName, "main_reverb") == 0)
+		*pOut = TMIDICCBindingID::MainReverb;
+	else if (strcasecmp(pName, "reverb_param1") == 0)
+		*pOut = TMIDICCBindingID::ReverbParam1;
+	else if (strcasecmp(pName, "reverb_param2") == 0)
+		*pOut = TMIDICCBindingID::ReverbParam2;
+	else if (strcasecmp(pName, "reverb_param3") == 0)
+		*pOut = TMIDICCBindingID::ReverbParam3;
+	else if (strcasecmp(pName, "chorus_param1") == 0)
+		*pOut = TMIDICCBindingID::ChorusParam1;
+	else if (strcasecmp(pName, "chorus_param2") == 0)
+		*pOut = TMIDICCBindingID::ChorusParam2;
+	else if (strcasecmp(pName, "chorus_param3") == 0)
+		*pOut = TMIDICCBindingID::ChorusParam3;
+	else if (strcasecmp(pName, "master_or_gain") == 0)
+		*pOut = TMIDICCBindingID::MasterOrGain;
+	else if (strcasecmp(pName, "select_mt32") == 0)
+		*pOut = TMIDICCBindingID::SelectMT32;
+	else if (strcasecmp(pName, "select_soundfont") == 0)
+		*pOut = TMIDICCBindingID::SelectSoundFont;
+	else if (strcasecmp(pName, "prev_rom_or_soundfont") == 0)
+		*pOut = TMIDICCBindingID::PrevRomOrSoundFont;
+	else if (strcasecmp(pName, "next_rom_or_soundfont") == 0)
+		*pOut = TMIDICCBindingID::NextRomOrSoundFont;
+	else if (strcasecmp(pName, "looper_arm_stop") == 0)
+		*pOut = TMIDICCBindingID::LooperArmStop;
+	else if (strcasecmp(pName, "sustain_cc64") == 0)
+		*pOut = TMIDICCBindingID::SustainCC64;
+	else
+		return false;
+
+	return true;
+}
+
 // Define template function wrappers for parsing enums
 CONFIG_ENUM_PARSER(TSystemDefaultSynth);
 CONFIG_ENUM_PARSER(TAudioOutputDevice);
