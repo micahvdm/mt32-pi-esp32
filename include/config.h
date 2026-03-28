@@ -122,6 +122,7 @@ public:
 		LooperBPM,
 		LooperQuantize,
 		LooperSave,
+		LooperMetronome,
 		LooperClear,
 	};
 
@@ -144,6 +145,7 @@ public:
 		LooperBPM,
 		LooperQuantize,
 		LooperSave,
+		LooperMetronome,
 		LooperClear,
 		SustainCC64,
 
@@ -178,6 +180,7 @@ public:
 	int   RhythmLooperBPM;
 	int   RhythmLooperQuantize;
 	int   RhythmLooperMaxBars;
+	bool  RhythmLooperMetronomeEnabled;
 	float RhythmLooperPlaybackGain;
 
 	// Overloaded function to parse config options based on their types specified in the definition file

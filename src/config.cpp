@@ -85,6 +85,7 @@ CConfig::CConfig()
 	RhythmLooperBPM          = 120;
 	RhythmLooperQuantize     = 16;
 	RhythmLooperMaxBars      = 8;
+	RhythmLooperMetronomeEnabled = false;
 	RhythmLooperPlaybackGain = 0.8f;
 
 	s_pThis = this;
@@ -135,6 +136,7 @@ CConfig::CConfig()
 	MIDICCBindingCC[static_cast<unsigned>(TMIDICCBindingID::LooperBPM)]         = 110;
 	MIDICCBindingCC[static_cast<unsigned>(TMIDICCBindingID::LooperQuantize)]    = 111;
 	MIDICCBindingCC[static_cast<unsigned>(TMIDICCBindingID::LooperSave)]        = 112;
+	MIDICCBindingCC[static_cast<unsigned>(TMIDICCBindingID::LooperMetronome)]   = 114;
 	MIDICCBindingCC[static_cast<unsigned>(TMIDICCBindingID::LooperClear)]       = 113;
 	MIDICCBindingCC[static_cast<unsigned>(TMIDICCBindingID::SustainCC64)]       = 109;
 
@@ -205,6 +207,8 @@ int CConfig::INIHandler(void* pUser, const char* pSection, const char* pName, co
 			return ParseOption(pValue, &pConfig->RhythmLooperMaxBars);
 		if (strcasecmp(pName, "playback_gain") == 0)
 			return ParseOption(pValue, &pConfig->RhythmLooperPlaybackGain);
+		if (strcasecmp(pName, "metronome_enabled") == 0)
+			return ParseOption(pValue, &pConfig->RhythmLooperMetronomeEnabled);
 		return 1;
 	}
 
@@ -329,6 +333,8 @@ CConfig::TMIDICCAction CConfig::ParseMIDICCAction(const char* pValue)
 	if (strcasecmp(pValue, "looper_quantize") == 0) return TMIDICCAction::LooperQuantize;
 	if (strcasecmp(pValue, "looper_save") == 0) return TMIDICCAction::LooperSave;
 	if (strcasecmp(pValue, "looper_clear") == 0) return TMIDICCAction::LooperClear;
+	if (strcasecmp(pValue, "looper_metronome") == 0) return TMIDICCAction::LooperMetronome;
+
 
 	return TMIDICCAction::None;
 }
@@ -379,6 +385,7 @@ void CConfig::RebuildMIDICCMap()
 	Bind(TMIDICCBindingID::LooperBPM,         TMIDICCAction::LooperBPM,          TMIDICCAction::LooperBPM);
 	Bind(TMIDICCBindingID::LooperQuantize,    TMIDICCAction::LooperQuantize,     TMIDICCAction::LooperQuantize);
 	Bind(TMIDICCBindingID::LooperSave,        TMIDICCAction::LooperSave,         TMIDICCAction::LooperSave);
+	Bind(TMIDICCBindingID::LooperMetronome,   TMIDICCAction::LooperMetronome,    TMIDICCAction::LooperMetronome);
 	Bind(TMIDICCBindingID::LooperClear,       TMIDICCAction::LooperClear,        TMIDICCAction::LooperClear);
 }
 
@@ -475,6 +482,8 @@ bool CConfig::ParseMIDICCBindingKey(const char* pName, TMIDICCBindingID* pOut)
 		*pOut = TMIDICCBindingID::LooperQuantize;
 	else if (strcasecmp(pName, "looper_save") == 0)
 		*pOut = TMIDICCBindingID::LooperSave;
+	else if (strcasecmp(pName, "looper_metronome") == 0)
+		*pOut = TMIDICCBindingID::LooperMetronome;
 	else if (strcasecmp(pName, "looper_clear") == 0)
 		*pOut = TMIDICCBindingID::LooperClear;
 	else if (strcasecmp(pName, "sustain_cc64") == 0)

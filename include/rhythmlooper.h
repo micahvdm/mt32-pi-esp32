@@ -46,6 +46,9 @@ public:
 	void SetQuantize(int nQuantize) { m_nQuantize = nQuantize; }
 	int  GetQuantize() const { return m_nQuantize; }
 	
+	void SetMetronomeEnabled(bool bEnabled) { m_bMetronomeEnabled = bEnabled; }
+	bool GetMetronomeEnabled() const { return m_bMetronomeEnabled; }
+
 	void  SetPlaybackGain(float fGain) { m_fPlaybackGain = fGain; }
 	float GetPlaybackGain() const { return m_fPlaybackGain; }
 
@@ -62,6 +65,7 @@ private:
 	u8     m_nChannel;
 	int    m_nBPM;
 	int    m_nQuantize;
+	bool   m_bMetronomeEnabled;
 	float  m_fPlaybackGain;
 	u32    m_nMaxBars;
 
@@ -69,6 +73,7 @@ private:
 	u32 m_nLoopLengthMidiTicks;
 	u32 m_nLastProcessedMidiTick;
 
+	u32 m_nLastMetronomeBeatTick;
 	static constexpr u32 MaxEvents = 2048;
 	TLoopEvent m_Events[MaxEvents];
 	u32 m_nEventCount;

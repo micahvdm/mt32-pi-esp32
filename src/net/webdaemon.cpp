@@ -850,6 +850,7 @@ THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
 	const bool bIsLooperArmStopPath = strcmp(pPath, "/api/looper/arm_stop") == 0;
 	const bool bIsLooperSavePath    = strcmp(pPath, "/api/looper/save") == 0;
 	const bool bIsLooperClearPath   = strcmp(pPath, "/api/looper/clear") == 0;
+	const bool bIsLooperMetronomePath = strcmp(pPath, "/api/looper/metronome") == 0;
 	const bool bIsLooperSetPath     = strcmp(pPath, "/api/looper/set") == 0;
 	const bool bIsMidiNotePath      = strcmp(pPath, "/api/midi/note")        == 0;
 	const bool bIsMidiRawPath       = strcmp(pPath, "/api/midi/raw")         == 0;
@@ -2516,6 +2517,7 @@ THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
 		AppendJSONPairBool(JSON, "enabled",  s.bEnabled);
 		AppendJSONPairInt(JSON,  "bpm",      s.nBPM);
 		AppendJSONPairInt(JSON,  "quantize", s.nQuantize);
+		AppendJSONPairBool(JSON, "metronome", s.bMetronomeEnabled);
 		AppendJSONPairFloat(JSON, "gain",    s.fPlaybackGain, false);
 		JSON += "}";
 		const unsigned nLen = JSON.GetLength();
@@ -2556,6 +2558,23 @@ THTTPStatus CWebDaemon::HandleAPIRequest(const char* pPath,
 	if (bIsLooperClearPath)
 	{
 		m_pMT32Pi->LooperClear();
+		const char* pBody = "{\"ok\":true}";
+		const unsigned nLen = static_cast<unsigned>(std::strlen(pBody));
+		if (*pLength < nLen) return HTTPInternalServerError;
+		memcpy(pBuffer, pBody, nLen);
+		*pLength = nLen;
+		*ppContentType = "application/json; charset=utf-8";
+		return HTTPOK;
+	}
+
+	// ---- POST /api/looper/metronome (body: enabled=on|off) ----
+	if (bIsLooperMetronomePath)
+	{
+		char EnabledVal[8] = {};
+		bool bEnabled = false;
+		if (pFormData && *pFormData && GetFormValue(pFormData, "enabled", EnabledVal, sizeof(EnabledVal)))
+			CConfig::ParseOption(EnabledVal, &bEnabled);
+		m_pMT32Pi->LooperSetMetronomeEnabled(bEnabled);
 		const char* pBody = "{\"ok\":true}";
 		const unsigned nLen = static_cast<unsigned>(std::strlen(pBody));
 		if (*pLength < nLen) return HTTPInternalServerError;
@@ -3034,6 +3053,9 @@ THTTPStatus CWebDaemon::BuildSequencerPage(u8* pBuffer, unsigned* pLength, const
 		html.Append("<label style='flex:1;'>BPM<input id='lp-bpm' type='number' min='20' max='300' onchange='lpSet()'></label>");
 		html.Append("<label style='flex:1;'>Quantize<select id='lp-q' onchange='lpSet()'>");
 		html.Append("<option value='4'>1/4</option><option value='8'>1/8</option><option value='16'>1/16</option><option value='32'>1/32</option>");
+		html.Append("</select></label>");
+		html.Append("<label style='flex:1;'>Metronome<select id='lp-metronome' onchange='lpSetMetronome()'>");
+		html.Append("<option value='on'>On</option><option value='off'>Off</option>");
 		html.Append("</select></label></div>");
 		html.Append("</div></div>");
 
@@ -3112,6 +3134,7 @@ THTTPStatus CWebDaemon::BuildSequencerPage(u8* pBuffer, unsigned* pLength, const
 		html.Append("var lab=document.getElementById('lp-arm');if(lab)lab.textContent=(d.looper.state===2||d.looper.state===3)?'\\u23F9':'\\u23FA';");
 		html.Append("if(document.activeElement.id!=='lp-bpm')document.getElementById('lp-bpm').value=d.looper.bpm;");
 		html.Append("if(document.activeElement.id!=='lp-q')document.getElementById('lp-q').value=d.looper.quantize;}");
+		html.Append("if(document.activeElement.id!=='lp-metronome')document.getElementById('lp-metronome').value=d.looper.metronome?'on':'off';}");
 		// Playlist state
 		html.Append("if(typeof d.pl_count!=='undefined'){");
 		html.Append("var pc=document.getElementById('pl-count');if(pc)pc.textContent=d.pl_count>0?'('+d.pl_count+' tracks)':'';");

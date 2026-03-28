@@ -144,7 +144,6 @@ CMT32Pi::CMT32Pi(CI2CMaster* pI2CMaster, CSPIMaster* pSPIMaster, CInterruptSyste
 	  m_bMenuLongPressConsumed(false),
 	  m_nLooperButtonPressTicks(0),
 	  m_bLooperButtonHeld(false),
-	  m_nLooperLastTapTicks(0),
 	  m_bLooperLongPressTriggered(false),
 
 	  m_pFluidSequencer(nullptr),
@@ -385,10 +384,6 @@ bool CMT32Pi::Initialize(bool bSerialMIDIAvailable)
 	// Initialize Rhythm Looper
 	m_RhythmLooper.SetRouter(&m_MIDIRouter);
 	m_RhythmLooper.SetSynth(m_pCurrentSynth);
-	m_RhythmLooper.SetEnabled(m_pConfig->RhythmLooperEnabled);
-	m_RhythmLooper.SetBPM(m_pConfig->RhythmLooperBPM);
-	m_RhythmLooper.SetQuantize(m_pConfig->RhythmLooperQuantize);
-	m_RhythmLooper.SetPlaybackGain(m_pConfig->RhythmLooperPlaybackGain);
 
 	// Configure post-mix audio effects from config
 	{
@@ -1142,22 +1137,10 @@ bool CMT32Pi::ExecuteMappedCCAction(CConfig::TMIDICCAction Action, u8 nChannel, 
 			{
 				if (m_bLooperButtonHeld && !m_bLooperLongPressTriggered)
 				{
-					unsigned now = m_pTimer->GetTicks();
-					// Double tap detection (400ms window)
-					if (now - m_nLooperLastTapTicks < MSEC2HZ(400))
-					{
-						LooperStop();
-					}
-					else
-					{
-						LooperArmStop();
-					}
-					m_nLooperLastTapTicks = now;
-
+					LooperArmStop();
 					const char* pStatus = 
 						m_RhythmLooper.GetState() == CRhythmLooper::TState::Armed ? "Looper: Armed" :
 						m_RhythmLooper.GetState() == CRhythmLooper::TState::Playing ? "Looper: Playing" :
-						m_RhythmLooper.GetState() == CRhythmLooper::TState::Overdubbing ? "Looper: Overdub" :
 						m_RhythmLooper.GetState() == CRhythmLooper::TState::StoppedWithLoop ? "Looper: Stopped" :
 					"Looper: Armed (New)";
 					LCDLog(TLCDLogType::Notice, pStatus);
@@ -1187,6 +1170,14 @@ bool CMT32Pi::ExecuteMappedCCAction(CConfig::TMIDICCAction Action, u8 nChannel, 
 			m_nLastMappedCCValue[nCC] = nValue;
 			return true;
 
+		case CConfig::TMIDICCAction::LooperMetronome:
+			if (nValue >= 64 && m_nLastMappedCCValue[nCC] < 64)
+			{
+				LooperSetMetronomeEnabled(!m_RhythmLooper.GetMetronomeEnabled());
+				LCDLog(TLCDLogType::Notice, "Metronome: %s", m_RhythmLooper.GetMetronomeEnabled() ? "On" : "Off");
+			}
+			m_nLastMappedCCValue[nCC] = nValue;
+			return true;
 		case CConfig::TMIDICCAction::LooperClear:
 			if (nValue >= 64 && m_nLastMappedCCValue[nCC] < 64)
 			{
@@ -2278,7 +2269,7 @@ CMT32Pi::TLooperStatus CMT32Pi::GetLooperStatus() const
 		m_RhythmLooper.IsEnabled(),
 		m_RhythmLooper.GetBPM(),
 		m_RhythmLooper.GetQuantize(),
-		m_RhythmLooper.GetPlaybackGain()
+		m_RhythmLooper.GetMetronomeEnabled()
 	};
 }
 
