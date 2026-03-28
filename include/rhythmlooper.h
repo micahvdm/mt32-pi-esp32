@@ -40,7 +40,9 @@ public:
 	bool IsEnabled() const { return m_bEnabled; }
 
 	void SetBPM(int nBPM);
+	int  GetBPM() const { return m_nBPM; }
 	void SetQuantize(int nQuantize) { m_nQuantize = nQuantize; }
+	int  GetQuantize() const { return m_nQuantize; }
 	
 	void SetRouter(CMIDIRouter* pRouter) { m_pRouter = pRouter; }
 	void SetSynth(CSynthBase* pSynth) { m_pSynth = pSynth; }
