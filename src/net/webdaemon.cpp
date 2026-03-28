@@ -95,6 +95,7 @@ namespace
 		Ymfm,
 		LCD,
 		Network,
+		RhythmLooper,
 	};
 
 	struct TReplacement
@@ -588,6 +589,8 @@ namespace
 			return TConfigSection::LCD;
 		if (std::strcmp(pTrimmed, "[network]") == 0)
 			return TConfigSection::Network;
+		if (std::strcmp(pTrimmed, "[rhythm_looper]") == 0)
+			return TConfigSection::RhythmLooper;
 		return TConfigSection::None;
 	}
 

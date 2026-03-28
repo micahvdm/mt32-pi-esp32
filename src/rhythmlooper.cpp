@@ -56,11 +56,15 @@ void CRhythmLooper::ArmStop()
 	switch (m_State)
 	{
 		case TState::Idle:
-		case TState::StoppedWithLoop:
 			m_State = TState::Armed;
 			LOGNOTE("Looper Armed");
 			break;
-			
+
+		case TState::StoppedWithLoop:
+			m_State = TState::Playing;
+			LOGNOTE("Looper Resumed");
+			break;
+
 		case TState::Armed:
 			m_State = TState::Idle;
 			LOGNOTE("Looper Disarmed");
@@ -74,6 +78,13 @@ void CRhythmLooper::ArmStop()
 			
 			m_nLoopLengthMidiTicks = QuantizeTick(totalTicks);
 			if (m_nLoopLengthMidiTicks == 0) m_nLoopLengthMidiTicks = (PPQN * 4); // Min 1 bar
+
+			// Quantization wrap-around: ensure all events are within [0, LoopLength-1]
+			// This handles notes played slightly "late" that snap to the start of the next cycle
+			for (u32 i = 0; i < m_nEventCount; ++i)
+			{
+				m_Events[i].nTick %= m_nLoopLengthMidiTicks;
+			}
 			
 			m_nLastProcessedMidiTick = 0;
 			m_State = TState::Playing;

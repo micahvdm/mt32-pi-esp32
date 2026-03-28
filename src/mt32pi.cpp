@@ -1142,7 +1142,7 @@ bool CMT32Pi::ExecuteMappedCCAction(CConfig::TMIDICCAction Action, u8 nChannel, 
 						m_RhythmLooper.GetState() == CRhythmLooper::TState::Armed ? "Looper: Armed" :
 						m_RhythmLooper.GetState() == CRhythmLooper::TState::Playing ? "Looper: Playing" :
 						m_RhythmLooper.GetState() == CRhythmLooper::TState::StoppedWithLoop ? "Looper: Stopped" :
-						"Looper: Idle";
+					"Looper: Armed (New)";
 					LCDLog(TLCDLogType::Notice, pStatus);
 				}
 				m_bLooperButtonHeld = false;
