@@ -79,14 +79,22 @@ bool CSSD1327::Initialize()
 	// Bit 1: Column Address Remap (0=Normal, 1=Remapped)
 	// Bit 4: COM Scan Direction (0=Normal, 1=Remapped)
 	// Bit 6: COM Split Odd/Even (1=Enable)
-	u8 nRemap = 0x42; // Default: Horizontal, Col Remap enabled, COM Split enabled (01000010)
-	if (m_Rotation == TLCDRotation::Inverted) {
-		nRemap ^= 0x12; // Flip Column and COM Scan (00010010) -> 0x50 (01010000)
-	} else if (m_Rotation == TLCDRotation::Rotated90) {
-		// For 90-degree clockwise rotation, we need to swap X and Y.
-		// This means flipping both Column Address Remap (Bit 1) and COM Scan Direction (Bit 4)
-		// relative to the default 0x42.
-		nRemap ^= 0x12; // Flip Column and COM Scan (00010010) -> 0x50 (01010000)
+	u8 nRemap = 0x00; // Start with base (Horizontal Address Increment, COM Split Disabled)
+
+	// Always enable COM Split Odd/Even for 128x128 displays (Bit 6)
+	nRemap |= (1 << 6); // 0x40
+
+	switch (m_Rotation)
+	{
+		case TLCDRotation::Normal:
+			nRemap |= (0 << 1) | (1 << 4); // Column Normal, COM Remapped (0x10) -> 0x50
+			break;
+		case TLCDRotation::Inverted:
+			nRemap |= (1 << 1) | (0 << 4); // Column Remapped, COM Normal (0x02) -> 0x42
+			break;
+		case TLCDRotation::Rotated90:
+			nRemap |= (0 << 1) | (0 << 4); // Column Normal, COM Normal (0x00) -> 0x40
+			break;
 	}
 	if (m_Mirror == TLCDMirror::Mirrored) nRemap ^= 0x02; // Flip Column (00000010)
 
