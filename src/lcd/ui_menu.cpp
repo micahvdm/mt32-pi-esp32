@@ -30,6 +30,8 @@ enum class TMenuLevel : u8
 	Mixer,
 	Looper,
 	MIDI,
+	AudioFX,
+	MIDICC,
 	Network,
 	System
 };
@@ -50,10 +52,12 @@ static size_t GetMenuItemCount(TMenuLevel Level, const CSynthBase* pCurrent,
 {
 	switch (Level)
 	{
-	case TMenuLevel::Main:    return 9;
+	case TMenuLevel::Main:    return 11;
 	case TMenuLevel::Mixer:   return MixerMenuItems;
 	case TMenuLevel::Looper:  return 6;
 	case TMenuLevel::MIDI:    return 3;
+	case TMenuLevel::AudioFX: return 8;
+	case TMenuLevel::MIDICC:  return 14;
 	case TMenuLevel::Network: return 3;
 	case TMenuLevel::System:  return 4;
 	case TMenuLevel::Synth:
@@ -107,7 +111,7 @@ static const char* GetMenuItemLabel(TMenuLevel Level, const CSynthBase* pCurrent
 	{
 	case TMenuLevel::Main:
 	{
-		static const char* mainLabels[] = { "Active Synth", "Synth FX", "Mixer", "Looper", "MIDI", "Network", "System", "Reboot Pi", "Exit" };
+		static const char* mainLabels[] = { "Active Synth", "Synth FX", "Mixer", "Audio FX", "Looper", "MIDI", "MIDI CC", "Network", "System", "Reboot Pi", "Exit" };
 		return (nItem < 9) ? mainLabels[nItem] : nullptr;
 	}
 	case TMenuLevel::Mixer:   return GetMixerMenuItemLabel(nItem);
@@ -117,6 +121,21 @@ static const char* GetMenuItemLabel(TMenuLevel Level, const CSynthBase* pCurrent
 		return (nItem < 6) ? looperLabels[nItem] : nullptr;
 	}
 	case TMenuLevel::MIDI:    { static const char* labels[] = { "MIDI Thru", "GPIO Baud", "USB Baud" }; return (nItem < 3) ? labels[nItem] : nullptr; }
+	case TMenuLevel::AudioFX:
+	{
+		static const char* labels[] = { "EQ", "Bass", "Treble", "Limiter", "Reverb", "Rev.Room", "Rev.Damp", "Rev.Wet" };
+		return (nItem < 8) ? labels[nItem] : nullptr;
+	}
+	case TMenuLevel::MIDICC:
+	{
+		static const char* labels[] = {
+			"Main Reverb", "Rev Param 1", "Rev Param 2", "Rev Param 3",
+			"Cho Param 1", "Cho Param 2", "Cho Param 3", "Master/Gain",
+			"Select MT32", "Select SF", "Prev ROM/SF", "Next ROM/SF",
+			"Looper Arm", "Sustain CC64"
+		};
+		return (nItem < 14) ? labels[nItem] : nullptr;
+	}
 	case TMenuLevel::Network: { static const char* labels[] = { "Status", "Mode", "DHCP" }; return (nItem < 3) ? labels[nItem] : nullptr; }
 	case TMenuLevel::System:  { static const char* labels[] = { "Verbose", "USB", "I2C Baud", "Power Save" }; return (nItem < 4) ? labels[nItem] : nullptr; }
 	default: return nullptr;
@@ -548,6 +567,41 @@ bool CUserInterface::MenuEncoderEvent(s8 nDelta)
 			case 2: pCfg->MIDIUSBSerialBaudRate = Utility::Clamp(pCfg->MIDIUSBSerialBaudRate + nDelta * 100, 9600, 115200); break;
 			}
 		}
+		else if (s_nMenuLevel == TMenuLevel::AudioFX)
+		{
+			const auto ms = m_pMenuMT32Pi->GetMixerStatus();
+			switch (m_nMenuCursor)
+			{
+			case 0: m_pMenuMT32Pi->SetEffectEQEnabled(!ms.bEffectsEQEnabled); break;
+			case 1: m_pMenuMT32Pi->SetEffectEQBass(Utility::Clamp(ms.nEffectsEQBass + nDelta, -12, 12)); break;
+			case 2: m_pMenuMT32Pi->SetEffectEQTreble(Utility::Clamp(ms.nEffectsEQTreble + nDelta, -12, 12)); break;
+			case 3: m_pMenuMT32Pi->SetEffectLimiterEnabled(!ms.bEffectsLimiterEnabled); break;
+			case 4: m_pMenuMT32Pi->SetEffectReverbEnabled(!ms.bEffectsReverbEnabled); break;
+			case 5: m_pMenuMT32Pi->SetEffectReverbRoom(Utility::Clamp(ms.nEffectsReverbRoom + nDelta, 0, 100)); break;
+			case 6: m_pMenuMT32Pi->SetEffectReverbDamp(Utility::Clamp(ms.nEffectsReverbDamp + nDelta, 0, 100)); break;
+			case 7: m_pMenuMT32Pi->SetEffectReverbWet(Utility::Clamp(ms.nEffectsReverbWet + nDelta, 0, 100)); break;
+			}
+		}
+		else if (s_nMenuLevel == TMenuLevel::MIDICC)
+		{
+			CConfig* pCfg = const_cast<CConfig*>(m_pMenuMT32Pi->GetConfig());
+			if (m_nMenuCursor < 14)
+			{
+				// TMIDICCBindingID enum starts at 0 and follows this order
+				const auto id = static_cast<CConfig::TMIDICCBindingID>(m_nMenuCursor);
+				int cc = pCfg->MIDICCBindingCC[m_nMenuCursor];
+
+				// CC -1 is disabled
+				if (cc == -1 && nDelta < 0) cc = 127;
+				else if (cc == 127 && nDelta > 0) cc = -1;
+				else cc = Utility::Clamp(cc + nDelta, -1, 127);
+
+				pCfg->MIDICCBindingCC[m_nMenuCursor] = cc;
+
+				// Rebuild internal map so it takes effect immediately
+				pCfg->RebuildMIDICCMap();
+			}
+		}
 		else if (s_nMenuLevel == TMenuLevel::Network)
 		{
 			CConfig* pCfg = const_cast<CConfig*>(m_pMenuMT32Pi->GetConfig());
@@ -641,11 +695,13 @@ bool CUserInterface::MenuSelectEvent()
 		case 1: s_nMenuLevel = TMenuLevel::Synth;   s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
 		case 2: s_nMenuLevel = TMenuLevel::Mixer;   s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
 		case 3: s_nMenuLevel = TMenuLevel::Looper;  s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
-		case 4: s_nMenuLevel = TMenuLevel::MIDI;    s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
-		case 5: s_nMenuLevel = TMenuLevel::Network; s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
-		case 6: s_nMenuLevel = TMenuLevel::System;  s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
-		case 7: m_pMenuMT32Pi->RequestReboot(); ExitMenu(); break;
-		case 8: ExitMenu(); break;
+		case 4: s_nMenuLevel = TMenuLevel::AudioFX; s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
+		case 5: s_nMenuLevel = TMenuLevel::MIDI;    s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
+		case 6: s_nMenuLevel = TMenuLevel::MIDICC;  s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
+		case 7: s_nMenuLevel = TMenuLevel::Network; s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
+		case 8: s_nMenuLevel = TMenuLevel::System;  s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
+		case 9: m_pMenuMT32Pi->RequestReboot(); ExitMenu(); break;
+		case 10: ExitMenu(); break;
 		}
 		return true;
 	}
@@ -706,6 +762,8 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 	case TMenuLevel::Mixer:   pTitle = "Mixer";    break;
 	case TMenuLevel::Looper:  pTitle = "Looper";   break;
 	case TMenuLevel::MIDI:    pTitle = "MIDI";     break;
+	case TMenuLevel::AudioFX: pTitle = "Audio FX"; break;
+	case TMenuLevel::MIDICC:  pTitle = "MIDI CC";  break;
 	case TMenuLevel::Network: pTitle = "Network";  break;
 	case TMenuLevel::System:  pTitle = "System";   break;
 	default: break;
@@ -749,7 +807,7 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 		{
 			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, nItemIdx);
 			if (nItemIdx == 0) snprintf(valBuf, sizeof(valBuf), "%s", m_pMenuCurrentSynth->GetName());
-			else if (nItemIdx < 7) snprintf(valBuf, sizeof(valBuf), ">");
+			else if (nItemIdx < 9) snprintf(valBuf, sizeof(valBuf), ">");
 		}
 		else if (s_nMenuLevel == TMenuLevel::Looper)
 		{
@@ -773,6 +831,33 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 			if (nItemIdx == 0) snprintf(valBuf, sizeof(valBuf), "%s", ms.bMIDIThruEnabled ? "ON" : "OFF");
 			else if (nItemIdx == 1) snprintf(valBuf, sizeof(valBuf), "%d", cfg->MIDIGPIOBaudRate);
 			else if (nItemIdx == 2) snprintf(valBuf, sizeof(valBuf), "%d", cfg->MIDIUSBSerialBaudRate);
+		}
+		else if (s_nMenuLevel == TMenuLevel::AudioFX)
+		{
+			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, nItemIdx);
+			const auto ms = m_pMenuMT32Pi->GetMixerStatus();
+			switch (nItemIdx)
+			{
+			case 0: snprintf(valBuf, sizeof(valBuf), "%s", ms.bEffectsEQEnabled ? "ON" : "OFF"); break;
+			case 1: snprintf(valBuf, sizeof(valBuf), "%ddB", ms.nEffectsEQBass); break;
+			case 2: snprintf(valBuf, sizeof(valBuf), "%ddB", ms.nEffectsEQTreble); break;
+			case 3: snprintf(valBuf, sizeof(valBuf), "%s", ms.bEffectsLimiterEnabled ? "ON" : "OFF"); break;
+			case 4: snprintf(valBuf, sizeof(valBuf), "%s", ms.bEffectsReverbEnabled ? "ON" : "OFF"); break;
+			case 5: snprintf(valBuf, sizeof(valBuf), "%d%%", ms.nEffectsReverbRoom); break;
+			case 6: snprintf(valBuf, sizeof(valBuf), "%d%%", ms.nEffectsReverbDamp); break;
+			case 7: snprintf(valBuf, sizeof(valBuf), "%d%%", ms.nEffectsReverbWet); break;
+			}
+		}
+		else if (s_nMenuLevel == TMenuLevel::MIDICC)
+		{
+			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, nItemIdx);
+			const auto cfg = m_pMenuMT32Pi->GetConfig();
+			if (nItemIdx < 14)
+			{
+				const int cc = cfg->MIDICCBindingCC[nItemIdx];
+				if (cc == -1) snprintf(valBuf, sizeof(valBuf), "OFF");
+				else snprintf(valBuf, sizeof(valBuf), "%d", cc);
+			}
 		}
 		else if (s_nMenuLevel == TMenuLevel::Network)
 		{
