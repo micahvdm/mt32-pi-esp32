@@ -33,6 +33,7 @@ enum class TMenuLevel : u8
 	AudioFX,
 	MIDICC,
 	Sequencer,
+	Recorder,
 	Network,
 	System
 };
@@ -53,13 +54,14 @@ static size_t GetMenuItemCount(TMenuLevel Level, const CSynthBase* pCurrent,
 {
 	switch (Level)
 	{
-	case TMenuLevel::Main:    return 12;
+	case TMenuLevel::Main:    return 13;
 	case TMenuLevel::Mixer:   return MixerMenuItems;
 	case TMenuLevel::Looper:  return 7;
 	case TMenuLevel::MIDI:    return 3;
 	case TMenuLevel::AudioFX: return 8;
 	case TMenuLevel::MIDICC:  return 14;
 	case TMenuLevel::Sequencer: return 7;
+	case TMenuLevel::Recorder:  return 2;
 	case TMenuLevel::Network: return 5;
 	case TMenuLevel::System:  return 5;
 	case TMenuLevel::Synth:
@@ -114,8 +116,8 @@ static const char* GetMenuItemLabel(TMenuLevel Level, const CSynthBase* pCurrent
 	{
 	case TMenuLevel::Main:
 	{
-		static const char* mainLabels[] = { "Active Synth", "Synth FX", "Mixer", "Audio FX", "Looper", "Sequencer", "MIDI", "MIDI CC", "Network", "System", "Reboot Pi", "Exit" };
-		return (nItem < 12) ? mainLabels[nItem] : nullptr;
+		static const char* mainLabels[] = { "Active Synth", "Synth FX", "Mixer", "Audio FX", "Looper", "Sequencer", "Recorder", "MIDI", "MIDI CC", "Network", "System", "Reboot Pi", "Exit" };
+		return (nItem < 13) ? mainLabels[nItem] : nullptr;
 	}
 	case TMenuLevel::Mixer:   return GetMixerMenuItemLabel(nItem);
 	case TMenuLevel::Looper:
@@ -138,6 +140,11 @@ static const char* GetMenuItemLabel(TMenuLevel Level, const CSynthBase* pCurrent
 			"Looper Arm", "Sustain CC64"
 		};
 		return (nItem < 14) ? labels[nItem] : nullptr;
+	}
+	case TMenuLevel::Recorder:
+	{
+		static const char* labels[] = { "Status", "Control" };
+		return (nItem < 2) ? labels[nItem] : nullptr;
 	}
 	case TMenuLevel::Sequencer:
 	{
@@ -722,15 +729,16 @@ bool CUserInterface::MenuSelectEvent()
 		case 0: m_bMenuEditing = true; break; // Toggle Synth
 		case 1: s_nMenuLevel = TMenuLevel::Synth;   s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
 		case 2: s_nMenuLevel = TMenuLevel::Mixer;   s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
-		case 3: s_nMenuLevel = TMenuLevel::Looper;  s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
-		case 4: s_nMenuLevel = TMenuLevel::Sequencer; s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
-		case 5: s_nMenuLevel = TMenuLevel::AudioFX; s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
-		case 6: s_nMenuLevel = TMenuLevel::MIDI;    s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
-		case 7: s_nMenuLevel = TMenuLevel::MIDICC;  s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
-		case 8: s_nMenuLevel = TMenuLevel::Network; s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
-		case 9: s_nMenuLevel = TMenuLevel::System;  s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
-		case 10: m_pMenuMT32Pi->RequestReboot(); ExitMenu(); break;
-		case 11: ExitMenu(); break;
+		case 3: s_nMenuLevel = TMenuLevel::AudioFX; s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
+		case 4: s_nMenuLevel = TMenuLevel::Looper;  s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
+		case 5: s_nMenuLevel = TMenuLevel::Sequencer; s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
+		case 6: s_nMenuLevel = TMenuLevel::Recorder;  s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
+		case 7: s_nMenuLevel = TMenuLevel::MIDI;    s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
+		case 8: s_nMenuLevel = TMenuLevel::MIDICC;  s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
+		case 9: s_nMenuLevel = TMenuLevel::Network; s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
+		case 10: s_nMenuLevel = TMenuLevel::System;  s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
+		case 11: m_pMenuMT32Pi->RequestReboot(); ExitMenu(); break;
+		case 12: ExitMenu(); break;
 		}
 		return true;
 	}
@@ -742,6 +750,16 @@ bool CUserInterface::MenuSelectEvent()
 	{
 		if (m_nMenuCursor == 5) { m_pMenuMT32Pi->LooperClear(); return true; }
 		if (m_nMenuCursor == 6) { m_pMenuMT32Pi->LooperSave(); return true; }
+	}
+
+	if (s_nMenuLevel == TMenuLevel::Recorder)
+	{
+		if (m_nMenuCursor == 1) // Control
+		{
+			if (m_pMenuMT32Pi->GetSystemState().bMidiRecording) m_pMenuMT32Pi->StopMidiRecording();
+			else m_pMenuMT32Pi->StartMidiRecording();
+			return true;
+		}
 	}
 
 	if (s_nMenuLevel == TMenuLevel::Sequencer)
@@ -801,6 +819,7 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 	case TMenuLevel::Mixer:   pTitle = "Mixer";    break;
 	case TMenuLevel::Looper:  pTitle = "Looper";   break;
 	case TMenuLevel::MIDI:    pTitle = "MIDI";     break;
+	case TMenuLevel::Recorder: pTitle = "Recorder"; break;
 	case TMenuLevel::Sequencer: pTitle = "Sequencer"; break;
 	case TMenuLevel::AudioFX: pTitle = "Audio FX"; break;
 	case TMenuLevel::MIDICC:  pTitle = "MIDI CC";  break;
@@ -849,7 +868,7 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 		{
 			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, nItemIdx);
 			if (nItemIdx == 0) snprintf(valBuf, sizeof(valBuf), "%s", m_pMenuCurrentSynth->GetName());
-			else if (nItemIdx < 10) snprintf(valBuf, sizeof(valBuf), ">");
+			else if (nItemIdx < 11) snprintf(valBuf, sizeof(valBuf), ">");
 		}
 		else if (s_nMenuLevel == TMenuLevel::Looper)
 		{
@@ -863,6 +882,16 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 			case 3: snprintf(valBuf, sizeof(valBuf), "%s", ls.bMetronomeEnabled ? "ON" : "OFF"); break;
 			case 4: snprintf(valBuf, sizeof(valBuf), "%.1f", static_cast<double>(ls.fPlaybackGain)); break;
 			default: break;
+			}
+		}
+		else if (s_nMenuLevel == TMenuLevel::Recorder)
+		{
+			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, nItemIdx);
+			const auto st = m_pMenuMT32Pi->GetSystemState();
+			switch (nItemIdx)
+			{
+			case 0: snprintf(valBuf, sizeof(valBuf), "%s", st.bMidiRecording ? "Rec" : "Stop"); break;
+			case 1: snprintf(valBuf, sizeof(valBuf), "%s", st.bMidiRecording ? "STOP" : "START"); break;
 			}
 		}
 		else if (s_nMenuLevel == TMenuLevel::Sequencer)
