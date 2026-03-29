@@ -373,7 +373,7 @@ void CSoundFontSynth::UpdateLCD(CLCD& LCD, unsigned int nTicks)
 	if (LCD.GetType() == CLCD::TType::Graphical)
 	{
 		// Draw a professional header
-		char StatusBuf[21];
+		char StatusBuf[30];
 		m_Lock.Acquire();
 		int nActiveVoices = fluid_synth_get_active_voice_count(m_pSynth);
 		m_Lock.Release();
