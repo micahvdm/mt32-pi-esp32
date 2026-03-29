@@ -212,12 +212,12 @@ bool CConfig::Write(const char* pPath)
 	#undef CFG
 	#undef END_SECTION
 	
-	#define BEGIN_SECTION(SECTION) f_printf(&fp, "[" #SECTION "]\n")
+	#define BEGIN_SECTION(SECTION) f_printf(&fp, "[" #SECTION "]\n");
 	
 	// Call the overloaded WriteCfg based on the member's type
-	#define CFG(INI_NAME, TYPE, MEMBER_NAME, ...) WriteCfg(&fp, #INI_NAME, MEMBER_NAME)
+	#define CFG(INI_NAME, TYPE, MEMBER_NAME, ...) WriteCfg(&fp, #INI_NAME, MEMBER_NAME);
 
-	#define END_SECTION f_printf(&fp, "\n")
+	#define END_SECTION f_printf(&fp, "\n");
 	
 	#include "config.def"
 
@@ -241,16 +241,16 @@ bool CConfig::Write(const char* pPath)
 	}
 
 	f_printf(&fp, "\n[rhythm_looper]\n");
-	WriteBool("enabled", RhythmLooperEnabled);
-	WriteInt("channel", RhythmLooperChannel);
-	WriteInt("bpm", RhythmLooperBPM);
-	WriteInt("quantize", RhythmLooperQuantize);
-	WriteInt("max_bars", RhythmLooperMaxBars);
-	WriteFloat("playback_gain", RhythmLooperPlaybackGain);
-	WriteBool("metronome_enabled", RhythmLooperMetronomeEnabled);
+	WriteCfg(&fp, "enabled", RhythmLooperEnabled);
+	WriteCfg(&fp, "channel", RhythmLooperChannel);
+	WriteCfg(&fp, "bpm", RhythmLooperBPM);
+	WriteCfg(&fp, "quantize", RhythmLooperQuantize);
+	WriteCfg(&fp, "max_bars", RhythmLooperMaxBars);
+	WriteCfg(&fp, "playback_gain", RhythmLooperPlaybackGain);
+	WriteCfg(&fp, "metronome_enabled", RhythmLooperMetronomeEnabled);
 
 	f_printf(&fp, "\n[lcd]\n");
-	WriteInt("visualizer", LCDVisualizer);
+	WriteCfg(&fp, "visualizer", LCDVisualizer);
 
 	f_close(&fp);
 	return true;
