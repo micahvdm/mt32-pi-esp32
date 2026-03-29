@@ -45,7 +45,7 @@ static size_t s_nMenuSubCursor = 0;
 
 // External reference to the visualizer mode in ui.cpp
 extern int s_nVisualizer;
-static const char* const VisualizerNames[] = { "Bar Graph", "Matrix Rain", "Animation", "Oscilloscope" };
+static const char* const VisualizerNames[] = { "Bar Graph", "Matrix Rain", "Animation", "Oscilloscope", "Starfield" };
 
 static constexpr size_t MenuVisibleRows = 16;
 static constexpr size_t MixerMenuItems  = 7;
@@ -374,7 +374,7 @@ bool CUserInterface::MenuEncoderEvent(s8 nDelta)
 	{
 		if (s_nMenuLevel == TMenuLevel::Main && m_nMenuCursor == 1) // Visualizer item
 		{
-			s_nVisualizer = (s_nVisualizer + nDelta + 4) % 4;
+			s_nVisualizer = (s_nVisualizer + nDelta + 5) % 5;
 			return true;
 		}
 		if (s_nMenuLevel == TMenuLevel::Mixer && m_pMenuMT32Pi)

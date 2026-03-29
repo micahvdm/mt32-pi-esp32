@@ -37,9 +37,10 @@ constexpr u8 BarSpacingPixels = 2;
 constexpr u8 SpinnerChars[] = {'_', '_', '_', '-', '\'', '\'', '^', '^', '`', '`', '-', '_', '_', '_'};
 
 // Visualizer state
-int s_nVisualizer = 0; // 0: Bars, 1: Matrix, 2: Face, 3: Waves
+int s_nVisualizer = 0; // 0: Bars, 1: Matrix, 2: Face, 3: Waves, 4: Stars
 static u8 s_MatrixY[20] = {0};
 static u32 s_LastAnimTicks = 0;
+static s16 s_StarX[40], s_StarY[40], s_StarZ[40];
 
 CUserInterface::CUserInterface()
 	: m_State(TState::None),
@@ -277,19 +278,22 @@ void CUserInterface::DrawChannelLevels(CLCD& LCD, u8 nBarHeight, float* pChannel
 		// Matrix Rain
 		if (s_nVisualizer == 1)
 		{
-			if (CTimer::GetClockTicks() - s_LastAnimTicks > 50000) // 20fps-ish
+			if (CTimer::GetClockTicks() - s_LastAnimTicks > 40000)
 			{
 				s_LastAnimTicks = CTimer::GetClockTicks();
 				for (int i = 0; i < 20; i++)
 				{
-					// Map channels 1-16 to columns 2-17
 					int ch = (i >= 2 && i <= 17) ? i - 2 : -1;
 					float level = (ch >= 0 && ch < nChannels) ? pChannelLevels[ch] : 0.0f;
 
-					if (level > 0.1f || (rand() % 100 < 5)) // Note triggers or random drop
+					if (level > 0.1f || (rand() % 100 < 3)) 
 					{
+						// Clear character way behind the head to create a "falling worm" effect
+						char cClear = ' ';
+						LCD.Print(&cClear, static_cast<u8>(i), (s_MatrixY[i] + 4) % 8, false, false);
+
 						s_MatrixY[i] = (s_MatrixY[i] + 1) % 8;
-						char c = (rand() % 94) + 33; // Random ASCII
+						char c = (rand() % 2) ? (rand() % 10) + '0' : (rand() % 26) + 'A';
 						LCD.Print(&c, static_cast<u8>(i), s_MatrixY[i], false, false);
 					}
 				}
@@ -297,45 +301,76 @@ void CUserInterface::DrawChannelLevels(CLCD& LCD, u8 nBarHeight, float* pChannel
 			return;
 		}
 
-		// Cute Reactive Face
+		// Graphical Reactive Face
 		if (s_nVisualizer == 2)
 		{
 			float totalLevel = 0;
 			for (int i = 0; i < nChannels; i++) totalLevel += pChannelLevels[i];
-			totalLevel /= nChannels;
+			totalLevel = Utility::Clamp(totalLevel * 1.5f, 0.0f, 1.0f);
 
-			bool bBlink = (CTimer::GetClockTicks() / 1000000) % 4 == 0 && (CTimer::GetClockTicks() / 100000) % 10 < 2;
+			bool bBlink = (CTimer::GetClockTicks() / 2000000) % 3 == 0 && (CTimer::GetClockTicks() / 100000) % 20 < 2;
 			
-			// Eyes
-			LCD.Print(bBlink ? "-   -" : "O   O", 7, 2, false, false);
+			// Eyes (Rectangular Graphical Style)
+			u8 eyeH = bBlink ? 1 : 12 + static_cast<u8>(totalLevel * 8);
+			u8 eyeW = 16 + static_cast<u8>(totalLevel * 4);
 			
-			// Mouth
-			if (totalLevel < 0.05f)      LCD.Print("  -  ", 7, 5, false, false);
-			else if (totalLevel < 0.2f) LCD.Print(" --- ", 7, 5, false, false);
-			else if (totalLevel < 0.5f) LCD.Print("(---)", 7, 5, false, false);
-			else                        LCD.Print("( O )", 7, 5, false, false);
+			LCD.DrawFilledRect(30 - (eyeW/2), 24 - (eyeH/2), 30 + (eyeW/2), 24 + (eyeH/2));
+			LCD.DrawFilledRect(98 - (eyeW/2), 24 - (eyeH/2), 98 + (eyeW/2), 24 + (eyeH/2));
+			
+			// Mouth (Dynamic Visor)
+			u8 mouthW = 20 + static_cast<u8>(totalLevel * 40);
+			LCD.DrawFilledRect(64 - (mouthW/2), 50, 64 + (mouthW/2), 52);
 			return;
 		}
 
-		// MIDI-triggered Waves (Oscilloscope style)
+		// Enhanced Oscilloscope
 		if (s_nVisualizer == 3)
 		{
 			const u8 nMidY = nBarHeight / 2;
+			static float fPhaseBase = 0;
+			fPhaseBase += 0.15f;
+
 			for (int x = 0; x < LCD.Width(); x++)
 			{
-				int ch = (x * nChannels) / LCD.Width();
-				float level = pChannelLevels[ch];
-				if (level > 0.01f)
+				float fSample = 0;
+				// Mix active channels into the waveform
+				for (int ch = 0; ch < 16; ch += 4) 
 				{
-					// Draw a simulated sine wave for active channels
-					float phase = (x * 0.2f) + (CTimer::GetClockTicks() * 0.00001f);
-					int y = nMidY + static_cast<int>(sinf(phase) * level * nMidY);
-					LCD.DrawFilledRect(x, y, x, y);
+					if (pChannelLevels[ch] > 0.05f)
+						fSample += sinf(fPhaseBase + (x * 0.1f * (ch + 1))) * pChannelLevels[ch];
 				}
+				
+				int y = nMidY + static_cast<int>(fSample * (nBarHeight / 2.5f));
+				LCD.DrawFilledRect(x, y, x, y); // Draw wave pixel
+			}
+			return;
+		}
+
+		// Starfield (Asteroids style)
+		if (s_nVisualizer == 4)
+		{
+			float totalLevel = 0;
+			for (int i = 0; i < nChannels; i++) totalLevel += pChannelLevels[i];
+
+			for (int i = 0; i < 40; i++)
+			{
+				if (s_StarZ[i] <= 0)
+				{
+					s_StarX[i] = (rand() % 128) - 64;
+					s_StarY[i] = (rand() % 64) - 32;
+					s_StarZ[i] = 256;
+				}
+
+				// Move stars faster when music is loud
+				s_StarZ[i] -= 4 + static_cast<int>(totalLevel * 2);
+
+				int screenX = 64 + (s_StarX[i] * 128 / s_StarZ[i]);
+				int screenY = 32 + (s_StarY[i] * 128 / s_StarZ[i]);
+
+				if (screenX >= 0 && screenX < 128 && screenY >= 0 && screenY < 64)
+					LCD.DrawFilledRect(screenX, screenY, screenX, screenY);
 				else
-				{
-					LCD.DrawFilledRect(x, nMidY, x, nMidY); // Flat line
-				}
+					s_StarZ[i] = 0; // Recycle
 			}
 			return;
 		}
