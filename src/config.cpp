@@ -21,6 +21,7 @@
 //
 
 #include <cstdlib>
+#include <type_traits>
 
 #include <circle/logger.h>
 #include <circle/util.h>
@@ -179,38 +180,50 @@ bool CConfig::Initialize(const char* pPath)
 
 }
 
+// Helper functions for CConfig::Write overloads
+static void WriteCfg(FIL* fp, const char* pName, bool bVal) { f_printf(fp, "%s = %s\n", pName, bVal ? "on" : "off"); }
+static void WriteCfg(FIL* fp, const char* pName, int nVal) { f_printf(fp, "%s = %d\n", pName, nVal); }
+static void WriteCfg(FIL* fp, const char* pName, float fVal) { f_printf(fp, "%s = %.2f\n", pName, static_cast<double>(fVal)); }
+static void WriteCfg(FIL* fp, const char* pName, const CString& sVal) { f_printf(fp, "%s = %s\n", pName, static_cast<const char*>(sVal)); }
+
+// Enum overloads for CConfig::Write
+static void WriteCfg(FIL *fp, const char *pName, CConfig::TSystemDefaultSynth v) { f_printf(fp, "%s = %s\n", pName, TSystemDefaultSynthStrings[static_cast<int>(v)]); }
+static void WriteCfg(FIL *fp, const char *pName, CConfig::TAudioOutputDevice v)  { f_printf(fp, "%s = %s\n", pName, TAudioOutputDeviceStrings[static_cast<int>(v)]); }
+static void WriteCfg(FIL *fp, const char *pName, CConfig::TMT32EmuResamplerQuality v) { f_printf(fp, "%s = %s\n", pName, TMT32EmuResamplerQualityStrings[static_cast<int>(v)]); }
+static void WriteCfg(FIL *fp, const char *pName, CConfig::TMT32EmuMIDIChannels v) { f_printf(fp, "%s = %s\n", pName, TMT32EmuMIDIChannelsStrings[static_cast<int>(v)]); }
+static void WriteCfg(FIL *fp, const char *pName, CConfig::TMT32EmuROMSet v)      { f_printf(fp, "%s = %s\n", pName, TMT32EmuROMSetStrings[static_cast<int>(v)]); }
+static void WriteCfg(FIL *fp, const char *pName, CConfig::TLCDType v)           { f_printf(fp, "%s = %s\n", pName, TLCDTypeStrings[static_cast<int>(v)]); }
+static void WriteCfg(FIL *fp, const char *pName, CConfig::TControlScheme v)     { f_printf(fp, "%s = %s\n", pName, TControlSchemeStrings[static_cast<int>(v)]); }
+static void WriteCfg(FIL *fp, const char *pName, CConfig::TEncoderType v)       { f_printf(fp, "%s = %s\n", pName, TEncoderTypeStrings[static_cast<int>(v)]); }
+static void WriteCfg(FIL *fp, const char *pName, CConfig::TLCDRotation v)       { f_printf(fp, "%s = %s\n", pName, TLCDRotationStrings[static_cast<int>(v)]); }
+static void WriteCfg(FIL *fp, const char *pName, CConfig::TLCDMirror v)         { f_printf(fp, "%s = %s\n", pName, TLCDMirrorStrings[static_cast<int>(v)]); }
+static void WriteCfg(FIL *fp, const char *pName, CConfig::TNetworkMode v)       { f_printf(fp, "%s = %s\n", pName, TNetworkModeStrings[static_cast<int>(v)]); }
+static void WriteCfg(FIL *fp, const char *pName, CConfig::TMixerMode v)         { f_printf(fp, "%s = %s\n", pName, TMixerModeStrings[static_cast<int>(v)]); }
+static void WriteCfg(FIL *fp, const char *pName, CConfig::TYmfmChip v)          { f_printf(fp, "%s = %s\n", pName, TYmfmChipStrings[static_cast<int>(v)]); }
+
 bool CConfig::Write(const char* pPath)
 {
 	FIL fp;
 	if (f_open(&fp, pPath, FA_CREATE_ALWAYS | FA_WRITE) != FR_OK)
 		return false;
 
-	auto WriteBool = [&](const char* pName, bool bVal) { f_printf(&fp, "%s = %s\n", pName, bVal ? "on" : "off"); };
-	auto WriteInt = [&](const char* pName, int nVal) { f_printf(&fp, "%s = %d\n", pName, nVal); };
-	auto WriteFloat = [&](const char* pName, float fVal) { f_printf(&fp, "%s = %.2f\n", pName, static_cast<double>(fVal)); };
-	auto WriteStr = [&](const char* pName, const char* pVal) { f_printf(&fp, "%s = %s\n", pName, pVal); };
-
 	// 1. Write macro-defined sections from config.def
 	#undef BEGIN_SECTION
 	#undef CFG
 	#undef END_SECTION
 	
-	#define BEGIN_SECTION(SECTION) f_printf(&fp, "[" #SECTION "]\n");
+	#define BEGIN_SECTION(SECTION) f_printf(&fp, "[" #SECTION "]\n")
 	
-	// Dispatch based on member type
-	#define CFG(INI_NAME, TYPE, MEMBER_NAME, ...) \
-		if constexpr (std::is_same_v<TYPE, bool>) WriteBool(#INI_NAME, MEMBER_NAME); \
-		else if constexpr (std::is_same_v<TYPE, int>) WriteInt(#INI_NAME, MEMBER_NAME); \
-		else if constexpr (std::is_same_v<TYPE, float>) WriteFloat(#INI_NAME, MEMBER_NAME); \
-		else if constexpr (std::is_same_v<TYPE, CString>) WriteStr(#INI_NAME, (const char*)MEMBER_NAME); \
-		else if constexpr (std::is_enum_v<TYPE>) { \
-			const char** pStrs = MEMBER_NAME##Strings; \
-			f_printf(&fp, "%s = %s\n", #INI_NAME, pStrs[static_cast<int>(MEMBER_NAME)]); \
-		}
+	// Call the overloaded WriteCfg based on the member's type
+	#define CFG(INI_NAME, TYPE, MEMBER_NAME, ...) WriteCfg(&fp, #INI_NAME, MEMBER_NAME)
 
-	#define END_SECTION f_printf(&fp, "\n");
+	#define END_SECTION f_printf(&fp, "\n")
 	
 	#include "config.def"
+
+	#undef BEGIN_SECTION
+	#undef CFG
+	#undef END_SECTION
 
 	// 2. Write manual sections
 	f_printf(&fp, "[midi_cc_map]\n");

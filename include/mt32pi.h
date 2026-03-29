@@ -159,6 +159,7 @@ public:
 	int GetMT32PartialCount() const;
 	bool SetMT32PartialCount(int nCount);
 	
+	bool SaveConfig();
 	void RequestReboot() { m_bRunning = false; }
 	bool HasMT32Synth() const { return m_pMT32Synth != nullptr; }
 	bool HasSoundFontSynth() const { return m_pSoundFontSynth != nullptr; }
