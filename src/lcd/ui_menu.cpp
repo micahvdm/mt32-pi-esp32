@@ -26,6 +26,7 @@
 enum class TMenuLevel : u8
 {
 	Main,
+	ActiveSynth,
 	Synth,
 	Mixer,
 	Looper,
@@ -45,17 +46,25 @@ static size_t s_nMenuSubCursor = 0;
 static constexpr size_t MenuVisibleRows = 16;
 static constexpr size_t MixerMenuItems  = 7;
 
-static size_t GetMenuItemCount(TMenuLevel Level, const CSynthBase* pCurrent, CSoundFontSynth* pSF, CMT32Synth* pMT32);
+static size_t GetMenuItemCount(TMenuLevel Level, const CSynthBase* pCurrent, CSoundFontSynth* pSF, CMT32Synth* pMT32, CYmfmSynth* pYmfm);
 static const char* GetMixerMenuItemLabel(size_t nMixerIdx);
-static const char* GetMenuItemLabel(TMenuLevel Level, const CSynthBase* pCurrent, CSoundFontSynth* pSF, CMT32Synth* pMT32, size_t nItem);
+static const char* GetMenuItemLabel(TMenuLevel Level, const CSynthBase* pCurrent, CSoundFontSynth* pSF, CMT32Synth* pMT32, CYmfmSynth* pYmfm, size_t nItem);
 static void FormatMenuValue(char* pBuf, size_t nBufSize, const CSynthBase* pCurrent, CSoundFontSynth* pSF, CMT32Synth* pMT32, size_t nItem, float fGain, bool bReverbActive, float fReverbRoomSize, float fReverbLevel, float fReverbDamping, float fReverbWidth, bool bChorusActive, float fChorusDepth, float fChorusLevel, int nChorusVoices, float fChorusSpeed, int nROMSet, int nSoundFont, float fMT32Gain, float fMT32ReverbGain, bool bMT32ReverbEnabled, bool bMT32NiceAmp, bool bMT32NicePan, bool bMT32NiceMix, int nMT32DACMode, int nMT32MIDIDelay, int nMT32AnalogMode, int nMT32RendererType, int nMT32PartialCount);
 
 static size_t GetMenuItemCount(TMenuLevel Level, const CSynthBase* pCurrent,
-                               CSoundFontSynth* pSF, CMT32Synth* pMT32)
+                               CSoundFontSynth* pSF, CMT32Synth* pMT32, CYmfmSynth* pYmfm)
 {
 	switch (Level)
 	{
 	case TMenuLevel::Main:    return 11;
+	case TMenuLevel::ActiveSynth:
+	{
+		size_t n = 0;
+		if (pMT32) n += 3; // MT-32 Old, New, CM-32L
+		if (pSF)   n += pSF->GetSoundFontManager().GetSoundFontCount();
+		if (pYmfm) n += 1;
+		return n;
+	}
 	case TMenuLevel::Mixer:   return MixerMenuItems;
 	case TMenuLevel::Looper:  return 7;
 	case TMenuLevel::MIDI:    return 3;
@@ -82,7 +91,7 @@ static const char* GetMixerMenuItemLabel(size_t nMixerIdx)
 }
 
 static const char* GetMenuItemLabel(TMenuLevel Level, const CSynthBase* pCurrent,
-                                    CSoundFontSynth* pSF, CMT32Synth* pMT32,
+                                    CSoundFontSynth* pSF, CMT32Synth* pMT32, CYmfmSynth* pYmfm,
                                     size_t nItem)
 {
 	if (Level == TMenuLevel::Synth)
@@ -120,6 +129,7 @@ static const char* GetMenuItemLabel(TMenuLevel Level, const CSynthBase* pCurrent
 		static const char* mainLabels[] = { "Active Synth", "Synth FX", "Mixer", "Audio FX", "Looper", "Sequencer", "Recorder", "Network", "System", "Reboot Pi", "Exit" };
 		return (nItem < 11) ? mainLabels[nItem] : nullptr;
 	}
+	case TMenuLevel::ActiveSynth: return ""; // Dynamically handled in DrawMenu
 	case TMenuLevel::Mixer:   return GetMixerMenuItemLabel(nItem);
 	case TMenuLevel::Looper:
 	{
@@ -352,7 +362,7 @@ bool CUserInterface::MenuEncoderEvent(s8 nDelta)
 	if (m_State != TState::InMenu)
 		return false;
 
-	const size_t nItems = GetMenuItemCount(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32);
+	const size_t nItems = GetMenuItemCount(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, m_pMenuYmfm);
 	if (nItems == 0)
 		return true;
 
@@ -556,17 +566,6 @@ bool CUserInterface::MenuEncoderEvent(s8 nDelta)
 				break;
 			}
 		}
-		else if (s_nMenuLevel == TMenuLevel::Main)
-		{
-			if (m_nMenuCursor == 0) // Switch active synth
-			{
-				const TSynth eCurrent = m_pMenuCurrentSynth->GetType();
-				const TSynth eNew = (eCurrent == TSynth::MT32) ? TSynth::SoundFont :
-				                    (eCurrent == TSynth::SoundFont) ? TSynth::Ymfm : TSynth::MT32;
-				m_pMenuMT32Pi->SetActiveSynth(eNew);
-				ExitMenu(); // Exit to allow main logic to refresh synth pointers
-			}
-		}
 		else if (s_nMenuLevel == TMenuLevel::Looper)
 		{
 			switch (m_nMenuCursor)
@@ -730,7 +729,7 @@ bool CUserInterface::MenuSelectEvent()
 	{
 		switch (m_nMenuCursor)
 		{
-		case 0: m_bMenuEditing = true; break; // Toggle Synth
+		case 0: s_nMenuLevel = TMenuLevel::ActiveSynth; s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
 		case 1: s_nMenuLevel = TMenuLevel::Synth;   s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
 		case 2: s_nMenuLevel = TMenuLevel::Mixer;   s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
 		case 3: s_nMenuLevel = TMenuLevel::AudioFX; s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
@@ -742,6 +741,33 @@ bool CUserInterface::MenuSelectEvent()
 		case 9: m_pMenuMT32Pi->RequestReboot(); ExitMenu(); break;
 		case 10: ExitMenu(); break;
 		}
+		return true;
+	}
+
+	if (s_nMenuLevel == TMenuLevel::ActiveSynth)
+	{
+		size_t nBaseIdx = 0;
+		if (m_pMenuMT32)
+		{
+			if (m_nMenuCursor < 3)
+			{
+				m_pMenuMT32Pi->SetActiveSynth(TSynth::MT32);
+				m_pMenuMT32Pi->SetMT32ROMSet(static_cast<TMT32ROMSet>(m_nMenuCursor));
+				ExitMenu();
+				return true;
+			}
+			nBaseIdx += 3;
+		}
+		size_t sfCount = m_pMenuSF ? m_pMenuSF->GetSoundFontManager().GetSoundFontCount() : 0;
+		if (m_nMenuCursor < nBaseIdx + sfCount)
+		{
+			m_pMenuMT32Pi->SetActiveSynth(TSynth::SoundFont);
+			m_pMenuMT32Pi->SetSoundFontIndex(m_nMenuCursor - nBaseIdx);
+			ExitMenu();
+			return true;
+		}
+		m_pMenuMT32Pi->SetActiveSynth(TSynth::Ymfm);
+		ExitMenu();
 		return true;
 	}
 
@@ -783,7 +809,7 @@ bool CUserInterface::MenuSelectEvent()
 	}
 
 	// Toggle edit mode for the selected item
-	const char* pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, m_nMenuCursor);
+	const char* pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, m_pMenuYmfm, m_nMenuCursor);
 	if (pLabel)
 	{
 		// Don't allow editing "Status" or "Clear" items
@@ -827,12 +853,13 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 		return;
 	}
 
-	const size_t nItems = GetMenuItemCount(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32);
+	const size_t nItems = GetMenuItemCount(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, m_pMenuYmfm);
 
 	// Draw Submenu Header
 	const char* pTitle = "Main Menu";
 	switch (s_nMenuLevel)
 	{
+	case TMenuLevel::ActiveSynth: pTitle = "Select Synth"; break;
 	case TMenuLevel::Synth:   pTitle = "Synth FX"; break;
 	case TMenuLevel::Mixer:   pTitle = "Mixer";    break;
 	case TMenuLevel::Looper:  pTitle = "Looper";   break;
@@ -884,13 +911,34 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 		}
 		else if (s_nMenuLevel == TMenuLevel::Main)
 		{
-			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, nItemIdx);
-			if (nItemIdx == 0) snprintf(valBuf, sizeof(valBuf), "%s", m_pMenuCurrentSynth->GetName());
-			else if (nItemIdx >= 1 && nItemIdx <= 8) snprintf(valBuf, sizeof(valBuf), ">");
+			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, m_pMenuYmfm, nItemIdx);
+			if (nItemIdx <= 8) snprintf(valBuf, sizeof(valBuf), ">");
+		}
+		else if (s_nMenuLevel == TMenuLevel::ActiveSynth)
+		{
+			size_t nIdx = 0;
+			if (m_pMenuMT32)
+			{
+				if (nItemIdx < 3)
+				{
+					static const char* labels[] = { "MT-32 Old", "MT-32 New", "CM-32L" };
+					pLabel = labels[nItemIdx];
+				}
+				nIdx += 3;
+			}
+			size_t sfCount = m_pMenuSF ? m_pMenuSF->GetSoundFontManager().GetSoundFontCount() : 0;
+			if (!pLabel && nItemIdx < nIdx + sfCount)
+			{
+				pLabel = m_pMenuSF->GetSoundFontManager().GetSoundFontName(nItemIdx - nIdx);
+			}
+			else if (!pLabel)
+			{
+				pLabel = "OPL3 (ymfm)";
+			}
 		}
 		else if (s_nMenuLevel == TMenuLevel::Looper)
 		{
-			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, nItemIdx);
+			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, m_pMenuYmfm, nItemIdx);
 			const auto ls = m_pMenuMT32Pi->GetLooperStatus();
 			switch (nItemIdx)
 			{
@@ -904,7 +952,7 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 		}
 		else if (s_nMenuLevel == TMenuLevel::Recorder)
 		{
-			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, nItemIdx);
+			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, m_pMenuYmfm, nItemIdx);
 			const auto st = m_pMenuMT32Pi->GetSystemState();
 			switch (nItemIdx)
 			{
@@ -914,7 +962,7 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 		}
 		else if (s_nMenuLevel == TMenuLevel::Sequencer)
 		{
-			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, nItemIdx);
+			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, m_pMenuYmfm, nItemIdx);
 			const auto ss = m_pMenuMT32Pi->GetSequencerStatus();
 			switch (nItemIdx)
 			{
@@ -928,7 +976,7 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 		}
 		else if (s_nMenuLevel == TMenuLevel::MIDI)
 		{
-			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, nItemIdx);
+			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, m_pMenuYmfm, nItemIdx);
 			const auto ms = m_pMenuMT32Pi->GetMixerStatus();
 			const auto cfg = m_pMenuMT32Pi->GetConfig();
 			if (nItemIdx == 0) snprintf(valBuf, sizeof(valBuf), "%s", ms.bMIDIThruEnabled ? "ON" : "OFF");
@@ -937,7 +985,7 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 		}
 		else if (s_nMenuLevel == TMenuLevel::AudioFX)
 		{
-			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, nItemIdx);
+			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, m_pMenuYmfm, nItemIdx);
 			const auto ms = m_pMenuMT32Pi->GetMixerStatus();
 			switch (nItemIdx)
 			{
@@ -953,7 +1001,7 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 		}
 		else if (s_nMenuLevel == TMenuLevel::MIDICC)
 		{
-			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, nItemIdx);
+			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, m_pMenuYmfm, nItemIdx);
 			const auto cfg = m_pMenuMT32Pi->GetConfig();
 			int bindingIdx = nItemIdx;
 			if (bindingIdx == 13) bindingIdx = 18;
@@ -967,7 +1015,7 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 		}
 		else if (s_nMenuLevel == TMenuLevel::Network)
 		{
-			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, nItemIdx);
+			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, m_pMenuYmfm, nItemIdx);
 			const auto cfg = m_pMenuMT32Pi->GetConfig();
 			if (nItemIdx == 0) { CString ip; m_pMenuMT32Pi->FormatIPAddress(ip); snprintf(valBuf, sizeof(valBuf), "%s", (const char*)ip); }
 			else if (nItemIdx == 1) snprintf(valBuf, sizeof(valBuf), "%.6s", (const char*)cfg->NetworkHostname);
@@ -977,7 +1025,7 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 		}
 		else if (s_nMenuLevel == TMenuLevel::System)
 		{
-			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, nItemIdx);
+			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, m_pMenuYmfm, nItemIdx);
 			const auto cfg = m_pMenuMT32Pi->GetConfig();
 			if (nItemIdx == 0) snprintf(valBuf, sizeof(valBuf), "EXEC");
 			else if (nItemIdx == 1 || nItemIdx == 2) snprintf(valBuf, sizeof(valBuf), ">");
@@ -993,7 +1041,7 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 		else if (m_pMenuYmfm && m_pMenuCurrentSynth == m_pMenuYmfm && s_nMenuLevel == TMenuLevel::Synth)
 		{
 			// OPL3 items — label + value inline
-			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, nItemIdx);
+			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, m_pMenuYmfm, nItemIdx);
 			if (nItemIdx == 0)
 				snprintf(valBuf, sizeof(valBuf), "%.6s", m_pMenuYmfm->GetBankName());
 			else if (nItemIdx == 1)
@@ -1004,7 +1052,7 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 		}
 		else if (s_nMenuLevel == TMenuLevel::Synth)
 		{
-			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, nItemIdx);
+			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, m_pMenuYmfm, nItemIdx);
 			if (nItemIdx == 12) snprintf(valBuf, sizeof(valBuf), "%.4s", m_pMenuSF->GetTuningName(m_pMenuSF->GetTuning()));
 			else if (nItemIdx == 13) snprintf(valBuf, sizeof(valBuf), "%d", m_pMenuSF->GetPolyphony());
 			else FormatMenuValue(valBuf, sizeof(valBuf),
