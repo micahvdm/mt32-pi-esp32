@@ -40,6 +40,7 @@ enum class TMenuLevel : u8
 
 static TMenuLevel s_nMenuLevel = TMenuLevel::Main;
 static size_t s_nMenuMainCursor = 0;
+static size_t s_nMenuSubCursor = 0;
 
 static constexpr size_t MenuVisibleRows = 16;
 static constexpr size_t MixerMenuItems  = 7;
@@ -54,7 +55,7 @@ static size_t GetMenuItemCount(TMenuLevel Level, const CSynthBase* pCurrent,
 {
 	switch (Level)
 	{
-	case TMenuLevel::Main:    return 13;
+	case TMenuLevel::Main:    return 11;
 	case TMenuLevel::Mixer:   return MixerMenuItems;
 	case TMenuLevel::Looper:  return 7;
 	case TMenuLevel::MIDI:    return 3;
@@ -63,7 +64,7 @@ static size_t GetMenuItemCount(TMenuLevel Level, const CSynthBase* pCurrent,
 	case TMenuLevel::Sequencer: return 7;
 	case TMenuLevel::Recorder:  return 2;
 	case TMenuLevel::Network: return 5;
-	case TMenuLevel::System:  return 5;
+	case TMenuLevel::System:  return 7;
 	case TMenuLevel::Synth:
 		if (pCurrent == pSF && pSF)    return 14;
 		if (pCurrent == pMT32 && pMT32) return 12;
@@ -116,8 +117,8 @@ static const char* GetMenuItemLabel(TMenuLevel Level, const CSynthBase* pCurrent
 	{
 	case TMenuLevel::Main:
 	{
-		static const char* mainLabels[] = { "Active Synth", "Synth FX", "Mixer", "Audio FX", "Looper", "Sequencer", "Recorder", "MIDI", "MIDI CC", "Network", "System", "Reboot Pi", "Exit" };
-		return (nItem < 13) ? mainLabels[nItem] : nullptr;
+		static const char* mainLabels[] = { "Active Synth", "Synth FX", "Mixer", "Audio FX", "Looper", "Sequencer", "Recorder", "Network", "System", "Reboot Pi", "Exit" };
+		return (nItem < 11) ? mainLabels[nItem] : nullptr;
 	}
 	case TMenuLevel::Mixer:   return GetMixerMenuItemLabel(nItem);
 	case TMenuLevel::Looper:
@@ -152,7 +153,7 @@ static const char* GetMenuItemLabel(TMenuLevel Level, const CSynthBase* pCurrent
 		return (nItem < 7) ? labels[nItem] : nullptr;
 	}
 	case TMenuLevel::Network: { static const char* labels[] = { "IP Addr", "Host", "Status", "Mode", "DHCP" }; return (nItem < 5) ? labels[nItem] : nullptr; }
-	case TMenuLevel::System:  { static const char* labels[] = { "Panic", "Verbose", "USB", "I2C Baud", "Power Save" }; return (nItem < 5) ? labels[nItem] : nullptr; }
+	case TMenuLevel::System:  { static const char* labels[] = { "Panic", "MIDI Settings", "MIDI CC Map", "Verbose", "USB", "I2C Baud", "Power Save" }; return (nItem < 7) ? labels[nItem] : nullptr; }
 	default: return nullptr;
 	}
 }
@@ -621,17 +622,20 @@ bool CUserInterface::MenuEncoderEvent(s8 nDelta)
 		else if (s_nMenuLevel == TMenuLevel::MIDICC)
 		{
 			CConfig* pCfg = const_cast<CConfig*>(m_pMenuMT32Pi->GetConfig());
-			if (m_nMenuCursor < 14)
+			int bindingIdx = m_nMenuCursor;
+			// Handle the mapping mismatch for Sustain CC64 (which is at index 18 in the binding enum)
+			if (bindingIdx == 13) bindingIdx = 18;
+
+			if (bindingIdx < static_cast<int>(CConfig::TMIDICCBindingID::Count))
 			{
-				// TMIDICCBindingID enum starts at 0 and follows this order
-				int cc = pCfg->MIDICCBindingCC[m_nMenuCursor];
+				int cc = pCfg->MIDICCBindingCC[bindingIdx];
 
 				// CC -1 is disabled
 				if (cc == -1 && nDelta < 0) cc = 127;
 				else if (cc == 127 && nDelta > 0) cc = -1;
 				else cc = Utility::Clamp(cc + nDelta, -1, 127);
 
-				pCfg->MIDICCBindingCC[m_nMenuCursor] = cc;
+				pCfg->MIDICCBindingCC[bindingIdx] = cc;
 
 				// Rebuild internal map so it takes effect immediately
 				pCfg->RebuildMIDICCMap();
@@ -656,9 +660,9 @@ bool CUserInterface::MenuEncoderEvent(s8 nDelta)
 			CConfig* pCfg = const_cast<CConfig*>(m_pMenuMT32Pi->GetConfig());
 			switch (m_nMenuCursor)
 			{
-			case 0: pCfg->SystemVerbose = !pCfg->SystemVerbose; break;
-			case 1: pCfg->SystemUSB = !pCfg->SystemUSB; break;
-			case 2:
+			case 3: pCfg->SystemVerbose = !pCfg->SystemVerbose; break;
+			case 4: pCfg->SystemUSB = !pCfg->SystemUSB; break;
+			case 5:
 			{
 				static const int speeds[] = { 100000, 400000, 1000000 };
 				int cur = pCfg->SystemI2CBaudRate;
@@ -666,7 +670,7 @@ bool CUserInterface::MenuEncoderEvent(s8 nDelta)
 				pCfg->SystemI2CBaudRate = speeds[(idx + nDelta + 3) % 3];
 				break;
 			}
-			case 3: pCfg->SystemPowerSaveTimeout = Utility::Clamp(pCfg->SystemPowerSaveTimeout + nDelta * 10, 0, 3600); break;
+			case 6: pCfg->SystemPowerSaveTimeout = Utility::Clamp(pCfg->SystemPowerSaveTimeout + nDelta * 10, 0, 3600); break;
 			}
 		}
 
@@ -733,17 +737,25 @@ bool CUserInterface::MenuSelectEvent()
 		case 4: s_nMenuLevel = TMenuLevel::Looper;  s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
 		case 5: s_nMenuLevel = TMenuLevel::Sequencer; s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
 		case 6: s_nMenuLevel = TMenuLevel::Recorder;  s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
-		case 7: s_nMenuLevel = TMenuLevel::MIDI;    s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
-		case 8: s_nMenuLevel = TMenuLevel::MIDICC;  s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
-		case 9: s_nMenuLevel = TMenuLevel::Network; s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
-		case 10: s_nMenuLevel = TMenuLevel::System;  s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
-		case 11: m_pMenuMT32Pi->RequestReboot(); ExitMenu(); break;
-		case 12: ExitMenu(); break;
+		case 7: s_nMenuLevel = TMenuLevel::Network; s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
+		case 8: s_nMenuLevel = TMenuLevel::System;  s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
+		case 9: m_pMenuMT32Pi->RequestReboot(); ExitMenu(); break;
+		case 10: ExitMenu(); break;
 		}
 		return true;
 	}
 
 	if (s_nMenuLevel == TMenuLevel::System && m_nMenuCursor == 0) { m_pMenuMT32Pi->SendRawMIDI((const u8*)"\xB0\x7B\x00", 3); return true; }
+
+	if (s_nMenuLevel == TMenuLevel::System)
+	{
+		switch (m_nMenuCursor)
+		{
+		case 1: s_nMenuLevel = TMenuLevel::MIDI;   s_nMenuSubCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; return true;
+		case 2: s_nMenuLevel = TMenuLevel::MIDICC; s_nMenuSubCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; return true;
+		default: break;
+		}
+	}
 
 	// Action items (non-editing)
 	if (s_nMenuLevel == TMenuLevel::Looper)
@@ -789,6 +801,12 @@ bool CUserInterface::MenuBackEvent()
 
 	if (m_bMenuEditing)
 		m_bMenuEditing = false;
+	else if (s_nMenuLevel == TMenuLevel::MIDI || s_nMenuLevel == TMenuLevel::MIDICC)
+	{
+		s_nMenuLevel = TMenuLevel::System;
+		m_nMenuCursor = s_nMenuSubCursor;
+		m_nMenuScroll = 0;
+	}
 	else if (s_nMenuLevel != TMenuLevel::Main)
 	{
 		s_nMenuLevel = TMenuLevel::Main;
@@ -868,7 +886,7 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 		{
 			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, nItemIdx);
 			if (nItemIdx == 0) snprintf(valBuf, sizeof(valBuf), "%s", m_pMenuCurrentSynth->GetName());
-			else if (nItemIdx < 11) snprintf(valBuf, sizeof(valBuf), ">");
+			else if (nItemIdx >= 1 && nItemIdx <= 8) snprintf(valBuf, sizeof(valBuf), ">");
 		}
 		else if (s_nMenuLevel == TMenuLevel::Looper)
 		{
@@ -937,9 +955,12 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 		{
 			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, nItemIdx);
 			const auto cfg = m_pMenuMT32Pi->GetConfig();
-			if (nItemIdx < 14)
+			int bindingIdx = nItemIdx;
+			if (bindingIdx == 13) bindingIdx = 18;
+
+			if (bindingIdx < static_cast<int>(CConfig::TMIDICCBindingID::Count))
 			{
-				const int cc = cfg->MIDICCBindingCC[nItemIdx];
+				const int cc = cfg->MIDICCBindingCC[bindingIdx];
 				if (cc == -1) snprintf(valBuf, sizeof(valBuf), "OFF");
 				else snprintf(valBuf, sizeof(valBuf), "%d", cc);
 			}
@@ -959,14 +980,15 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, nItemIdx);
 			const auto cfg = m_pMenuMT32Pi->GetConfig();
 			if (nItemIdx == 0) snprintf(valBuf, sizeof(valBuf), "EXEC");
-			else if (nItemIdx == 1) snprintf(valBuf, sizeof(valBuf), "%s", cfg->SystemVerbose ? "ON" : "OFF");
-			else if (nItemIdx == 2) snprintf(valBuf, sizeof(valBuf), "%s", cfg->SystemUSB ? "ON" : "OFF");
-			else if (nItemIdx == 3)
+			else if (nItemIdx == 1 || nItemIdx == 2) snprintf(valBuf, sizeof(valBuf), ">");
+			else if (nItemIdx == 3) snprintf(valBuf, sizeof(valBuf), "%s", cfg->SystemVerbose ? "ON" : "OFF");
+			else if (nItemIdx == 4) snprintf(valBuf, sizeof(valBuf), "%s", cfg->SystemUSB ? "ON" : "OFF");
+			else if (nItemIdx == 5)
 			{
 				if (cfg->SystemI2CBaudRate >= 1000000) snprintf(valBuf, sizeof(valBuf), "%dM", cfg->SystemI2CBaudRate / 1000000);
 				else snprintf(valBuf, sizeof(valBuf), "%dk", cfg->SystemI2CBaudRate / 1000);
 			}
-			else if (nItemIdx == 4) snprintf(valBuf, sizeof(valBuf), "%ds", cfg->SystemPowerSaveTimeout);
+			else if (nItemIdx == 6) snprintf(valBuf, sizeof(valBuf), "%ds", cfg->SystemPowerSaveTimeout);
 		}
 		else if (m_pMenuYmfm && m_pMenuCurrentSynth == m_pMenuYmfm && s_nMenuLevel == TMenuLevel::Synth)
 		{
