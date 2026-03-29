@@ -60,7 +60,7 @@ static size_t GetMenuItemCount(TMenuLevel Level, const CSynthBase* pCurrent,
 {
 	switch (Level)
 	{
-	case TMenuLevel::Main:    return 12;
+	case TMenuLevel::Main:    return 13;
 	case TMenuLevel::ActiveSynth:
 	{
 		size_t n = 0;
@@ -130,8 +130,8 @@ static const char* GetMenuItemLabel(TMenuLevel Level, const CSynthBase* pCurrent
 	{
 	case TMenuLevel::Main:
 	{
-		static const char* mainLabels[] = { "Active Synth", "Visualizer", "Synth FX", "Mixer", "Audio FX", "Looper", "Sequencer", "Recorder", "Network", "System", "Reboot Pi", "Exit" };
-		return (nItem < 12) ? mainLabels[nItem] : nullptr;
+		static const char* mainLabels[] = { "Active Synth", "Visualizer", "Synth FX", "Mixer", "Audio FX", "Looper", "Sequencer", "Recorder", "Network", "System", "Save Config", "Reboot Pi", "Exit" };
+		return (nItem < 13) ? mainLabels[nItem] : nullptr;
 	}
 	case TMenuLevel::ActiveSynth: return ""; // Dynamically handled in DrawMenu
 	case TMenuLevel::Mixer:   return GetMixerMenuItemLabel(nItem);
@@ -372,9 +372,11 @@ bool CUserInterface::MenuEncoderEvent(s8 nDelta)
 
 	if (m_bMenuEditing)
 	{
-		if (s_nMenuLevel == TMenuLevel::Main && m_nMenuCursor == 1) // Visualizer item
+		if (s_nMenuLevel == TMenuLevel::Main && m_nMenuCursor == 1 && m_pMenuMT32Pi) // Visualizer item
 		{
+			CConfig* pCfg = const_cast<CConfig*>(m_pMenuMT32Pi->GetConfig());
 			s_nVisualizer = (s_nVisualizer + nDelta + 5) % 5;
+			pCfg->LCDVisualizer = s_nVisualizer; // Update config object for saving
 			return true;
 		}
 		if (s_nMenuLevel == TMenuLevel::Mixer && m_pMenuMT32Pi)
@@ -748,8 +750,15 @@ bool CUserInterface::MenuSelectEvent()
 		case 7:  s_nMenuLevel = TMenuLevel::Recorder;  s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
 		case 8:  s_nMenuLevel = TMenuLevel::Network; s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
 		case 9:  s_nMenuLevel = TMenuLevel::System;  s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
-		case 10: m_pMenuMT32Pi->RequestReboot(); ExitMenu(); break;
-		case 11: ExitMenu(); break;
+		case 10:
+			ShowSystemMessage("Saving config...", true);
+			if (m_pMenuMT32Pi->SaveConfig()) // Persistence logic
+				ShowSystemMessage("Config saved!");
+			else
+				ShowSystemMessage("Save failed!");
+			return true;
+		case 11: m_pMenuMT32Pi->RequestReboot(); ExitMenu(); break;
+		case 12: ExitMenu(); break;
 		}
 		return true;
 	}
@@ -939,6 +948,7 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 			{
 				snprintf(valBuf, sizeof(valBuf), "%s", VisualizerNames[s_nVisualizer]);
 			}
+			else if (nItemIdx == 10) snprintf(valBuf, sizeof(valBuf), "EXEC");
 			else if (nItemIdx <= 9) snprintf(valBuf, sizeof(valBuf), ">");
 		}
 		else if (s_nMenuLevel == TMenuLevel::ActiveSynth)

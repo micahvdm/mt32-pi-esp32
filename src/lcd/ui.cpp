@@ -26,6 +26,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstdio>
+#include "config.h"
 
 #include "lcd/ui.h"
 #include "synth/synthbase.h"
@@ -273,6 +274,14 @@ u8 CUserInterface::CenterMessageOffset(CLCD& LCD, const char* pMessage)
 
 void CUserInterface::DrawChannelLevels(CLCD& LCD, u8 nBarHeight, float* pChannelLevels, float* pPeakLevels, u8 nChannels, bool bDrawBarBases)
 {
+	// Initialize visualizer from config on first draw
+	static bool bVisualizerInited = false;
+	if (!bVisualizerInited)
+	{
+		s_nVisualizer = CConfig::Get()->LCDVisualizer;
+		bVisualizerInited = true;
+	}
+
 	if (LCD.GetType() == CLCD::TType::Graphical)
 	{
 		// Matrix Rain
