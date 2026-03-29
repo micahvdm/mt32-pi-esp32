@@ -131,7 +131,7 @@ static const char* GetMenuItemLabel(TMenuLevel Level, const CSynthBase* pCurrent
 	case TMenuLevel::Main:
 	{
 		static const char* mainLabels[] = { "Active Synth", "Visualizer", "Synth FX", "Mixer", "Audio FX", "Looper", "Sequencer", "Recorder", "Network", "System", "Reboot Pi", "Exit" };
-		return (nItem < 11) ? mainLabels[nItem] : nullptr;
+		return (nItem < 12) ? mainLabels[nItem] : nullptr;
 	}
 	case TMenuLevel::ActiveSynth: return ""; // Dynamically handled in DrawMenu
 	case TMenuLevel::Mixer:   return GetMixerMenuItemLabel(nItem);

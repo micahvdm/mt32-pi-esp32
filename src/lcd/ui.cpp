@@ -37,7 +37,7 @@ constexpr u8 BarSpacingPixels = 2;
 constexpr u8 SpinnerChars[] = {'_', '_', '_', '-', '\'', '\'', '^', '^', '`', '`', '-', '_', '_', '_'};
 
 // Visualizer state
-static int s_nVisualizer = 0; // 0: Bars, 1: Matrix, 2: Face, 3: Waves
+int s_nVisualizer = 0; // 0: Bars, 1: Matrix, 2: Face, 3: Waves
 static u8 s_MatrixY[20] = {0};
 static u32 s_LastAnimTicks = 0;
 
