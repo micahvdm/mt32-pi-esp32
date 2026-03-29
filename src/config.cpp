@@ -185,6 +185,12 @@ static void WriteCfg(FIL* fp, const char* pName, bool bVal) { f_printf(fp, "%s =
 static void WriteCfg(FIL* fp, const char* pName, int nVal) { f_printf(fp, "%s = %d\n", pName, nVal); }
 static void WriteCfg(FIL* fp, const char* pName, float fVal) { f_printf(fp, "%s = %.2f\n", pName, static_cast<double>(fVal)); }
 static void WriteCfg(FIL* fp, const char* pName, const CString& sVal) { f_printf(fp, "%s = %s\n", pName, static_cast<const char*>(sVal)); }
+static void WriteCfg(FIL* fp, const char* pName, const CIPAddress& ipVal)
+{
+	CString sIP;
+	const_cast<CIPAddress&>(ipVal).Format(&sIP);
+	f_printf(fp, "%s = %s\n", pName, static_cast<const char*>(sIP));
+}
 
 // Enum overloads for CConfig::Write
 static void WriteCfg(FIL *fp, const char *pName, CConfig::TSystemDefaultSynth v) { f_printf(fp, "%s = %s\n", pName, TSystemDefaultSynthStrings[static_cast<int>(v)]); }
