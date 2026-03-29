@@ -367,10 +367,25 @@ void CSoundFontSynth::ReportStatus() const
 
 void CSoundFontSynth::UpdateLCD(CLCD& LCD, unsigned int nTicks)
 {
-	const u8 nBarHeight = LCD.Height();
+	const u8 nScreenHeight = LCD.Height();
+	u8 nBarTop = 0;
+
+	if (LCD.GetType() == CLCD::TType::Graphical)
+	{
+		// Draw a professional header
+		char StatusBuf[21];
+		m_Lock.Acquire();
+		int nActiveVoices = fluid_synth_get_active_voice_count(m_pSynth);
+		m_Lock.Release();
+
+		snprintf(StatusBuf, sizeof(StatusBuf), "FluidSynth  P:%3d/%-3d", nActiveVoices, m_nPolyphony);
+		LCD.Print(StatusBuf, 0, 0, true, false);
+		nBarTop = 8; // Move bars down to make room for header
+	}
+
 	float ChannelLevels[16], PeakLevels[16];
 	m_MIDIMonitor.GetChannelLevels(nTicks, ChannelLevels, PeakLevels, m_nPercussionMask);
-	CUserInterface::DrawChannelLevels(LCD, nBarHeight, ChannelLevels, PeakLevels, 16, true);
+	CUserInterface::DrawChannelLevels(LCD, nScreenHeight - nBarTop, ChannelLevels, PeakLevels, 16, true);
 }
 
 bool CSoundFontSynth::SwitchSoundFont(size_t nIndex)

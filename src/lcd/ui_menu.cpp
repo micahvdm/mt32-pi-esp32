@@ -43,6 +43,10 @@ static TMenuLevel s_nMenuLevel = TMenuLevel::Main;
 static size_t s_nMenuMainCursor = 0;
 static size_t s_nMenuSubCursor = 0;
 
+// External reference to the visualizer mode in ui.cpp
+extern int s_nVisualizer;
+static const char* const VisualizerNames[] = { "Bar Graph", "Matrix Rain", "Animation", "Oscilloscope" };
+
 static constexpr size_t MenuVisibleRows = 16;
 static constexpr size_t MixerMenuItems  = 7;
 
@@ -56,7 +60,7 @@ static size_t GetMenuItemCount(TMenuLevel Level, const CSynthBase* pCurrent,
 {
 	switch (Level)
 	{
-	case TMenuLevel::Main:    return 11;
+	case TMenuLevel::Main:    return 12;
 	case TMenuLevel::ActiveSynth:
 	{
 		size_t n = 0;
@@ -126,7 +130,7 @@ static const char* GetMenuItemLabel(TMenuLevel Level, const CSynthBase* pCurrent
 	{
 	case TMenuLevel::Main:
 	{
-		static const char* mainLabels[] = { "Active Synth", "Synth FX", "Mixer", "Audio FX", "Looper", "Sequencer", "Recorder", "Network", "System", "Reboot Pi", "Exit" };
+		static const char* mainLabels[] = { "Active Synth", "Visualizer", "Synth FX", "Mixer", "Audio FX", "Looper", "Sequencer", "Recorder", "Network", "System", "Reboot Pi", "Exit" };
 		return (nItem < 11) ? mainLabels[nItem] : nullptr;
 	}
 	case TMenuLevel::ActiveSynth: return ""; // Dynamically handled in DrawMenu
@@ -368,6 +372,11 @@ bool CUserInterface::MenuEncoderEvent(s8 nDelta)
 
 	if (m_bMenuEditing)
 	{
+		if (s_nMenuLevel == TMenuLevel::Main && m_nMenuCursor == 1) // Visualizer item
+		{
+			s_nVisualizer = (s_nVisualizer + nDelta + 4) % 4;
+			return true;
+		}
 		if (s_nMenuLevel == TMenuLevel::Mixer && m_pMenuMT32Pi)
 		{
 			switch (m_nMenuCursor)
@@ -729,11 +738,12 @@ bool CUserInterface::MenuSelectEvent()
 	{
 		switch (m_nMenuCursor)
 		{
-		case 0: s_nMenuLevel = TMenuLevel::ActiveSynth; s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
-		case 1: s_nMenuLevel = TMenuLevel::Synth;   s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
-		case 2: s_nMenuLevel = TMenuLevel::Mixer;   s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
-		case 3: s_nMenuLevel = TMenuLevel::AudioFX; s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
-		case 4: s_nMenuLevel = TMenuLevel::Looper;  s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
+		case 0:  s_nMenuLevel = TMenuLevel::ActiveSynth; s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
+		case 1:  m_bMenuEditing = !m_bMenuEditing; break; // Toggle editing for Visualizer
+		case 2:  s_nMenuLevel = TMenuLevel::Synth;   s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
+		case 3:  s_nMenuLevel = TMenuLevel::Mixer;   s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
+		case 4:  s_nMenuLevel = TMenuLevel::AudioFX; s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
+		case 5:  s_nMenuLevel = TMenuLevel::Looper;  s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
 		case 5: s_nMenuLevel = TMenuLevel::Sequencer; s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
 		case 6: s_nMenuLevel = TMenuLevel::Recorder;  s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
 		case 7: s_nMenuLevel = TMenuLevel::Network; s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
@@ -880,6 +890,16 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 
 	// Display up to 7 items (reserving row 0 for the title)
 	const size_t nVisibleRows = (LCD.Height() / 8) - 1;
+
+	// Calculate scrollbar parameters
+	u8 nScrollPos = 0;
+	u8 nScrollHeight = 0;
+	if (nItems > nVisibleRows)
+	{
+		nScrollHeight = Utility::Clamp<u8>((nVisibleRows * nVisibleRows) / nItems, 1, nVisibleRows);
+		nScrollPos = (m_nMenuCursor * (nVisibleRows - nScrollHeight)) / (nItems - 1);
+	}
+
 	for (size_t i = 0; i < nVisibleRows; ++i)
 	{
 		const size_t nItemIdx = m_nMenuScroll + i;
@@ -915,7 +935,11 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 		else if (s_nMenuLevel == TMenuLevel::Main)
 		{
 			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, m_pMenuYmfm, nItemIdx);
-			if (nItemIdx <= 8) snprintf(valBuf, sizeof(valBuf), ">");
+			if (nItemIdx == 1) // Visualizer
+			{
+				snprintf(valBuf, sizeof(valBuf), "%s", VisualizerNames[s_nVisualizer]);
+			}
+			else if (nItemIdx <= 9) snprintf(valBuf, sizeof(valBuf), ">");
 		}
 		else if (s_nMenuLevel == TMenuLevel::ActiveSynth)
 		{
@@ -1088,13 +1112,18 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 		if (!pLabel)
 			break;
 
-		// 20-char row: selector(1) + label(13) + value(6)
+		// 20-char row: selector(1) + label(12) + value(6) + scrollbar(1)
 		char rowBuf[21];
 		const bool bSelected = (nItemIdx == m_nMenuCursor);
 		// Suppression of selection arrow for category headers
 		const bool bIsHeader = (s_nMenuLevel == TMenuLevel::ActiveSynth && pLabel[0] == '[');
 		const char cSel = (bSelected && !bIsHeader) ? (m_bMenuEditing ? '*' : '>') : ' ';
-		snprintf(rowBuf, sizeof(rowBuf), "%c%-13.13s%6.6s", cSel, pLabel, valBuf);
+
+		// Determine if this row is part of the scrollbar thumb
+		const bool bInScrollThumb = (nItems > nVisibleRows && i >= nScrollPos && i < nScrollPos + nScrollHeight);
+		const char cScroll = bInScrollThumb ? 0x04 : (nItems > nVisibleRows ? 0x05 : ' '); // Use custom chars for bar if available, else standard
+
+		snprintf(rowBuf, sizeof(rowBuf), "%c%-12.12s%6.6s%c", cSel, pLabel, valBuf, cScroll);
 
 		LCD.Print(rowBuf, 0, static_cast<u8>(i + 1), /*bClearLine=*/false, /*bImmediate=*/false);
 	}

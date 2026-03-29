@@ -34,6 +34,11 @@ constexpr u32 ScrollRateMillis = 175;
 constexpr u8 BarSpacingPixels = 2;
 constexpr u8 SpinnerChars[] = {'_', '_', '_', '-', '\'', '\'', '^', '^', '`', '`', '-', '_', '_', '_'};
 
+// Visualizer state
+static int s_nVisualizer = 0; // 0: Bars, 1: Matrix, 2: Face, 3: Waves
+static u8 s_MatrixY[20] = {0};
+static u32 s_LastAnimTicks = 0;
+
 CUserInterface::CUserInterface()
 	: m_State(TState::None),
 	  m_nStateTime(0),
@@ -265,6 +270,75 @@ u8 CUserInterface::CenterMessageOffset(CLCD& LCD, const char* pMessage)
 
 void CUserInterface::DrawChannelLevels(CLCD& LCD, u8 nBarHeight, float* pChannelLevels, float* pPeakLevels, u8 nChannels, bool bDrawBarBases)
 {
+	if (LCD.GetType() == CLCD::TType::Graphical)
+	{
+		// Matrix Rain
+		if (s_nVisualizer == 1)
+		{
+			if (CTimer::GetClockTicks() - s_LastAnimTicks > 50000) // 20fps-ish
+			{
+				s_LastAnimTicks = CTimer::GetClockTicks();
+				for (int i = 0; i < 20; i++)
+				{
+					// Map channels 1-16 to columns 2-17
+					int ch = (i >= 2 && i <= 17) ? i - 2 : -1;
+					float level = (ch >= 0 && ch < nChannels) ? pChannelLevels[ch] : 0.0f;
+
+					if (level > 0.1f || (rand() % 100 < 5)) // Note triggers or random drop
+					{
+						s_MatrixY[i] = (s_MatrixY[i] + 1) % 8;
+						char c = (rand() % 94) + 33; // Random ASCII
+						LCD.Print(&c, static_cast<u8>(i), s_MatrixY[i], false, false);
+					}
+				}
+			}
+			return;
+		}
+
+		// Cute Reactive Face
+		if (s_nVisualizer == 2)
+		{
+			float totalLevel = 0;
+			for (int i = 0; i < nChannels; i++) totalLevel += pChannelLevels[i];
+			totalLevel /= nChannels;
+
+			bool bBlink = (CTimer::GetClockTicks() / 1000000) % 4 == 0 && (CTimer::GetClockTicks() / 100000) % 10 < 2;
+			
+			// Eyes
+			LCD.Print(bBlink ? "-   -" : "O   O", 7, 2, false, false);
+			
+			// Mouth
+			if (totalLevel < 0.05f)      LCD.Print("  -  ", 7, 5, false, false);
+			else if (totalLevel < 0.2f) LCD.Print(" --- ", 7, 5, false, false);
+			else if (totalLevel < 0.5f) LCD.Print("(---)", 7, 5, false, false);
+			else                        LCD.Print("( O )", 7, 5, false, false);
+			return;
+		}
+
+		// MIDI-triggered Waves (Oscilloscope style)
+		if (s_nVisualizer == 3)
+		{
+			const u8 nMidY = nBarHeight / 2;
+			for (int x = 0; x < LCD.Width(); x++)
+			{
+				int ch = (x * nChannels) / LCD.Width();
+				float level = pChannelLevels[ch];
+				if (level > 0.01f)
+				{
+					// Draw a simulated sine wave for active channels
+					float phase = (x * 0.2f) + (CTimer::GetClockTicks() * 0.00001f);
+					int y = nMidY + static_cast<int>(sinf(phase) * level * nMidY);
+					LCD.DrawFilledRect(x, y, x, y);
+				}
+				else
+				{
+					LCD.DrawFilledRect(x, nMidY, x, nMidY); // Flat line
+				}
+			}
+			return;
+		}
+	}
+
 	if (LCD.GetType() == CLCD::TType::Character)
 	{
 		const u8 nBarSpacing = LCD.Width() / nChannels / 2;
@@ -488,4 +562,3 @@ void CUserInterface::DrawSysExBitmap(CLCD& LCD, u8 nFirstRow, u8 nRows) const
 		}
 	}
 }
-
