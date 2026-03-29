@@ -278,19 +278,20 @@ void CUserInterface::DrawChannelLevels(CLCD& LCD, u8 nBarHeight, float* pChannel
 		// Matrix Rain
 		if (s_nVisualizer == 1)
 		{
-			if (CTimer::GetClockTicks() - s_LastAnimTicks > 40000)
+			if (CTimer::GetClockTicks() - s_LastAnimTicks > 40000) // ~25 FPS
 			{
 				s_LastAnimTicks = CTimer::GetClockTicks();
-				for (int i = 0; i < 20; i++)
+				const u8 nCharRows = LCD.Height() / 8;
+				const u8 nCharCols = LCD.Width() / 8;
+				for (int i = 0; i < nCharCols; i++)
 				{
-					int ch = (i >= 2 && i <= 17) ? i - 2 : -1;
+					int ch = (i >= 2 && i <= 17) ? i - 2 : -1; // Map some channels to columns
 					float level = (ch >= 0 && ch < nChannels) ? pChannelLevels[ch] : 0.0f;
 
-					if (level > 0.1f || (rand() % 100 < 3)) 
+					if (level > 0.1f || (rand() % 100 < 3)) // Note triggers or random drop
 					{
 						// Clear character way behind the head to create a "falling worm" effect
-						char cClear = ' ';
-						LCD.Print(&cClear, static_cast<u8>(i), (s_MatrixY[i] + 4) % 8, false, false);
+						LCD.Print(" ", static_cast<u8>(i), (s_MatrixY[i] + (nCharRows / 2)) % nCharRows, false, false);
 
 						s_MatrixY[i] = (s_MatrixY[i] + 1) % 8;
 						char c = (rand() % 2) ? (rand() % 10) + '0' : (rand() % 26) + 'A';
@@ -305,42 +306,52 @@ void CUserInterface::DrawChannelLevels(CLCD& LCD, u8 nBarHeight, float* pChannel
 		if (s_nVisualizer == 2)
 		{
 			float totalLevel = 0;
-			for (int i = 0; i < nChannels; i++) totalLevel += pChannelLevels[i];
-			totalLevel = Utility::Clamp(totalLevel * 1.5f, 0.0f, 1.0f);
+			for (int i = 0; i < nChannels; i++) totalLevel += pChannelLevels[i]; // Sum all channel levels
+			totalLevel = Utility::Clamp(totalLevel * 1.5f, 0.0f, 1.0f); // Boost and clamp
 
-			bool bBlink = (CTimer::GetClockTicks() / 2000000) % 3 == 0 && (CTimer::GetClockTicks() / 100000) % 20 < 2;
+			bool bBlink = (CTimer::GetClockTicks() / 2000000) % 3 == 0 && (CTimer::GetClockTicks() / 100000) % 20 < 2; // Blink every few seconds
 			
 			// Eyes (Rectangular Graphical Style)
-			u8 eyeH = bBlink ? 1 : 12 + static_cast<u8>(totalLevel * 8);
-			u8 eyeW = 16 + static_cast<u8>(totalLevel * 4);
+			u8 eyeH = bBlink ? 1 : static_cast<u8>(12 * (LCD.Height() / 64.0f) + totalLevel * 8);
+			u8 eyeW = static_cast<u8>(16 * (LCD.Width() / 128.0f) + totalLevel * 4);
+			u8 eyeY = static_cast<u8>(LCD.Height() / 3.0f);
 			
-			LCD.DrawFilledRect(30 - (eyeW/2), 24 - (eyeH/2), 30 + (eyeW/2), 24 + (eyeH/2));
-			LCD.DrawFilledRect(98 - (eyeW/2), 24 - (eyeH/2), 98 + (eyeW/2), 24 + (eyeH/2));
+			LCD.DrawFilledRect(static_cast<u8>(LCD.Width() / 4.0f - eyeW/2), eyeY - (eyeH/2), static_cast<u8>(LCD.Width() / 4.0f + eyeW/2), eyeY + (eyeH/2));
+			LCD.DrawFilledRect(static_cast<u8>(LCD.Width() * 3 / 4.0f - eyeW/2), eyeY - (eyeH/2), static_cast<u8>(LCD.Width() * 3 / 4.0f + eyeW/2), eyeY + (eyeH/2));
 			
 			// Mouth (Dynamic Visor)
-			u8 mouthW = 20 + static_cast<u8>(totalLevel * 40);
-			LCD.DrawFilledRect(64 - (mouthW/2), 50, 64 + (mouthW/2), 52);
+			u8 mouthW = static_cast<u8>(20 * (LCD.Width() / 128.0f) + totalLevel * 40);
+			u8 mouthY = static_cast<u8>(LCD.Height() * 2 / 3.0f);
+			LCD.DrawFilledRect(static_cast<u8>(LCD.Width() / 2.0f - mouthW/2), mouthY, static_cast<u8>(LCD.Width() / 2.0f + mouthW/2), mouthY + static_cast<u8>(2 * (LCD.Height() / 64.0f)));
 			return;
 		}
 
 		// Enhanced Oscilloscope
 		if (s_nVisualizer == 3)
 		{
+			LCD.Clear(false); // Clear the screen for a fresh waveform
+
 			const u8 nMidY = nBarHeight / 2;
 			static float fPhaseBase = 0;
-			fPhaseBase += 0.15f;
+			fPhaseBase += 0.15f; // Constant phase shift for movement
 
 			for (int x = 0; x < LCD.Width(); x++)
 			{
 				float fSample = 0;
-				// Mix active channels into the waveform
-				for (int ch = 0; ch < 16; ch += 4) 
+				for (int ch = 0; ch < 16; ch++) // Iterate through all channels
 				{
 					if (pChannelLevels[ch] > 0.05f)
-						fSample += sinf(fPhaseBase + (x * 0.1f * (ch + 1))) * pChannelLevels[ch];
+					{
+						// Vary frequency and amplitude based on channel and level
+						float freq = 0.1f + (ch * 0.02f) + (pChannelLevels[ch] * 0.5f); // Base freq + channel offset + level-dependent freq
+						float amplitude = pChannelLevels[ch] * (nBarHeight / 2.5f); // Amplitude based on level
+						fSample += sinf(fPhaseBase + (x * freq)) * amplitude;
+					}
 				}
 				
-				int y = nMidY + static_cast<int>(fSample * (nBarHeight / 2.5f));
+				int y = nMidY + static_cast<int>(fSample);
+				// Clamp y to screen bounds
+				y = Utility::Clamp(y, 0, nBarHeight - 1);
 				LCD.DrawFilledRect(x, y, x, y); // Draw wave pixel
 			}
 			return;
@@ -352,20 +363,20 @@ void CUserInterface::DrawChannelLevels(CLCD& LCD, u8 nBarHeight, float* pChannel
 			float totalLevel = 0;
 			for (int i = 0; i < nChannels; i++) totalLevel += pChannelLevels[i];
 
-			for (int i = 0; i < 40; i++)
+			for (int i = 0; i < 40; i++) // 40 stars
 			{
 				if (s_StarZ[i] <= 0)
 				{
-					s_StarX[i] = (rand() % 128) - 64;
-					s_StarY[i] = (rand() % 64) - 32;
+					s_StarX[i] = (rand() % LCD.Width()) - (LCD.Width() / 2);
+					s_StarY[i] = (rand() % LCD.Height()) - (LCD.Height() / 2);
 					s_StarZ[i] = 256;
 				}
 
-				// Move stars faster when music is loud
+				// Move stars faster when music is loud (totalLevel is 0-1)
 				s_StarZ[i] -= 4 + static_cast<int>(totalLevel * 2);
 
 				int screenX = 64 + (s_StarX[i] * 128 / s_StarZ[i]);
-				int screenY = 32 + (s_StarY[i] * 128 / s_StarZ[i]);
+				int screenY = LCD.Height() / 2 + (s_StarY[i] * LCD.Width() / s_StarZ[i]);
 
 				if (screenX >= 0 && screenX < 128 && screenY >= 0 && screenY < 64)
 					LCD.DrawFilledRect(screenX, screenY, screenX, screenY);
