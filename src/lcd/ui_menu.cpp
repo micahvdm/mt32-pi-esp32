@@ -60,9 +60,9 @@ static size_t GetMenuItemCount(TMenuLevel Level, const CSynthBase* pCurrent,
 	case TMenuLevel::ActiveSynth:
 	{
 		size_t n = 0;
-		if (pMT32) n += 3; // MT-32 Old, New, CM-32L
-		if (pSF)   n += pSF->GetSoundFontManager().GetSoundFontCount();
-		if (pYmfm) n += 1;
+		if (pMT32) n += 4; // Header + 3 ROMs
+		if (pSF)   n += pSF->GetSoundFontManager().GetSoundFontCount() + 1; // Header + SoundFonts
+		if (pYmfm) n += 2; // Header + ymfm
 		return n;
 	}
 	case TMenuLevel::Mixer:   return MixerMenuItems;
@@ -749,23 +749,26 @@ bool CUserInterface::MenuSelectEvent()
 		size_t nBaseIdx = 0;
 		if (m_pMenuMT32)
 		{
-			if (m_nMenuCursor < 3)
+			if (m_nMenuCursor == nBaseIdx) return true; // Category header
+			if (m_nMenuCursor < nBaseIdx + 4)
 			{
 				m_pMenuMT32Pi->SetActiveSynth(TSynth::MT32);
-				m_pMenuMT32Pi->SetMT32ROMSet(static_cast<TMT32ROMSet>(m_nMenuCursor));
+				m_pMenuMT32Pi->SetMT32ROMSet(static_cast<TMT32ROMSet>(m_nMenuCursor - nBaseIdx - 1));
 				ExitMenu();
 				return true;
 			}
-			nBaseIdx += 3;
+			nBaseIdx += 4;
 		}
 		size_t sfCount = m_pMenuSF ? m_pMenuSF->GetSoundFontManager().GetSoundFontCount() : 0;
-		if (m_nMenuCursor < nBaseIdx + sfCount)
+		if (m_nMenuCursor == nBaseIdx) return true; // Category header
+		if (m_nMenuCursor < nBaseIdx + sfCount + 1)
 		{
 			m_pMenuMT32Pi->SetActiveSynth(TSynth::SoundFont);
-			m_pMenuMT32Pi->SetSoundFontIndex(m_nMenuCursor - nBaseIdx);
+			m_pMenuMT32Pi->SetSoundFontIndex(m_nMenuCursor - nBaseIdx - 1);
 			ExitMenu();
 			return true;
 		}
+		if (m_nMenuCursor == nBaseIdx + sfCount + 1) return true; // Category header
 		m_pMenuMT32Pi->SetActiveSynth(TSynth::Ymfm);
 		ExitMenu();
 		return true;
@@ -916,25 +919,35 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 		}
 		else if (s_nMenuLevel == TMenuLevel::ActiveSynth)
 		{
+			bool bIsHeader = false;
 			size_t nIdx = 0;
 			if (m_pMenuMT32)
 			{
-				if (nItemIdx < 3)
+				if (nItemIdx == nIdx) { pLabel = "[ Roland MT-32 ]"; bIsHeader = true; }
+				else if (nItemIdx < nIdx + 4)
 				{
 					static const char* labels[] = { "MT-32 Old", "MT-32 New", "CM-32L" };
-					pLabel = labels[nItemIdx];
+					pLabel = labels[nItemIdx - nIdx - 1];
 				}
-				nIdx += 3;
+				nIdx += 4;
 			}
 			size_t sfCount = m_pMenuSF ? m_pMenuSF->GetSoundFontManager().GetSoundFontCount() : 0;
-			if (!pLabel && nItemIdx < nIdx + sfCount)
+			if (!pLabel && m_pMenuSF)
 			{
-				pLabel = m_pMenuSF->GetSoundFontManager().GetSoundFontName(nItemIdx - nIdx);
+				if (nItemIdx == nIdx) { pLabel = "[ SoundFonts ]"; bIsHeader = true; }
+				else if (nItemIdx < nIdx + sfCount + 1)
+				{
+					pLabel = m_pMenuSF->GetSoundFontManager().GetSoundFontName(nItemIdx - nIdx - 1);
+				}
+				nIdx += sfCount + 1;
 			}
-			else if (!pLabel)
+			if (!pLabel && m_pMenuYmfm)
 			{
-				pLabel = "OPL3 (ymfm)";
+				if (nItemIdx == nIdx) { pLabel = "[ FM Synth ]"; bIsHeader = true; }
+				else { pLabel = "OPL3 (ymfm)"; }
 			}
+
+			if (bIsHeader) valBuf[0] = '\0'; // Headers have no value/arrow
 		}
 		else if (s_nMenuLevel == TMenuLevel::Looper)
 		{
@@ -1078,7 +1091,9 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 		// 20-char row: selector(1) + label(13) + value(6)
 		char rowBuf[21];
 		const bool bSelected = (nItemIdx == m_nMenuCursor);
-		const char cSel = bSelected ? (m_bMenuEditing ? '*' : '>') : ' ';
+		// Suppression of selection arrow for category headers
+		const bool bIsHeader = (s_nMenuLevel == TMenuLevel::ActiveSynth && pLabel[0] == '[');
+		const char cSel = (bSelected && !bIsHeader) ? (m_bMenuEditing ? '*' : '>') : ' ';
 		snprintf(rowBuf, sizeof(rowBuf), "%c%-13.13s%6.6s", cSel, pLabel, valBuf);
 
 		LCD.Print(rowBuf, 0, static_cast<u8>(i + 1), /*bClearLine=*/false, /*bImmediate=*/false);
