@@ -23,6 +23,8 @@
 #include <circle/timer.h>
 #include <circle/util.h>
 
+#include <cmath>
+#include <cstdlib>
 #include <cstdio>
 
 #include "lcd/ui.h"

@@ -744,12 +744,12 @@ bool CUserInterface::MenuSelectEvent()
 		case 3:  s_nMenuLevel = TMenuLevel::Mixer;   s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
 		case 4:  s_nMenuLevel = TMenuLevel::AudioFX; s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
 		case 5:  s_nMenuLevel = TMenuLevel::Looper;  s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
-		case 5: s_nMenuLevel = TMenuLevel::Sequencer; s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
-		case 6: s_nMenuLevel = TMenuLevel::Recorder;  s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
-		case 7: s_nMenuLevel = TMenuLevel::Network; s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
-		case 8: s_nMenuLevel = TMenuLevel::System;  s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
-		case 9: m_pMenuMT32Pi->RequestReboot(); ExitMenu(); break;
-		case 10: ExitMenu(); break;
+		case 6:  s_nMenuLevel = TMenuLevel::Sequencer; s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
+		case 7:  s_nMenuLevel = TMenuLevel::Recorder;  s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
+		case 8:  s_nMenuLevel = TMenuLevel::Network; s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
+		case 9:  s_nMenuLevel = TMenuLevel::System;  s_nMenuMainCursor = m_nMenuCursor; m_nMenuCursor = 0; m_nMenuScroll = 0; break;
+		case 10: m_pMenuMT32Pi->RequestReboot(); ExitMenu(); break;
+		case 11: ExitMenu(); break;
 		}
 		return true;
 	}
