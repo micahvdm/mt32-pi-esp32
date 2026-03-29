@@ -391,7 +391,7 @@ bool CUserInterface::MenuEncoderEvent(s8 nDelta)
 			default: break;
 			}
 		}
-		else if (m_pMenuYmfm && m_pMenuCurrentSynth == m_pMenuYmfm && m_pMenuMT32Pi)
+		else if (s_nMenuLevel == TMenuLevel::Synth && m_pMenuYmfm && m_pMenuCurrentSynth == m_pMenuYmfm && m_pMenuMT32Pi)
 		{
 			switch (m_nMenuCursor)
 			{
@@ -423,7 +423,7 @@ bool CUserInterface::MenuEncoderEvent(s8 nDelta)
 			default: break;
 			}
 		}
-		else if (m_pMenuCurrentSynth == m_pMenuSF && m_pMenuSF)
+		else if (s_nMenuLevel == TMenuLevel::Synth && m_pMenuCurrentSynth == m_pMenuSF && m_pMenuSF)
 		{
 			switch (m_nMenuCursor)
 			{
@@ -500,7 +500,7 @@ bool CUserInterface::MenuEncoderEvent(s8 nDelta)
 				break;
 			}
 		}
-		else if (m_pMenuCurrentSynth == m_pMenuMT32 && m_pMenuMT32)
+		else if (s_nMenuLevel == TMenuLevel::Synth && m_pMenuCurrentSynth == m_pMenuMT32 && m_pMenuMT32)
 		{
 			switch (m_nMenuCursor)
 			{
