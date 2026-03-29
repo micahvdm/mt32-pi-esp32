@@ -88,6 +88,9 @@ CConfig::CConfig()
 	RhythmLooperMetronomeEnabled = false;
 	RhythmLooperPlaybackGain = 0.8f;
 
+	// Visualizer default
+	LCDVisualizer = 0;
+
 	s_pThis = this;
 	for (unsigned i = 0; i < 128; ++i)
 	{
@@ -210,6 +213,12 @@ int CConfig::INIHandler(void* pUser, const char* pSection, const char* pName, co
 		if (strcasecmp(pName, "metronome_enabled") == 0)
 			return ParseOption(pValue, &pConfig->RhythmLooperMetronomeEnabled);
 		return 1;
+	}
+
+	if (strcasecmp(pSection, "lcd") == 0)
+	{
+		if (strcasecmp(pName, "visualizer") == 0)
+			return ParseOption(pValue, &pConfig->LCDVisualizer);
 	}
 
 	//LOGDBG("'%s', '%s', '%s'", pSection, pName,  pValue);
