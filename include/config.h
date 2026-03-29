@@ -168,6 +168,7 @@ public:
 
 	CConfig();
 	bool Initialize(const char* pPath);
+	bool Write(const char* pPath);
 
 	static CConfig* Get() { return s_pThis; }
 

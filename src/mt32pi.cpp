@@ -3768,6 +3768,11 @@ bool CMT32Pi::SetMIDIThruEnabled(bool bEnabled)
 	return true;
 }
 
+bool CMT32Pi::SaveConfig()
+{
+	return m_pConfig->Write("SD:mt32-pi.cfg");
+}
+
 bool CMT32Pi::SaveRouterPreset() const
 {
 	constexpr const char* Path = "SD:router_preset.dat";

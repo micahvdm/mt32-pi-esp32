@@ -179,6 +179,70 @@ bool CConfig::Initialize(const char* pPath)
 
 }
 
+bool CConfig::Write(const char* pPath)
+{
+	FIL fp;
+	if (f_open(&fp, pPath, FA_CREATE_ALWAYS | FA_WRITE) != FR_OK)
+		return false;
+
+	auto WriteBool = [&](const char* pName, bool bVal) { f_printf(&fp, "%s = %s\n", pName, bVal ? "on" : "off"); };
+	auto WriteInt = [&](const char* pName, int nVal) { f_printf(&fp, "%s = %d\n", pName, nVal); };
+	auto WriteFloat = [&](const char* pName, float fVal) { f_printf(&fp, "%s = %.2f\n", pName, static_cast<double>(fVal)); };
+	auto WriteStr = [&](const char* pName, const char* pVal) { f_printf(&fp, "%s = %s\n", pName, pVal); };
+
+	// 1. Write macro-defined sections from config.def
+	#undef BEGIN_SECTION
+	#undef CFG
+	#undef END_SECTION
+	
+	#define BEGIN_SECTION(SECTION) f_printf(&fp, "[" #SECTION "]\n");
+	
+	// Dispatch based on member type
+	#define CFG(INI_NAME, TYPE, MEMBER_NAME, ...) \
+		if constexpr (std::is_same_v<TYPE, bool>) WriteBool(#INI_NAME, MEMBER_NAME); \
+		else if constexpr (std::is_same_v<TYPE, int>) WriteInt(#INI_NAME, MEMBER_NAME); \
+		else if constexpr (std::is_same_v<TYPE, float>) WriteFloat(#INI_NAME, MEMBER_NAME); \
+		else if constexpr (std::is_same_v<TYPE, CString>) WriteStr(#INI_NAME, (const char*)MEMBER_NAME); \
+		else if constexpr (std::is_enum_v<TYPE>) { \
+			const char** pStrs = MEMBER_NAME##Strings; \
+			f_printf(&fp, "%s = %s\n", #INI_NAME, pStrs[static_cast<int>(MEMBER_NAME)]); \
+		}
+
+	#define END_SECTION f_printf(&fp, "\n");
+	
+	#include "config.def"
+
+	// 2. Write manual sections
+	f_printf(&fp, "[midi_cc_map]\n");
+	static const char* const BindingKeys[] = {
+		"main_reverb", "reverb_param1", "reverb_param2", "reverb_param3",
+		"chorus_param1", "chorus_param2", "chorus_param3", "master_or_gain",
+		"select_mt32", "select_soundfont", "prev_rom_or_soundfont", "next_rom_or_soundfont",
+		"looper_arm_stop", "looper_bpm", "looper_quantize", "looper_save",
+		"looper_metronome", "looper_clear", "sustain_cc64"
+	};
+	for (int i = 0; i < static_cast<int>(TMIDICCBindingID::Count); ++i)
+	{
+		if (MIDICCBindingCC[i] != -1)
+			f_printf(&fp, "%s = %d\n", BindingKeys[i], MIDICCBindingCC[i]);
+	}
+
+	f_printf(&fp, "\n[rhythm_looper]\n");
+	WriteBool("enabled", RhythmLooperEnabled);
+	WriteInt("channel", RhythmLooperChannel);
+	WriteInt("bpm", RhythmLooperBPM);
+	WriteInt("quantize", RhythmLooperQuantize);
+	WriteInt("max_bars", RhythmLooperMaxBars);
+	WriteFloat("playback_gain", RhythmLooperPlaybackGain);
+	WriteBool("metronome_enabled", RhythmLooperMetronomeEnabled);
+
+	f_printf(&fp, "\n[lcd]\n");
+	WriteInt("visualizer", LCDVisualizer);
+
+	f_close(&fp);
+	return true;
+}
+
 int CConfig::INIHandler(void* pUser, const char* pSection, const char* pName, const char* pValue)
 {
 	CConfig* const pConfig = static_cast<CConfig*>(pUser);
