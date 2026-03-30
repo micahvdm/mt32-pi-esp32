@@ -4147,7 +4147,6 @@ void CMT32Pi::IRQMIDIReceiveHandler(const u8* pData, size_t nSize)
 	// Enqueue data into ring buffer
 	if (s_pThis->m_MIDIRxBuffer.Enqueue(pData, nSize) != nSize)
 	{
-		static const char* pErrorString = "MIDI overrun error!";
 		// Do not call LCDLog from interrupt context, as it can perform memory allocations.
 	}
 }
