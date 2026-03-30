@@ -2804,7 +2804,8 @@ void CMT32Pi::UpdateUSB(bool bStartup)
 	}
 	m_pUSBMassStorageDevice = pUSBMassStorageDevice;
 
-	// Scan for up to 4 class-compliant USB MIDI devices (umidi1, umidi2, etc.)
+	// Scan for class-compliant USB MIDI devices (umidi1, umidi2, etc.)
+	bool bUSBMIDIFound = false;
 	for (int i = 1; i <= 4; ++i)
 	{
 		char szName[8];
@@ -2812,16 +2813,20 @@ void CMT32Pi::UpdateUSB(bool bStartup)
 		CUSBMIDIDevice* pDev = static_cast<CUSBMIDIDevice*>(CDeviceNameService::Get()->GetDevice(szName, FALSE));
 		if (pDev)
 		{
+			bUSBMIDIFound = true;
 			// Track the primary device to decide when to re-enable serial MIDI later
 			if (!m_pUSBMIDIDevice)
 			{
 				m_pUSBMIDIDevice = pDev;
 				m_pUSBMIDIDevice->RegisterRemovedHandler(USBMIDIDeviceRemovedHandler, &m_pUSBMIDIDevice);
+				LOGNOTE("Using USB MIDI interface");
 			}
 			pDev->RegisterPacketHandler(USBMIDIPacketHandler);
-			m_bSerialMIDIEnabled = false;
 		}
 	}
+
+	if (bUSBMIDIFound)
+		m_bSerialMIDIEnabled = false;
 
 	if (!m_pUSBSerialDevice && (m_pUSBSerialDevice = static_cast<CUSBSerialDevice*>(CDeviceNameService::Get()->GetDevice("utty1", FALSE))))
 	{
@@ -2970,7 +2975,7 @@ void CMT32Pi::UpdateNetwork()
 // refreshed so the active-sense watchdog knows the connection is live.
 void CMT32Pi::UpdateMIDI()
 {
-	size_t nBytes;
+	size_t nBytes = 0;
 	u8 Buffer[MIDIRxBufferSize];
 
 	m_eMidiSource = static_cast<u8>(EMidiSource::Physical);
@@ -2980,6 +2985,10 @@ void CMT32Pi::UpdateMIDI()
 	{
 		ParseMIDIBytes(Buffer, nBytes);
 		s_pThis->m_nActiveSenseTime = s_pThis->m_pTimer->GetTicks();
+
+		// Universal MIDI Thru: forward physical MIDI bytes to UART TX
+		if (m_bMIDIThruEnabled && m_pSerial)
+			m_pSerial->Write(Buffer, nBytes);
 	}
 
 	// 2. Read from USB-to-Serial adapters (utty)
@@ -2987,6 +2996,10 @@ void CMT32Pi::UpdateMIDI()
 	{
 		ParseMIDIBytes(Buffer, nBytes);
 		s_pThis->m_nActiveSenseTime = s_pThis->m_pTimer->GetTicks();
+
+		// Universal MIDI Thru: forward physical MIDI bytes to UART TX
+		if (m_bMIDIThruEnabled && m_pSerial)
+			m_pSerial->Write(Buffer, nBytes);
 	}
 
 	// 3. Drain class-compliant USB MIDI and Pisound (IRQ-driven ring buffer)
@@ -2994,14 +3007,10 @@ void CMT32Pi::UpdateMIDI()
 	{
 		ParseMIDIBytes(Buffer, nBytes);
 		s_pThis->m_nActiveSenseTime = s_pThis->m_pTimer->GetTicks();
-	}
 
-	// Universal MIDI Thru: forward physical MIDI bytes to UART TX
-	if (m_bMIDIThruEnabled && nBytes > 0 && m_pSerial)
-	{
-		const int nSent = m_pSerial->Write(Buffer, nBytes);
-		if (nSent != static_cast<int>(nBytes))
-			LOGERR("MIDI Thru: sent %d of %zu bytes", nSent, nBytes);
+		// Universal MIDI Thru: forward physical MIDI bytes to UART TX
+		if (m_bMIDIThruEnabled && m_pSerial)
+			m_pSerial->Write(Buffer, nBytes);
 	}
 
 	// Drive FluidSequencer player from Core 0 and drain produced MIDI bytes
