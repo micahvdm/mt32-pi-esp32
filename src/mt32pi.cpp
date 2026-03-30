@@ -108,11 +108,11 @@ CMT32Pi::CMT32Pi(CI2CMaster* pI2CMaster, CSPIMaster* pSPIMaster, CInterruptSyste
 	  m_bDeferredSoundFontSwitchFlag(false),
 	  m_nDeferredSoundFontSwitchIndex(0),
 	  m_nDeferredSoundFontSwitchTime(0),
-
+	  
 	  m_bSerialMIDIAvailable(false),
 	  m_bSerialMIDIEnabled(false),
 	  m_bMIDIThruEnabled(false),
-	  m_pUSBMIDIDevice(nullptr),
+	  m_pUSBMIDIDevices{nullptr}, // Initialize array elements to nullptr
 	  m_pUSBSerialDevice(nullptr),
 	  m_pUSBMassStorageDevice(nullptr),
 
@@ -125,7 +125,7 @@ CMT32Pi::CMT32Pi(CI2CMaster* pI2CMaster, CSPIMaster* pSPIMaster, CInterruptSyste
 	  m_nLEDOnTime(0),
 
 	  m_pSound(nullptr),
-	  m_pAudioFloatBuffer(nullptr),
+	  m_pAudioFloatBuffer(nullptr), // Reordered from previous diff
 	  m_pAudioIntBuffer(nullptr),
 	  m_pPisound(nullptr),
 
@@ -2812,19 +2812,28 @@ void CMT32Pi::UpdateUSB(bool bStartup)
 		char szName[8];
 		snprintf(szName, sizeof(szName), "umidi%d", i);
 		CUSBMIDIDevice* pDev = static_cast<CUSBMIDIDevice*>(CDeviceNameService::Get()->GetDevice(szName, FALSE));
-		if (pDev && !m_pUSBMIDIDevice)
+		if (pDev && !m_pUSBMIDIDevices[i-1]) // Device attached and slot is empty
 		{
 			bUSBMIDIFound = true;
-			// Register only once for the first device found
-			pDev->RegisterPacketHandler(USBMIDIPacketHandler);
-			m_pUSBMIDIDevice = pDev;
-			m_pUSBMIDIDevice->RegisterRemovedHandler(USBMIDIDeviceRemovedHandler, &m_pUSBMIDIDevice);
-			LOGNOTE("Using USB MIDI interface");
+			m_pUSBMIDIDevices[i-1] = pDev;
+			pDev->RegisterPacketHandler(USBMIDIPacketHandler); // Register handler for this device
+			pDev->RegisterRemovedHandler(USBMIDIDeviceRemovedHandler, reinterpret_cast<void**>(&m_pUSBMIDIDevices[i-1])); // Pass address of slot
+			LOGNOTE("Using USB MIDI interface: %s", szName);
 		}
+		else if (!pDev && m_pUSBMIDIDevices[i-1]) // Device removed from this slot
+		{
+			// The removed handler should have cleared this, but as a safeguard
+			m_pUSBMIDIDevices[i-1] = nullptr;
+		}
+
+		if (m_pUSBMIDIDevices[i-1]) // Check if any device is still active
+			bUSBMIDIFound = true;
 	}
 
 	if (bUSBMIDIFound)
 		m_bSerialMIDIEnabled = false;
+	else if (m_bSerialMIDIAvailable) // No USB MIDI devices, re-enable serial if available
+		m_bSerialMIDIEnabled = true;
 
 	if (!m_pUSBSerialDevice && (m_pUSBSerialDevice = static_cast<CUSBSerialDevice*>(CDeviceNameService::Get()->GetDevice("utty1", FALSE))))
 	{
@@ -2977,7 +2986,7 @@ void CMT32Pi::UpdateMIDI()
 	u8 Buffer[MIDIRxBufferSize];
 
 	m_eMidiSource = static_cast<u8>(EMidiSource::Physical);
-
+	
 	// 1. Read MIDI messages from built-in serial GPIO (legacy DIN)
 	if (m_bSerialMIDIEnabled && (nBytes = ReceiveSerialMIDI(Buffer, sizeof(Buffer))) > 0)
 	{
@@ -3000,15 +3009,20 @@ void CMT32Pi::UpdateMIDI()
 			m_pSerial->Write(Buffer, nBytes);
 	}
 
-	// 3. Drain class-compliant USB MIDI and Pisound (IRQ-driven ring buffer)
-	while ((nBytes = m_MIDIRxBuffer.Dequeue(Buffer, sizeof(Buffer))) > 0)
+	// 3. Drain class-compliant USB MIDI devices and Pisound (IRQ-driven ring buffer)
+	// Iterate through all possible USB MIDI device slots
+	for (int i = 0; i < 4; ++i)
 	{
-		ParseMIDIBytes(Buffer, nBytes);
-		m_nActiveSenseTime = m_pTimer->GetTicks();
-
-		// Universal MIDI Thru: forward physical MIDI bytes to UART TX
-		if (m_bMIDIThruEnabled && m_bSerialMIDIAvailable && m_pSerial)
-			m_pSerial->Write(Buffer, nBytes);
+		if (m_pUSBMIDIDevices[i])
+		{
+			while ((nBytes = m_MIDIRxBuffer.Dequeue(Buffer, sizeof(Buffer))) > 0)
+			{
+				ParseMIDIBytes(Buffer, nBytes);
+				m_nActiveSenseTime = m_pTimer->GetTicks();
+				if (m_bMIDIThruEnabled && m_bSerialMIDIAvailable && m_pSerial)
+					m_pSerial->Write(Buffer, nBytes);
+			}
+		}
 	}
 
 	// Drive FluidSequencer player from Core 0 and drain produced MIDI bytes
@@ -4088,10 +4102,16 @@ void CMT32Pi::USBMIDIDeviceRemovedHandler(CDevice* pDevice, void* pContext)
 	assert(s_pThis != nullptr);
 
 	void** pDevicePointer = reinterpret_cast<void**>(pContext);
-	*pDevicePointer = nullptr;
+	*pDevicePointer = nullptr; // Clear the specific device pointer in the array or for USBSerial
 
 	// Re-enable serial MIDI if not in-use by logger and no other MIDI devices available
-	if (s_pThis->m_bSerialMIDIAvailable && !(s_pThis->m_pUSBMIDIDevice || s_pThis->m_pUSBSerialDevice || s_pThis->m_pPisound))
+	bool bAnyUSBMIDIActive = false;
+	for (int i = 0; i < 4; ++i)
+	{
+		if (s_pThis->m_pUSBMIDIDevices[i])
+			bAnyUSBMIDIActive = true;
+	}
+	if (s_pThis->m_bSerialMIDIAvailable && !(bAnyUSBMIDIActive || s_pThis->m_pUSBSerialDevice || s_pThis->m_pPisound))
 	{
 		LOGNOTE("Using serial MIDI interface");
 		s_pThis->m_bSerialMIDIEnabled = true;
