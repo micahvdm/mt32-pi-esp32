@@ -4094,7 +4094,7 @@ void CMT32Pi::USBMIDIDeviceRemovedHandler(CDevice* pDevice, void* pContext)
 // The following handlers are called from interrupt context, enqueue into ring buffer for main thread
 void CMT32Pi::USBMIDIPacketHandler(unsigned nCable, u8* pPacket, unsigned nLength)
 {
-	if (nLength != 4) return;
+	if (nLength != 4) return; // USB MIDI Event Packets are always 4 bytes
 
 	// Decode USB-MIDI Event Packet (4 bytes) to raw MIDI bytes
 	u8 cin = pPacket[0] & 0x0F;
@@ -4122,7 +4122,11 @@ void CMT32Pi::USBMIDIPacketHandler(unsigned nCable, u8* pPacket, unsigned nLengt
 
 	if (midiLen > 0)
 	{
-		midi[0] = pPacket[1]; midi[1] = pPacket[2]; midi[2] = pPacket[3];
+		// Copy only the relevant MIDI bytes based on midiLen
+		for (size_t i = 0; i < midiLen; ++i)
+		{
+			midi[i] = pPacket[i + 1];
+		}
 		IRQMIDIReceiveHandler(midi, midiLen);
 	}
 }
@@ -4136,7 +4140,7 @@ void CMT32Pi::IRQMIDIReceiveHandler(const u8* pData, size_t nSize)
 	{
 		static const char* pErrorString = "MIDI overrun error!";
 		LOGWARN(pErrorString);
-		s_pThis->LCDLog(TLCDLogType::Error, pErrorString);
+		// Do not call LCDLog from interrupt context, as it can perform memory allocations.
 	}
 }
 
