@@ -124,9 +124,9 @@ CMT32Pi::CMT32Pi(CI2CMaster* pI2CMaster, CSPIMaster* pSPIMaster, CInterruptSyste
 	  m_bLEDOn(false),
 	  m_nLEDOnTime(0),
 
+	  m_pSound(nullptr),
 	  m_pAudioFloatBuffer(nullptr),
 	  m_pAudioIntBuffer(nullptr),
-	  m_pSound(nullptr),
 	  m_pPisound(nullptr),
 
 	  m_nMasterVolume(100),
@@ -2816,12 +2816,10 @@ void CMT32Pi::UpdateUSB(bool bStartup)
 		{
 			bUSBMIDIFound = true;
 			// Register only once for the first device found
-			if (pDev->RegisterPacketHandler(USBMIDIPacketHandler))
-			{
-				m_pUSBMIDIDevice = pDev;
-				m_pUSBMIDIDevice->RegisterRemovedHandler(USBMIDIDeviceRemovedHandler, &m_pUSBMIDIDevice);
-				LOGNOTE("Using USB MIDI interface");
-			}
+			pDev->RegisterPacketHandler(USBMIDIPacketHandler);
+			m_pUSBMIDIDevice = pDev;
+			m_pUSBMIDIDevice->RegisterRemovedHandler(USBMIDIDeviceRemovedHandler, &m_pUSBMIDIDevice);
+			LOGNOTE("Using USB MIDI interface");
 		}
 	}
 
