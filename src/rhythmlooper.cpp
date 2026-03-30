@@ -307,7 +307,7 @@ void CRhythmLooper::SaveToMIDI()
 	auto WriteU16BE = [&](u16 v) { WriteByte(v >> 8); WriteByte(v & 0xFF); };
 	auto WriteU32BE = [&](u32 v) { WriteU16BE(v >> 16); WriteU16BE(v & 0xFFFF); };
 	auto WriteVarLen = [&](u32 v) {
-		u8 b[4]; int n = 0;
+		u8 b[5]; int n = 0;
 		b[n++] = v & 0x7F; v >>= 7;
 		while (v > 0) { b[n++] = (v & 0x7F) | 0x80; v >>= 7; }
 		for (int i = n - 1; i >= 0; --i) WriteByte(b[i]);
@@ -344,7 +344,7 @@ void CRhythmLooper::SaveToMIDI()
 	}
 
 	// End of Track meta-event at exactly the loop boundary
-	WriteVarLen(m_nLoopLengthMidiTicks - nLastTick);
+	WriteVarLen(m_nLoopLengthMidiTicks > nLastTick ? m_nLoopLengthMidiTicks - nLastTick : 0);
 	WriteByte(0xFF); WriteByte(0x2F); WriteByte(0x00);
 
 	// Back-fill track length

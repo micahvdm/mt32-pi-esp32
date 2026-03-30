@@ -183,7 +183,12 @@ bool CConfig::Initialize(const char* pPath)
 // Helper functions for CConfig::Write overloads
 static void WriteCfg(FIL* fp, const char* pName, bool bVal) { f_printf(fp, "%s = %s\n", pName, bVal ? "on" : "off"); }
 static void WriteCfg(FIL* fp, const char* pName, int nVal) { f_printf(fp, "%s = %d\n", pName, nVal); }
-static void WriteCfg(FIL* fp, const char* pName, float fVal) { f_printf(fp, "%s = %.2f\n", pName, static_cast<double>(fVal)); }
+static void WriteCfg(FIL* fp, const char* pName, float fVal)
+{
+	char buf[32];
+	snprintf(buf, sizeof(buf), "%.2f", static_cast<double>(fVal));
+	f_printf(fp, "%s = %s\n", pName, buf);
+}
 static void WriteCfg(FIL* fp, const char* pName, const CString& sVal) { f_printf(fp, "%s = %s\n", pName, static_cast<const char*>(sVal)); }
 static void WriteCfg(FIL* fp, const char* pName, const CIPAddress& ipVal)
 {

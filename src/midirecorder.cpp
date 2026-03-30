@@ -270,7 +270,7 @@ void CMidiRecorder::WriteVarLen(u32 v)
 {
         // Encode groups of 7 bits LSB-first into a temporary buffer,
         // then write them MSB-first with continuation bits on all but the last.
-        u8 buf[4];
+        u8 buf[5];
         int n = 0;
 
         buf[n++] = static_cast<u8>(v & 0x7F);
