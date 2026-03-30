@@ -4094,7 +4094,37 @@ void CMT32Pi::USBMIDIDeviceRemovedHandler(CDevice* pDevice, void* pContext)
 // The following handlers are called from interrupt context, enqueue into ring buffer for main thread
 void CMT32Pi::USBMIDIPacketHandler(unsigned nCable, u8* pPacket, unsigned nLength)
 {
-	IRQMIDIReceiveHandler(pPacket, nLength);
+	if (nLength != 4) return;
+
+	// Decode USB-MIDI Event Packet (4 bytes) to raw MIDI bytes
+	u8 cin = pPacket[0] & 0x0F;
+	u8 midi[3];
+	size_t midiLen = 0;
+
+	switch (cin)
+	{
+		case 0x2: midiLen = 2; break; // 2-byte System Common
+		case 0x3: midiLen = 3; break; // 3-byte System Common
+		case 0x4: midiLen = 3; break; // SysEx starts/continues
+		case 0x5: midiLen = 1; break; // System Common 1-byte / SysEx ends (1 byte)
+		case 0x6: midiLen = 2; break; // SysEx ends (2 bytes)
+		case 0x7: midiLen = 3; break; // SysEx ends (3 bytes)
+		case 0x8: midiLen = 3; break; // Note Off
+		case 0x9: midiLen = 3; break; // Note On
+		case 0xA: midiLen = 3; break; // Poly Aftertouch
+		case 0xB: midiLen = 3; break; // Control Change
+		case 0xC: midiLen = 2; break; // Program Change
+		case 0xD: midiLen = 2; break; // Channel Aftertouch
+		case 0xE: midiLen = 3; break; // Pitch Bend
+		case 0xF: midiLen = 1; break; // System Real-Time
+		default: return;
+	}
+
+	if (midiLen > 0)
+	{
+		midi[0] = pPacket[1]; midi[1] = pPacket[2]; midi[2] = pPacket[3];
+		IRQMIDIReceiveHandler(midi, midiLen);
+	}
 }
 
 void CMT32Pi::IRQMIDIReceiveHandler(const u8* pData, size_t nSize)
