@@ -2804,12 +2804,23 @@ void CMT32Pi::UpdateUSB(bool bStartup)
 	}
 	m_pUSBMassStorageDevice = pUSBMassStorageDevice;
 
-	if (!m_pUSBMIDIDevice && (m_pUSBMIDIDevice = static_cast<CUSBMIDIDevice*>(CDeviceNameService::Get()->GetDevice("umidi1", FALSE))))
+	// Scan for up to 4 class-compliant USB MIDI devices (umidi1, umidi2, etc.)
+	for (int i = 1; i <= 4; ++i)
 	{
-		m_pUSBMIDIDevice->RegisterRemovedHandler(USBMIDIDeviceRemovedHandler, &m_pUSBMIDIDevice);
-		m_pUSBMIDIDevice->RegisterPacketHandler(USBMIDIPacketHandler);
-		LOGNOTE("Using USB MIDI interface");
-		m_bSerialMIDIEnabled = false;
+		char szName[8];
+		snprintf(szName, sizeof(szName), "umidi%d", i);
+		CUSBMIDIDevice* pDev = static_cast<CUSBMIDIDevice*>(CDeviceNameService::Get()->GetDevice(szName, FALSE));
+		if (pDev)
+		{
+			// Track the primary device to decide when to re-enable serial MIDI later
+			if (!m_pUSBMIDIDevice)
+			{
+				m_pUSBMIDIDevice = pDev;
+				m_pUSBMIDIDevice->RegisterRemovedHandler(USBMIDIDeviceRemovedHandler, &m_pUSBMIDIDevice);
+			}
+			pDev->RegisterPacketHandler(USBMIDIPacketHandler);
+			m_bSerialMIDIEnabled = false;
+		}
 	}
 
 	if (!m_pUSBSerialDevice && (m_pUSBSerialDevice = static_cast<CUSBSerialDevice*>(CDeviceNameService::Get()->GetDevice("utty1", FALSE))))
@@ -2962,20 +2973,25 @@ void CMT32Pi::UpdateMIDI()
 	size_t nBytes;
 	u8 Buffer[MIDIRxBufferSize];
 
-	// Read MIDI messages from serial device or ring buffer
-	if (m_bSerialMIDIEnabled)
-		nBytes = ReceiveSerialMIDI(Buffer, sizeof(Buffer));
-	else if (m_pUSBSerialDevice)
-	{
-		const int nResult = m_pUSBSerialDevice->Read(Buffer, sizeof(Buffer));
-		nBytes = nResult > 0 ? static_cast<size_t>(nResult) : 0;
-	}
-	else
-		nBytes = m_MIDIRxBuffer.Dequeue(Buffer, sizeof(Buffer));
+	m_eMidiSource = static_cast<u8>(EMidiSource::Physical);
 
-	if (nBytes > 0)
+	// 1. Read MIDI messages from built-in serial GPIO (legacy DIN)
+	if (m_bSerialMIDIEnabled && (nBytes = ReceiveSerialMIDI(Buffer, sizeof(Buffer))) > 0)
 	{
-		m_eMidiSource = static_cast<u8>(EMidiSource::Physical);
+		ParseMIDIBytes(Buffer, nBytes);
+		s_pThis->m_nActiveSenseTime = s_pThis->m_pTimer->GetTicks();
+	}
+
+	// 2. Read from USB-to-Serial adapters (utty)
+	if (m_pUSBSerialDevice && (nBytes = m_pUSBSerialDevice->Read(Buffer, sizeof(Buffer))) > 0)
+	{
+		ParseMIDIBytes(Buffer, nBytes);
+		s_pThis->m_nActiveSenseTime = s_pThis->m_pTimer->GetTicks();
+	}
+
+	// 3. Drain class-compliant USB MIDI and Pisound (IRQ-driven ring buffer)
+	while ((nBytes = m_MIDIRxBuffer.Dequeue(Buffer, sizeof(Buffer))) > 0)
+	{
 		ParseMIDIBytes(Buffer, nBytes);
 		s_pThis->m_nActiveSenseTime = s_pThis->m_pTimer->GetTicks();
 	}
