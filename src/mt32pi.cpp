@@ -2806,59 +2806,40 @@ void CMT32Pi::UpdateUSB(bool bStartup)
 	m_pUSBMassStorageDevice = pUSBMassStorageDevice;
 
 	// Scan for class-compliant USB MIDI devices (midi1-4 and umidi1-4)
+	bool bAnyUSBMIDIFound = false;
 	const char* pPrefixes[] = { "midi", "umidi" };
 
-	// First, check for removed devices and clear their slots
-	for (int s = 0; s < 4; ++s)
-	{
-		if (m_pUSBMIDIDevices[s])
-		{
-			// Check if the device is still present in the device name service
-			// We need to get the device's actual name to query correctly
-			char szDevName[12];
-			m_pUSBMIDIDevices[s]->GetName(szDevName, sizeof(szDevName));
-			if (!CDeviceNameService::Get()->GetDevice(szDevName, FALSE))
-			{
-				LOGNOTE("USB MIDI interface removed: %s", szDevName);
-				m_pUSBMIDIDevices[s] = nullptr; // Clear the slot
-			}
-		}
-	}
-
-	// Then, scan for newly attached devices and register them
-	bool bAnyUSBMIDIFound = false;
 	for (const char* pPrefix : pPrefixes)
 	{
 		for (int i = 1; i <= 4; ++i)
 		{
 			char szName[12];
 			snprintf(szName, sizeof(szName), "%s%d", pPrefix, i);
-			CUSBMIDIDevice* pNewDev = static_cast<CUSBMIDIDevice*>(CDeviceNameService::Get()->GetDevice(szName, FALSE));
-			
-			if (pNewDev)
+			CUSBMIDIDevice* pDev = static_cast<CUSBMIDIDevice*>(CDeviceNameService::Get()->GetDevice(szName, FALSE));
+
+			if (pDev)
 			{
 				// Check if we are already tracking this specific device pointer
 				bool bAlreadyTracked = false;
 				int nEmptySlot = -1;
 				for (int s = 0; s < 4; ++s)
 				{
-					if (m_pUSBMIDIDevices[s] == pNewDev) bAlreadyTracked = true;
+					if (m_pUSBMIDIDevices[s] == pDev) bAlreadyTracked = true;
 					if (nEmptySlot == -1 && !m_pUSBMIDIDevices[s]) nEmptySlot = s;
 				}
 
 				// Only register if it's a new device and we have a slot available
 				if (!bAlreadyTracked && nEmptySlot != -1)
 				{
-					m_pUSBMIDIDevices[nEmptySlot] = pNewDev;
-					pNewDev->RegisterPacketHandler(USBMIDIPacketHandler);
-					pNewDev->RegisterRemovedHandler(USBMIDIDeviceRemovedHandler, reinterpret_cast<void**>(&m_pUSBMIDIDevices[nEmptySlot]));
+					m_pUSBMIDIDevices[nEmptySlot] = pDev;
+					pDev->RegisterPacketHandler(USBMIDIPacketHandler);
+					pDev->RegisterRemovedHandler(USBMIDIDeviceRemovedHandler, reinterpret_cast<void**>(&m_pUSBMIDIDevices[nEmptySlot]));
 					LOGNOTE("Using USB MIDI interface: %s", szName);
 				}
 			}
 		}
 	}
 
-	// Finally, re-evaluate bAnyUSBMIDIFound based on the current state of the array
 	for (int s = 0; s < 4; ++s)
 		if (m_pUSBMIDIDevices[s]) bAnyUSBMIDIFound = true;
 
