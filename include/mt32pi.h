@@ -557,6 +557,8 @@ private:
 
 	// Audio output
 	CSoundBaseDevice* m_pSound;
+	float* m_pAudioFloatBuffer;
+	s8*    m_pAudioIntBuffer;
 
 	// Extra devices
 	CPisound* m_pPisound;

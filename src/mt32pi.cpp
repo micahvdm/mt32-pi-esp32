@@ -124,6 +124,8 @@ CMT32Pi::CMT32Pi(CI2CMaster* pI2CMaster, CSPIMaster* pSPIMaster, CInterruptSyste
 	  m_bLEDOn(false),
 	  m_nLEDOnTime(0),
 
+	  m_pAudioFloatBuffer(nullptr),
+	  m_pAudioIntBuffer(nullptr),
 	  m_pSound(nullptr),
 	  m_pPisound(nullptr),
 
@@ -335,6 +337,9 @@ bool CMT32Pi::Initialize(bool bSerialMIDIAvailable)
 	m_pSound->SetWriteFormat(Format);
 	if (!m_pSound->AllocateQueueFrames(nQueueSize))
 		LOGPANIC("Failed to allocate sound queue");
+
+	m_pAudioFloatBuffer = new float[nQueueSize * 2];
+	m_pAudioIntBuffer   = new s8[nQueueSize * 8 + 1]; // Max 24-bit/32-bit packed
 
 	LCDLog(TLCDLogType::Startup, "Init controls");
 	if (m_pConfig->ControlScheme == CConfig::TControlScheme::SimpleButtons)
@@ -1788,20 +1793,16 @@ void CMT32Pi::UITask()
 void CMT32Pi::AudioTask()
 {
 	LOGNOTE("Audio task on Core 2 starting up");
+	if (!m_pAudioFloatBuffer || !m_pAudioIntBuffer) return;
 
 	constexpr u8 nChannels = 2;
 
-	// Circle's "fast path" for I2S 24-bit really expects 32-bit samples
 	const bool bI2S = m_pConfig->AudioOutputDevice == CConfig::TAudioOutputDevice::I2S;
 	const bool bReversedStereo = m_pConfig->AudioReversedStereo;
 	const u8 nBytesPerSample = bI2S ? sizeof(s32) : (sizeof(s8) * 3);
 	const u8 nBytesPerFrame = 2 * nBytesPerSample;
 
 	const size_t nQueueSizeFrames = m_pSound->GetQueueSizeFrames();
-
-	// Extra byte so that we can write to the 24-bit buffer with overlapping 32-bit writes (efficiency)
-	float FloatBuffer[nQueueSizeFrames * nChannels];
-s8 IntBuffer[nQueueSizeFrames * nBytesPerFrame + (bI2S ? 0 : 1)];
 
 	while (m_bRunning)
 	{
@@ -1828,7 +1829,7 @@ s8 IntBuffer[nQueueSizeFrames * nBytesPerFrame + (bI2S ? 0 : 1)];
 		if (m_bMixerEnabled)
 		{
 			CAudioMixer::TRenderProfile Profile;
-			m_AudioMixer.Render(FloatBuffer, nFrames, &Profile);
+			m_AudioMixer.Render(m_pAudioFloatBuffer, nFrames, &Profile);
 			nMixerUs = Profile.nMixUs;
 			for (unsigned i = 0; i < m_AudioMixer.GetEngineCount(); ++i)
 			{
@@ -1842,7 +1843,7 @@ s8 IntBuffer[nQueueSizeFrames * nBytesPerFrame + (bI2S ? 0 : 1)];
 		else
 		{
 			const unsigned nSynthStart = CTimer::GetClockTicks();
-			m_pCurrentSynth->Render(FloatBuffer, nFrames);
+			m_pCurrentSynth->Render(m_pAudioFloatBuffer, nFrames);
 			const unsigned nSynthUs = CTimer::GetClockTicks() - nSynthStart;
 			if (m_pCurrentSynth == m_pMT32Synth)
 				nMT32Us = nSynthUs;
@@ -1853,7 +1854,7 @@ s8 IntBuffer[nQueueSizeFrames * nBytesPerFrame + (bI2S ? 0 : 1)];
 		}
 
 		// Post-mix effects chain (EQ → Reverb → Limiter/clamp)
-		m_AudioEffects.Process(FloatBuffer, nFrames);
+		m_AudioEffects.Process(m_pAudioFloatBuffer, nFrames);
 
 		const unsigned nElapsed = CTimer::GetClockTicks() - nStart;
 		m_nRenderUs = nElapsed;
@@ -1887,17 +1888,17 @@ s8 IntBuffer[nQueueSizeFrames * nBytesPerFrame + (bI2S ? 0 : 1)];
 				// I2S: stride = sizeof(s32) = 4 bytes — fully vectorizable
 				// vrev64q_f32 swaps pairs within each 64-bit lane: {L,R,L,R}→{R,L,R,L}
 				const float32x4_t vScale = vdupq_n_f32(Sample24BitMax);
-				s32* const pOut = reinterpret_cast<s32*>(IntBuffer);
+				s32* const pOut = reinterpret_cast<s32*>(m_pAudioIntBuffer);
 				size_t i = 0;
 				for (; i + 4 <= nSamples; i += 4)
 				{
-					float32x4_t vf = vrev64q_f32(vld1q_f32(FloatBuffer + i));
+					float32x4_t vf = vrev64q_f32(vld1q_f32(m_pAudioFloatBuffer + i));
 					vst1q_s32(pOut + i, vcvtq_s32_f32(vmulq_f32(vf, vScale)));
 				}
 				for (; i < nSamples; i += nChannels)
 				{
-					pOut[i]     = FloatBuffer[i + 1] * Sample24BitMax;
-					pOut[i + 1] = FloatBuffer[i]     * Sample24BitMax;
+					pOut[i]     = m_pAudioFloatBuffer[i + 1] * Sample24BitMax;
+					pOut[i + 1] = m_pAudioFloatBuffer[i]     * Sample24BitMax;
 				}
 			}
 			else
@@ -1906,10 +1907,10 @@ s8 IntBuffer[nQueueSizeFrames * nBytesPerFrame + (bI2S ? 0 : 1)];
 				// 24-bit PWM: 3-byte stride — scalar (overlapping writes via extra byte)
 				for (size_t i = 0; i < nSamples; i += nChannels)
 				{
-					s32* const pLeftSample = reinterpret_cast<s32*>(IntBuffer + i * nBytesPerSample);
-					s32* const pRightSample = reinterpret_cast<s32*>(IntBuffer + (i + 1) * nBytesPerSample);
-					*pLeftSample = FloatBuffer[i + 1] * Sample24BitMax;
-					*pRightSample = FloatBuffer[i] * Sample24BitMax;
+					s32* const pLeftSample = reinterpret_cast<s32*>(m_pAudioIntBuffer + i * nBytesPerSample);
+					s32* const pRightSample = reinterpret_cast<s32*>(m_pAudioIntBuffer + (i + 1) * nBytesPerSample);
+					*pLeftSample = m_pAudioFloatBuffer[i + 1] * Sample24BitMax;
+					*pRightSample = m_pAudioFloatBuffer[i] * Sample24BitMax;
 				}
 			}
 		}
@@ -1922,15 +1923,15 @@ s8 IntBuffer[nQueueSizeFrames * nBytesPerFrame + (bI2S ? 0 : 1)];
 			{
 				// I2S: stride = sizeof(s32) = 4 bytes — fully vectorizable
 				const float32x4_t vScale = vdupq_n_f32(Sample24BitMax);
-				s32* const pOut = reinterpret_cast<s32*>(IntBuffer);
+				s32* const pOut = reinterpret_cast<s32*>(m_pAudioIntBuffer);
 				size_t i = 0;
 				for (; i + 4 <= nSamples; i += 4)
 				{
-					float32x4_t vf = vld1q_f32(FloatBuffer + i);
+					float32x4_t vf = vld1q_f32(m_pAudioFloatBuffer + i);
 					vst1q_s32(pOut + i, vcvtq_s32_f32(vmulq_f32(vf, vScale)));
 				}
 				for (; i < nSamples; ++i)
-					pOut[i] = FloatBuffer[i] * Sample24BitMax;
+					pOut[i] = m_pAudioFloatBuffer[i] * Sample24BitMax;
 			}
 			else
 #endif
@@ -1938,13 +1939,13 @@ s8 IntBuffer[nQueueSizeFrames * nBytesPerFrame + (bI2S ? 0 : 1)];
 				// 24-bit PWM: 3-byte stride — scalar
 				for (size_t i = 0; i < nSamples; ++i)
 				{
-					s32* const pSample = reinterpret_cast<s32*>(IntBuffer + i * nBytesPerSample);
-					*pSample = FloatBuffer[i] * Sample24BitMax;
+					s32* const pSample = reinterpret_cast<s32*>(m_pAudioIntBuffer + i * nBytesPerSample);
+					*pSample = m_pAudioFloatBuffer[i] * Sample24BitMax;
 				}
 			}
 		}
 
-		const int nResult = m_pSound->Write(IntBuffer, nWriteBytes);
+		const int nResult = m_pSound->Write(m_pAudioIntBuffer, nWriteBytes);
 		if (nResult != static_cast<int>(nWriteBytes))
 			LOGERR("Sound data dropped");
 	}
@@ -2811,17 +2812,16 @@ void CMT32Pi::UpdateUSB(bool bStartup)
 		char szName[8];
 		snprintf(szName, sizeof(szName), "umidi%d", i);
 		CUSBMIDIDevice* pDev = static_cast<CUSBMIDIDevice*>(CDeviceNameService::Get()->GetDevice(szName, FALSE));
-		if (pDev)
+		if (pDev && !m_pUSBMIDIDevice)
 		{
 			bUSBMIDIFound = true;
-			// Track the primary device to decide when to re-enable serial MIDI later
-			if (!m_pUSBMIDIDevice)
+			// Register only once for the first device found
+			if (pDev->RegisterPacketHandler(USBMIDIPacketHandler))
 			{
 				m_pUSBMIDIDevice = pDev;
 				m_pUSBMIDIDevice->RegisterRemovedHandler(USBMIDIDeviceRemovedHandler, &m_pUSBMIDIDevice);
 				LOGNOTE("Using USB MIDI interface");
 			}
-			pDev->RegisterPacketHandler(USBMIDIPacketHandler);
 		}
 	}
 
@@ -2984,10 +2984,10 @@ void CMT32Pi::UpdateMIDI()
 	if (m_bSerialMIDIEnabled && (nBytes = ReceiveSerialMIDI(Buffer, sizeof(Buffer))) > 0)
 	{
 		ParseMIDIBytes(Buffer, nBytes);
-		s_pThis->m_nActiveSenseTime = s_pThis->m_pTimer->GetTicks();
+		m_nActiveSenseTime = m_pTimer->GetTicks();
 
 		// Universal MIDI Thru: forward physical MIDI bytes to UART TX
-		if (m_bMIDIThruEnabled && m_pSerial)
+		if (m_bMIDIThruEnabled && m_bSerialMIDIAvailable && m_pSerial)
 			m_pSerial->Write(Buffer, nBytes);
 	}
 
@@ -2995,10 +2995,10 @@ void CMT32Pi::UpdateMIDI()
 	if (m_pUSBSerialDevice && (nBytes = m_pUSBSerialDevice->Read(Buffer, sizeof(Buffer))) > 0)
 	{
 		ParseMIDIBytes(Buffer, nBytes);
-		s_pThis->m_nActiveSenseTime = s_pThis->m_pTimer->GetTicks();
+		m_nActiveSenseTime = m_pTimer->GetTicks();
 
 		// Universal MIDI Thru: forward physical MIDI bytes to UART TX
-		if (m_bMIDIThruEnabled && m_pSerial)
+		if (m_bMIDIThruEnabled && m_bSerialMIDIAvailable && m_pSerial)
 			m_pSerial->Write(Buffer, nBytes);
 	}
 
@@ -3006,10 +3006,10 @@ void CMT32Pi::UpdateMIDI()
 	while ((nBytes = m_MIDIRxBuffer.Dequeue(Buffer, sizeof(Buffer))) > 0)
 	{
 		ParseMIDIBytes(Buffer, nBytes);
-		s_pThis->m_nActiveSenseTime = s_pThis->m_pTimer->GetTicks();
+		m_nActiveSenseTime = m_pTimer->GetTicks();
 
 		// Universal MIDI Thru: forward physical MIDI bytes to UART TX
-		if (m_bMIDIThruEnabled && m_pSerial)
+		if (m_bMIDIThruEnabled && m_bSerialMIDIAvailable && m_pSerial)
 			m_pSerial->Write(Buffer, nBytes);
 	}
 
@@ -3022,7 +3022,7 @@ void CMT32Pi::UpdateMIDI()
 		{
 			m_eMidiSource = static_cast<u8>(EMidiSource::Player);
 			ParseMIDIBytes(Buffer, nBytes);
-			s_pThis->m_nActiveSenseTime = s_pThis->m_pTimer->GetTicks();
+			m_nActiveSenseTime = m_pTimer->GetTicks();
 		}
 
 		// Check if FluidSequencer finished playing (only fires when loop is off)
@@ -3051,7 +3051,7 @@ void CMT32Pi::UpdateMIDI()
 	{
 		m_eMidiSource = static_cast<u8>(EMidiSource::WebUI);
 		ParseMIDIBytes(Buffer, nBytes);
-		s_pThis->m_nActiveSenseTime = s_pThis->m_pTimer->GetTicks();
+		m_nActiveSenseTime = m_pTimer->GetTicks();
 	}
 }
 

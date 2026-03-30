@@ -189,7 +189,10 @@ static void WriteCfg(FIL* fp, const char* pName, float fVal)
 	int nWhole = static_cast<int>(fVal);
 	int nFract = static_cast<int>((fVal - static_cast<float>(nWhole)) * 100.0f + 0.5f);
 	if (nFract >= 100) { nWhole++; nFract -= 100; }
-	f_printf(fp, "%s = %d.%02d\n", pName, nWhole, nFract);
+	
+	char buf[32];
+	snprintf(buf, sizeof(buf), "%d.%02d", nWhole, nFract);
+	f_printf(fp, "%s = %s\n", pName, buf);
 }
 static void WriteCfg(FIL* fp, const char* pName, const CString& sVal) { f_printf(fp, "%s = %s\n", pName, static_cast<const char*>(sVal)); }
 static void WriteCfg(FIL* fp, const char* pName, const CIPAddress& ipVal)
