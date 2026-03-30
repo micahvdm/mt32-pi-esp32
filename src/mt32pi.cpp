@@ -4148,7 +4148,6 @@ void CMT32Pi::IRQMIDIReceiveHandler(const u8* pData, size_t nSize)
 	if (s_pThis->m_MIDIRxBuffer.Enqueue(pData, nSize) != nSize)
 	{
 		static const char* pErrorString = "MIDI overrun error!";
-		LOGWARN(pErrorString);
 		// Do not call LCDLog from interrupt context, as it can perform memory allocations.
 	}
 }
