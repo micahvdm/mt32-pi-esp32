@@ -2805,34 +2805,47 @@ void CMT32Pi::UpdateUSB(bool bStartup)
 	}
 	m_pUSBMassStorageDevice = pUSBMassStorageDevice;
 
-	// Scan for class-compliant USB MIDI devices (umidi1, umidi2, etc.)
-	bool bUSBMIDIFound = false;
-	for (int i = 1; i <= 4; ++i)
-	{
-		char szName[8];
-		snprintf(szName, sizeof(szName), "umidi%d", i);
-		CUSBMIDIDevice* pDev = static_cast<CUSBMIDIDevice*>(CDeviceNameService::Get()->GetDevice(szName, FALSE));
-		if (pDev && !m_pUSBMIDIDevices[i-1]) // Device attached and slot is empty
-		{
-			bUSBMIDIFound = true;
-			m_pUSBMIDIDevices[i-1] = pDev;
-			pDev->RegisterPacketHandler(USBMIDIPacketHandler); // Register handler for this device
-			pDev->RegisterRemovedHandler(USBMIDIDeviceRemovedHandler, reinterpret_cast<void**>(&m_pUSBMIDIDevices[i-1])); // Pass address of slot
-			LOGNOTE("Using USB MIDI interface: %s", szName);
-		}
-		else if (!pDev && m_pUSBMIDIDevices[i-1]) // Device removed from this slot
-		{
-			// The removed handler should have cleared this, but as a safeguard
-			m_pUSBMIDIDevices[i-1] = nullptr;
-		}
+	// Scan for class-compliant USB MIDI devices (midi1-4 and umidi1-4)
+	bool bAnyUSBMIDIFound = false;
+	const char* pPrefixes[] = { "midi", "umidi" };
 
-		if (m_pUSBMIDIDevices[i-1]) // Check if any device is still active
-			bUSBMIDIFound = true;
+	for (const char* pPrefix : pPrefixes)
+	{
+		for (int i = 1; i <= 4; ++i)
+		{
+			char szName[12];
+			snprintf(szName, sizeof(szName), "%s%d", pPrefix, i);
+			CUSBMIDIDevice* pDev = static_cast<CUSBMIDIDevice*>(CDeviceNameService::Get()->GetDevice(szName, FALSE));
+			
+			if (pDev)
+			{
+				// Check if we are already tracking this specific device pointer
+				bool bAlreadyTracked = false;
+				int nEmptySlot = -1;
+				for (int s = 0; s < 4; ++s)
+				{
+					if (m_pUSBMIDIDevices[s] == pDev) bAlreadyTracked = true;
+					if (nEmptySlot == -1 && !m_pUSBMIDIDevices[s]) nEmptySlot = s;
+				}
+
+				// Only register if it's a new device and we have a slot available
+				if (!bAlreadyTracked && nEmptySlot != -1)
+				{
+					m_pUSBMIDIDevices[nEmptySlot] = pDev;
+					pDev->RegisterPacketHandler(USBMIDIPacketHandler);
+					pDev->RegisterRemovedHandler(USBMIDIDeviceRemovedHandler, reinterpret_cast<void**>(&m_pUSBMIDIDevices[nEmptySlot]));
+					LOGNOTE("Using USB MIDI interface: %s", szName);
+				}
+			}
+		}
 	}
 
-	if (bUSBMIDIFound)
+	for (int s = 0; s < 4; ++s)
+		if (m_pUSBMIDIDevices[s]) bAnyUSBMIDIFound = true;
+
+	if (bAnyUSBMIDIFound)
 		m_bSerialMIDIEnabled = false;
-	else if (m_bSerialMIDIAvailable) // No USB MIDI devices, re-enable serial if available
+	else if (m_bSerialMIDIAvailable && !m_pUSBSerialDevice && !m_pPisound)
 		m_bSerialMIDIEnabled = true;
 
 	if (!m_pUSBSerialDevice && (m_pUSBSerialDevice = static_cast<CUSBSerialDevice*>(CDeviceNameService::Get()->GetDevice("utty1", FALSE))))
