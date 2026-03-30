@@ -543,7 +543,7 @@ private:
 	bool m_bMIDIThruEnabled;  // universal MIDI thru (all physical → UART TX)
 
 	// USB devices
-	CUSBMIDIDevice* m_pUSBMIDIDevices[4]; // Support up to 4 USB MIDI devices
+	CUSBMIDIDevice* m_pUSBMIDIDevice;
 	CUSBSerialDevice* m_pUSBSerialDevice;
 	CUSBBulkOnlyMassStorageDevice* volatile m_pUSBMassStorageDevice;
 
@@ -557,8 +557,6 @@ private:
 
 	// Audio output
 	CSoundBaseDevice* m_pSound;
-	float* m_pAudioFloatBuffer;
-	s8*    m_pAudioIntBuffer;
 
 	// Extra devices
 	CPisound* m_pPisound;

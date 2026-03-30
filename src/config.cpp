@@ -185,13 +185,8 @@ static void WriteCfg(FIL* fp, const char* pName, bool bVal) { f_printf(fp, "%s =
 static void WriteCfg(FIL* fp, const char* pName, int nVal) { f_printf(fp, "%s = %d\n", pName, nVal); }
 static void WriteCfg(FIL* fp, const char* pName, float fVal)
 {
-	// Manual fixed-point conversion to avoid unsupported %f in light snprintf
-	int nWhole = static_cast<int>(fVal);
-	int nFract = static_cast<int>((fVal - static_cast<float>(nWhole)) * 100.0f + 0.5f);
-	if (nFract >= 100) { nWhole++; nFract -= 100; }
-	
 	char buf[32];
-	snprintf(buf, sizeof(buf), "%d.%02d", nWhole, nFract);
+	snprintf(buf, sizeof(buf), "%.2f", static_cast<double>(fVal));
 	f_printf(fp, "%s = %s\n", pName, buf);
 }
 static void WriteCfg(FIL* fp, const char* pName, const CString& sVal) { f_printf(fp, "%s = %s\n", pName, static_cast<const char*>(sVal)); }

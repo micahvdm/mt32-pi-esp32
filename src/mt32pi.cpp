@@ -108,11 +108,11 @@ CMT32Pi::CMT32Pi(CI2CMaster* pI2CMaster, CSPIMaster* pSPIMaster, CInterruptSyste
 	  m_bDeferredSoundFontSwitchFlag(false),
 	  m_nDeferredSoundFontSwitchIndex(0),
 	  m_nDeferredSoundFontSwitchTime(0),
-	  
+
 	  m_bSerialMIDIAvailable(false),
 	  m_bSerialMIDIEnabled(false),
 	  m_bMIDIThruEnabled(false),
-	  m_pUSBMIDIDevices{nullptr}, // Initialize array elements to nullptr
+	  m_pUSBMIDIDevice(nullptr),
 	  m_pUSBSerialDevice(nullptr),
 	  m_pUSBMassStorageDevice(nullptr),
 
@@ -125,8 +125,6 @@ CMT32Pi::CMT32Pi(CI2CMaster* pI2CMaster, CSPIMaster* pSPIMaster, CInterruptSyste
 	  m_nLEDOnTime(0),
 
 	  m_pSound(nullptr),
-	  m_pAudioFloatBuffer(nullptr), // Reordered from previous diff
-	  m_pAudioIntBuffer(nullptr),
 	  m_pPisound(nullptr),
 
 	  m_nMasterVolume(100),
@@ -337,9 +335,6 @@ bool CMT32Pi::Initialize(bool bSerialMIDIAvailable)
 	m_pSound->SetWriteFormat(Format);
 	if (!m_pSound->AllocateQueueFrames(nQueueSize))
 		LOGPANIC("Failed to allocate sound queue");
-
-	m_pAudioFloatBuffer = new float[nQueueSize * 2];
-	m_pAudioIntBuffer   = new s8[nQueueSize * 8 + 1]; // Max 24-bit/32-bit packed
 
 	LCDLog(TLCDLogType::Startup, "Init controls");
 	if (m_pConfig->ControlScheme == CConfig::TControlScheme::SimpleButtons)
@@ -1793,16 +1788,20 @@ void CMT32Pi::UITask()
 void CMT32Pi::AudioTask()
 {
 	LOGNOTE("Audio task on Core 2 starting up");
-	if (!m_pAudioFloatBuffer || !m_pAudioIntBuffer) return;
 
 	constexpr u8 nChannels = 2;
 
+	// Circle's "fast path" for I2S 24-bit really expects 32-bit samples
 	const bool bI2S = m_pConfig->AudioOutputDevice == CConfig::TAudioOutputDevice::I2S;
 	const bool bReversedStereo = m_pConfig->AudioReversedStereo;
 	const u8 nBytesPerSample = bI2S ? sizeof(s32) : (sizeof(s8) * 3);
 	const u8 nBytesPerFrame = 2 * nBytesPerSample;
 
 	const size_t nQueueSizeFrames = m_pSound->GetQueueSizeFrames();
+
+	// Extra byte so that we can write to the 24-bit buffer with overlapping 32-bit writes (efficiency)
+	float FloatBuffer[nQueueSizeFrames * nChannels];
+s8 IntBuffer[nQueueSizeFrames * nBytesPerFrame + (bI2S ? 0 : 1)];
 
 	while (m_bRunning)
 	{
@@ -1829,7 +1828,7 @@ void CMT32Pi::AudioTask()
 		if (m_bMixerEnabled)
 		{
 			CAudioMixer::TRenderProfile Profile;
-			m_AudioMixer.Render(m_pAudioFloatBuffer, nFrames, &Profile);
+			m_AudioMixer.Render(FloatBuffer, nFrames, &Profile);
 			nMixerUs = Profile.nMixUs;
 			for (unsigned i = 0; i < m_AudioMixer.GetEngineCount(); ++i)
 			{
@@ -1843,7 +1842,7 @@ void CMT32Pi::AudioTask()
 		else
 		{
 			const unsigned nSynthStart = CTimer::GetClockTicks();
-			m_pCurrentSynth->Render(m_pAudioFloatBuffer, nFrames);
+			m_pCurrentSynth->Render(FloatBuffer, nFrames);
 			const unsigned nSynthUs = CTimer::GetClockTicks() - nSynthStart;
 			if (m_pCurrentSynth == m_pMT32Synth)
 				nMT32Us = nSynthUs;
@@ -1854,7 +1853,7 @@ void CMT32Pi::AudioTask()
 		}
 
 		// Post-mix effects chain (EQ → Reverb → Limiter/clamp)
-		m_AudioEffects.Process(m_pAudioFloatBuffer, nFrames);
+		m_AudioEffects.Process(FloatBuffer, nFrames);
 
 		const unsigned nElapsed = CTimer::GetClockTicks() - nStart;
 		m_nRenderUs = nElapsed;
@@ -1888,17 +1887,17 @@ void CMT32Pi::AudioTask()
 				// I2S: stride = sizeof(s32) = 4 bytes — fully vectorizable
 				// vrev64q_f32 swaps pairs within each 64-bit lane: {L,R,L,R}→{R,L,R,L}
 				const float32x4_t vScale = vdupq_n_f32(Sample24BitMax);
-				s32* const pOut = reinterpret_cast<s32*>(m_pAudioIntBuffer);
+				s32* const pOut = reinterpret_cast<s32*>(IntBuffer);
 				size_t i = 0;
 				for (; i + 4 <= nSamples; i += 4)
 				{
-					float32x4_t vf = vrev64q_f32(vld1q_f32(m_pAudioFloatBuffer + i));
+					float32x4_t vf = vrev64q_f32(vld1q_f32(FloatBuffer + i));
 					vst1q_s32(pOut + i, vcvtq_s32_f32(vmulq_f32(vf, vScale)));
 				}
 				for (; i < nSamples; i += nChannels)
 				{
-					pOut[i]     = m_pAudioFloatBuffer[i + 1] * Sample24BitMax;
-					pOut[i + 1] = m_pAudioFloatBuffer[i]     * Sample24BitMax;
+					pOut[i]     = FloatBuffer[i + 1] * Sample24BitMax;
+					pOut[i + 1] = FloatBuffer[i]     * Sample24BitMax;
 				}
 			}
 			else
@@ -1907,10 +1906,10 @@ void CMT32Pi::AudioTask()
 				// 24-bit PWM: 3-byte stride — scalar (overlapping writes via extra byte)
 				for (size_t i = 0; i < nSamples; i += nChannels)
 				{
-					s32* const pLeftSample = reinterpret_cast<s32*>(m_pAudioIntBuffer + i * nBytesPerSample);
-					s32* const pRightSample = reinterpret_cast<s32*>(m_pAudioIntBuffer + (i + 1) * nBytesPerSample);
-					*pLeftSample = m_pAudioFloatBuffer[i + 1] * Sample24BitMax;
-					*pRightSample = m_pAudioFloatBuffer[i] * Sample24BitMax;
+					s32* const pLeftSample = reinterpret_cast<s32*>(IntBuffer + i * nBytesPerSample);
+					s32* const pRightSample = reinterpret_cast<s32*>(IntBuffer + (i + 1) * nBytesPerSample);
+					*pLeftSample = FloatBuffer[i + 1] * Sample24BitMax;
+					*pRightSample = FloatBuffer[i] * Sample24BitMax;
 				}
 			}
 		}
@@ -1923,15 +1922,15 @@ void CMT32Pi::AudioTask()
 			{
 				// I2S: stride = sizeof(s32) = 4 bytes — fully vectorizable
 				const float32x4_t vScale = vdupq_n_f32(Sample24BitMax);
-				s32* const pOut = reinterpret_cast<s32*>(m_pAudioIntBuffer);
+				s32* const pOut = reinterpret_cast<s32*>(IntBuffer);
 				size_t i = 0;
 				for (; i + 4 <= nSamples; i += 4)
 				{
-					float32x4_t vf = vld1q_f32(m_pAudioFloatBuffer + i);
+					float32x4_t vf = vld1q_f32(FloatBuffer + i);
 					vst1q_s32(pOut + i, vcvtq_s32_f32(vmulq_f32(vf, vScale)));
 				}
 				for (; i < nSamples; ++i)
-					pOut[i] = m_pAudioFloatBuffer[i] * Sample24BitMax;
+					pOut[i] = FloatBuffer[i] * Sample24BitMax;
 			}
 			else
 #endif
@@ -1939,13 +1938,13 @@ void CMT32Pi::AudioTask()
 				// 24-bit PWM: 3-byte stride — scalar
 				for (size_t i = 0; i < nSamples; ++i)
 				{
-					s32* const pSample = reinterpret_cast<s32*>(m_pAudioIntBuffer + i * nBytesPerSample);
-					*pSample = m_pAudioFloatBuffer[i] * Sample24BitMax;
+					s32* const pSample = reinterpret_cast<s32*>(IntBuffer + i * nBytesPerSample);
+					*pSample = FloatBuffer[i] * Sample24BitMax;
 				}
 			}
 		}
 
-		const int nResult = m_pSound->Write(m_pAudioIntBuffer, nWriteBytes);
+		const int nResult = m_pSound->Write(IntBuffer, nWriteBytes);
 		if (nResult != static_cast<int>(nWriteBytes))
 			LOGERR("Sound data dropped");
 	}
@@ -2805,48 +2804,13 @@ void CMT32Pi::UpdateUSB(bool bStartup)
 	}
 	m_pUSBMassStorageDevice = pUSBMassStorageDevice;
 
-	// Scan for class-compliant USB MIDI devices (midi1-4 and umidi1-4)
-	bool bAnyUSBMIDIFound = false;
-	const char* pPrefixes[] = { "midi", "umidi" };
-
-	for (const char* pPrefix : pPrefixes)
+	if (!m_pUSBMIDIDevice && (m_pUSBMIDIDevice = static_cast<CUSBMIDIDevice*>(CDeviceNameService::Get()->GetDevice("umidi1", FALSE))))
 	{
-		for (int i = 1; i <= 4; ++i)
-		{
-			char szName[12];
-			snprintf(szName, sizeof(szName), "%s%d", pPrefix, i);
-			CUSBMIDIDevice* pDev = static_cast<CUSBMIDIDevice*>(CDeviceNameService::Get()->GetDevice(szName, FALSE));
-
-			if (pDev)
-			{
-				// Check if we are already tracking this specific device pointer
-				bool bAlreadyTracked = false;
-				int nEmptySlot = -1;
-				for (int s = 0; s < 4; ++s)
-				{
-					if (m_pUSBMIDIDevices[s] == pDev) bAlreadyTracked = true;
-					if (nEmptySlot == -1 && !m_pUSBMIDIDevices[s]) nEmptySlot = s;
-				}
-
-				// Only register if it's a new device and we have a slot available
-				if (!bAlreadyTracked && nEmptySlot != -1)
-				{
-					m_pUSBMIDIDevices[nEmptySlot] = pDev;
-					pDev->RegisterPacketHandler(USBMIDIPacketHandler);
-					pDev->RegisterRemovedHandler(USBMIDIDeviceRemovedHandler, reinterpret_cast<void**>(&m_pUSBMIDIDevices[nEmptySlot]));
-					LOGNOTE("Using USB MIDI interface: %s", szName);
-				}
-			}
-		}
-	}
-
-	for (int s = 0; s < 4; ++s)
-		if (m_pUSBMIDIDevices[s]) bAnyUSBMIDIFound = true;
-
-	if (bAnyUSBMIDIFound)
+		m_pUSBMIDIDevice->RegisterRemovedHandler(USBMIDIDeviceRemovedHandler, &m_pUSBMIDIDevice);
+		m_pUSBMIDIDevice->RegisterPacketHandler(USBMIDIPacketHandler);
+		LOGNOTE("Using USB MIDI interface");
 		m_bSerialMIDIEnabled = false;
-	else if (m_bSerialMIDIAvailable && !m_pUSBSerialDevice && !m_pPisound)
-		m_bSerialMIDIEnabled = true;
+	}
 
 	if (!m_pUSBSerialDevice && (m_pUSBSerialDevice = static_cast<CUSBSerialDevice*>(CDeviceNameService::Get()->GetDevice("utty1", FALSE))))
 	{
@@ -2995,43 +2959,33 @@ void CMT32Pi::UpdateNetwork()
 // refreshed so the active-sense watchdog knows the connection is live.
 void CMT32Pi::UpdateMIDI()
 {
-	size_t nBytes = 0;
+	size_t nBytes;
 	u8 Buffer[MIDIRxBufferSize];
 
-	m_eMidiSource = static_cast<u8>(EMidiSource::Physical);
-	
-	// 1. Read MIDI messages from built-in serial GPIO (legacy DIN)
-	if (m_bSerialMIDIEnabled && (nBytes = ReceiveSerialMIDI(Buffer, sizeof(Buffer))) > 0)
+	// Read MIDI messages from serial device or ring buffer
+	if (m_bSerialMIDIEnabled)
+		nBytes = ReceiveSerialMIDI(Buffer, sizeof(Buffer));
+	else if (m_pUSBSerialDevice)
 	{
-		ParseMIDIBytes(Buffer, nBytes);
-		m_nActiveSenseTime = m_pTimer->GetTicks();
+		const int nResult = m_pUSBSerialDevice->Read(Buffer, sizeof(Buffer));
+		nBytes = nResult > 0 ? static_cast<size_t>(nResult) : 0;
+	}
+	else
+		nBytes = m_MIDIRxBuffer.Dequeue(Buffer, sizeof(Buffer));
 
-		// Universal MIDI Thru: forward physical MIDI bytes to UART TX
-		if (m_bMIDIThruEnabled && m_bSerialMIDIAvailable && m_pSerial)
-			m_pSerial->Write(Buffer, nBytes);
+	if (nBytes > 0)
+	{
+		m_eMidiSource = static_cast<u8>(EMidiSource::Physical);
+		ParseMIDIBytes(Buffer, nBytes);
+		s_pThis->m_nActiveSenseTime = s_pThis->m_pTimer->GetTicks();
 	}
 
-	// 2. Read from USB-to-Serial adapters (utty)
-	if (m_pUSBSerialDevice && (nBytes = m_pUSBSerialDevice->Read(Buffer, sizeof(Buffer))) > 0)
+	// Universal MIDI Thru: forward physical MIDI bytes to UART TX
+	if (m_bMIDIThruEnabled && nBytes > 0 && m_pSerial)
 	{
-		ParseMIDIBytes(Buffer, nBytes);
-		m_nActiveSenseTime = m_pTimer->GetTicks();
-
-		// Universal MIDI Thru: forward physical MIDI bytes to UART TX
-		if (m_bMIDIThruEnabled && m_bSerialMIDIAvailable && m_pSerial)
-			m_pSerial->Write(Buffer, nBytes);
-	}
-
-	// 3. Drain shared IRQ-driven ring buffer (class-compliant USB MIDI devices and Pisound)
-	// This buffer collects data from all IRQ-driven MIDI sources.
-	while ((nBytes = m_MIDIRxBuffer.Dequeue(Buffer, sizeof(Buffer))) > 0)
-	{
-		ParseMIDIBytes(Buffer, nBytes);
-		m_nActiveSenseTime = m_pTimer->GetTicks();
-
-		// Universal MIDI Thru: forward physical MIDI bytes to UART TX
-		if (m_bMIDIThruEnabled && m_bSerialMIDIAvailable && m_pSerial)
-			m_pSerial->Write(Buffer, nBytes);
+		const int nSent = m_pSerial->Write(Buffer, nBytes);
+		if (nSent != static_cast<int>(nBytes))
+			LOGERR("MIDI Thru: sent %d of %zu bytes", nSent, nBytes);
 	}
 
 	// Drive FluidSequencer player from Core 0 and drain produced MIDI bytes
@@ -3043,7 +2997,7 @@ void CMT32Pi::UpdateMIDI()
 		{
 			m_eMidiSource = static_cast<u8>(EMidiSource::Player);
 			ParseMIDIBytes(Buffer, nBytes);
-			m_nActiveSenseTime = m_pTimer->GetTicks();
+			s_pThis->m_nActiveSenseTime = s_pThis->m_pTimer->GetTicks();
 		}
 
 		// Check if FluidSequencer finished playing (only fires when loop is off)
@@ -3072,7 +3026,7 @@ void CMT32Pi::UpdateMIDI()
 	{
 		m_eMidiSource = static_cast<u8>(EMidiSource::WebUI);
 		ParseMIDIBytes(Buffer, nBytes);
-		m_nActiveSenseTime = m_pTimer->GetTicks();
+		s_pThis->m_nActiveSenseTime = s_pThis->m_pTimer->GetTicks();
 	}
 }
 
@@ -4111,16 +4065,10 @@ void CMT32Pi::USBMIDIDeviceRemovedHandler(CDevice* pDevice, void* pContext)
 	assert(s_pThis != nullptr);
 
 	void** pDevicePointer = reinterpret_cast<void**>(pContext);
-	*pDevicePointer = nullptr; // Clear the specific device pointer in the array or for USBSerial
+	*pDevicePointer = nullptr;
 
 	// Re-enable serial MIDI if not in-use by logger and no other MIDI devices available
-	bool bAnyUSBMIDIActive = false;
-	for (int i = 0; i < 4; ++i)
-	{
-		if (s_pThis->m_pUSBMIDIDevices[i])
-			bAnyUSBMIDIActive = true;
-	}
-	if (s_pThis->m_bSerialMIDIAvailable && !(bAnyUSBMIDIActive || s_pThis->m_pUSBSerialDevice || s_pThis->m_pPisound))
+	if (s_pThis->m_bSerialMIDIAvailable && !(s_pThis->m_pUSBMIDIDevice || s_pThis->m_pUSBSerialDevice || s_pThis->m_pPisound))
 	{
 		LOGNOTE("Using serial MIDI interface");
 		s_pThis->m_bSerialMIDIEnabled = true;
@@ -4130,41 +4078,7 @@ void CMT32Pi::USBMIDIDeviceRemovedHandler(CDevice* pDevice, void* pContext)
 // The following handlers are called from interrupt context, enqueue into ring buffer for main thread
 void CMT32Pi::USBMIDIPacketHandler(unsigned nCable, u8* pPacket, unsigned nLength)
 {
-	if (nLength != 4) return; // USB MIDI Event Packets are always 4 bytes
-
-	// Decode USB-MIDI Event Packet (4 bytes) to raw MIDI bytes
-	u8 cin = pPacket[0] & 0x0F;
-	u8 midi[3];
-	size_t midiLen = 0;
-
-	switch (cin)
-	{
-		case 0x2: midiLen = 2; break; // 2-byte System Common
-		case 0x3: midiLen = 3; break; // 3-byte System Common
-		case 0x4: midiLen = 3; break; // SysEx starts/continues
-		case 0x5: midiLen = 1; break; // System Common 1-byte / SysEx ends (1 byte)
-		case 0x6: midiLen = 2; break; // SysEx ends (2 bytes)
-		case 0x7: midiLen = 3; break; // SysEx ends (3 bytes)
-		case 0x8: midiLen = 3; break; // Note Off
-		case 0x9: midiLen = 3; break; // Note On
-		case 0xA: midiLen = 3; break; // Poly Aftertouch
-		case 0xB: midiLen = 3; break; // Control Change
-		case 0xC: midiLen = 2; break; // Program Change
-		case 0xD: midiLen = 2; break; // Channel Aftertouch
-		case 0xE: midiLen = 3; break; // Pitch Bend
-		case 0xF: midiLen = 1; break; // System Real-Time
-		default: return;
-	}
-
-	if (midiLen > 0)
-	{
-		// Copy only the relevant MIDI bytes based on midiLen
-		for (size_t i = 0; i < midiLen; ++i)
-		{
-			midi[i] = pPacket[i + 1];
-		}
-		IRQMIDIReceiveHandler(midi, midiLen);
-	}
+	IRQMIDIReceiveHandler(pPacket, nLength);
 }
 
 void CMT32Pi::IRQMIDIReceiveHandler(const u8* pData, size_t nSize)
@@ -4174,7 +4088,9 @@ void CMT32Pi::IRQMIDIReceiveHandler(const u8* pData, size_t nSize)
 	// Enqueue data into ring buffer
 	if (s_pThis->m_MIDIRxBuffer.Enqueue(pData, nSize) != nSize)
 	{
-		// Do not call LCDLog from interrupt context, as it can perform memory allocations.
+		static const char* pErrorString = "MIDI overrun error!";
+		LOGWARN(pErrorString);
+		s_pThis->LCDLog(TLCDLogType::Error, pErrorString);
 	}
 }
 
