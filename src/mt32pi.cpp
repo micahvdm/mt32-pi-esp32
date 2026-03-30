@@ -3009,20 +3009,16 @@ void CMT32Pi::UpdateMIDI()
 			m_pSerial->Write(Buffer, nBytes);
 	}
 
-	// 3. Drain class-compliant USB MIDI devices and Pisound (IRQ-driven ring buffer)
-	// Iterate through all possible USB MIDI device slots
-	for (int i = 0; i < 4; ++i)
+	// 3. Drain shared IRQ-driven ring buffer (class-compliant USB MIDI devices and Pisound)
+	// This buffer collects data from all IRQ-driven MIDI sources.
+	while ((nBytes = m_MIDIRxBuffer.Dequeue(Buffer, sizeof(Buffer))) > 0)
 	{
-		if (m_pUSBMIDIDevices[i])
-		{
-			while ((nBytes = m_MIDIRxBuffer.Dequeue(Buffer, sizeof(Buffer))) > 0)
-			{
-				ParseMIDIBytes(Buffer, nBytes);
-				m_nActiveSenseTime = m_pTimer->GetTicks();
-				if (m_bMIDIThruEnabled && m_bSerialMIDIAvailable && m_pSerial)
-					m_pSerial->Write(Buffer, nBytes);
-			}
-		}
+		ParseMIDIBytes(Buffer, nBytes);
+		m_nActiveSenseTime = m_pTimer->GetTicks();
+
+		// Universal MIDI Thru: forward physical MIDI bytes to UART TX
+		if (m_bMIDIThruEnabled && m_bSerialMIDIAvailable && m_pSerial)
+			m_pSerial->Write(Buffer, nBytes);
 	}
 
 	// Drive FluidSequencer player from Core 0 and drain produced MIDI bytes
