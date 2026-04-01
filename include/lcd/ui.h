@@ -56,7 +56,7 @@ void EnterPowerSavingMode();
 void ExitPowerSavingMode();
 
 // Encoder menu
-void EnterMenu(CSoundFontSynth* pSF, CMT32Synth* pMT32, CSynthBase* pCurrent, CMT32Pi* pMT32Pi = nullptr, CYmfmSynth* pYmfm = nullptr);
+void EnterMenu(CSoundFontSynth* pSF, CMT32Synth* pMT32, CSynthBase* pCurrent, CMT32Pi* pMT32Pi = nullptr, CYmfmSynth* pYmfm = nullptr, bool bJumpToSFProgram = false);
 void ExitMenu();
 bool IsInMenu() const { return m_State == TState::InMenu; }
 bool MenuEncoderEvent(s8 nDelta);

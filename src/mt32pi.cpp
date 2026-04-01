@@ -3190,8 +3190,17 @@ void CMT32Pi::ProcessButtonEvent(const TButtonEvent& Event)
 		}
 		else if (!Event.bPressed)
 		{
-			if (!m_bMenuLongPressConsumed && m_UserInterface.IsInMenu())
-				m_UserInterface.MenuSelectEvent();
+			if (!m_bMenuLongPressConsumed)
+			{
+				if (m_UserInterface.IsInMenu())
+					m_UserInterface.MenuSelectEvent();
+				else
+				{
+					// Single click shortcut to SoundFont programs
+					bool bJumpToSF = (m_pCurrentSynth == m_pSoundFontSynth);
+					m_UserInterface.EnterMenu(m_pSoundFontSynth, m_pMT32Synth, m_pCurrentSynth, this, m_pYmfmSynth, bJumpToSF);
+				}
+			}
 			m_bMenuLongPressConsumed = false;
 		}
 		return;

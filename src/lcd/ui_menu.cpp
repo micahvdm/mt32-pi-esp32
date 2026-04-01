@@ -288,18 +288,30 @@ static void FormatMenuValue(char* pBuf, size_t nBufSize,
 
 void CUserInterface::EnterMenu(CSoundFontSynth* pSF, CMT32Synth* pMT32,
                                CSynthBase* pCurrent, CMT32Pi* pMT32Pi,
-                               CYmfmSynth* pYmfm)
+                               CYmfmSynth* pYmfm, bool bJumpToSFProgram)
 {
 	m_pMenuSF           = pSF;
 	m_pMenuMT32         = pMT32;
 	m_pMenuYmfm         = pYmfm;
 	m_pMenuCurrentSynth = pCurrent;
 	m_pMenuMT32Pi       = pMT32Pi;
-	m_nMenuCursor       = 0;
 	m_nMenuScroll       = 0;
-	s_nMenuLevel        = TMenuLevel::Main;
-	s_nMenuMainCursor   = 0;
 	m_bMenuEditing      = false;
+
+	// Shortcut: jump directly to SoundFont program selection if requested
+	if (bJumpToSFProgram && pCurrent == pSF && pSF)
+	{
+		s_nMenuLevel      = TMenuLevel::Synth;
+		m_nMenuCursor     = 1;  // Index 1 is "Program"
+		s_nMenuMainCursor = 2;  // "Synth FX" index in Main menu for when we go back
+		m_bMenuEditing    = true; // Start editing immediately for quick scrolling
+	}
+	else
+	{
+		s_nMenuLevel      = TMenuLevel::Main;
+		m_nMenuCursor     = 0;
+		s_nMenuMainCursor = 0;
+	}
 
 	// Snapshot current values from active synth
 	if (pCurrent == pSF && pSF)
