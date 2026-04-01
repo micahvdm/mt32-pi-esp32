@@ -53,7 +53,7 @@ static constexpr size_t MixerMenuItems  = 7;
 static size_t GetMenuItemCount(TMenuLevel Level, const CSynthBase* pCurrent, CSoundFontSynth* pSF, CMT32Synth* pMT32, CYmfmSynth* pYmfm);
 static const char* GetMixerMenuItemLabel(size_t nMixerIdx);
 static const char* GetMenuItemLabel(TMenuLevel Level, const CSynthBase* pCurrent, CSoundFontSynth* pSF, CMT32Synth* pMT32, CYmfmSynth* pYmfm, size_t nItem);
-static void FormatMenuValue(char* pBuf, size_t nBufSize, const CSynthBase* pCurrent, CSoundFontSynth* pSF, CMT32Synth* pMT32, size_t nItem, float fGain, bool bReverbActive, float fReverbRoomSize, float fReverbLevel, float fReverbDamping, float fReverbWidth, bool bChorusActive, float fChorusDepth, float fChorusLevel, int nChorusVoices, float fChorusSpeed, int nROMSet, int nSoundFont, float fMT32Gain, float fMT32ReverbGain, bool bMT32ReverbEnabled, bool bMT32NiceAmp, bool bMT32NicePan, bool bMT32NiceMix, int nMT32DACMode, int nMT32MIDIDelay, int nMT32AnalogMode, int nMT32RendererType, int nMT32PartialCount);
+static void FormatMenuValue(char* pBuf, size_t nBufSize, const CSynthBase* pCurrent, CSoundFontSynth* pSF, CMT32Synth* pMT32, size_t nItem, float fGain, bool bReverbActive, float fReverbRoomSize, float fReverbLevel, float fReverbDamping, float fReverbWidth, bool bChorusActive, float fChorusDepth, float fChorusLevel, int nChorusVoices, float fChorusSpeed, int nROMSet, int nSoundFont, int nSFProgram, float fMT32Gain, float fMT32ReverbGain, bool bMT32ReverbEnabled, bool bMT32NiceAmp, bool bMT32NicePan, bool bMT32NiceMix, int nMT32DACMode, int nMT32MIDIDelay, int nMT32AnalogMode, int nMT32RendererType, int nMT32PartialCount);
 
 static size_t GetMenuItemCount(TMenuLevel Level, const CSynthBase* pCurrent,
                                CSoundFontSynth* pSF, CMT32Synth* pMT32, CYmfmSynth* pYmfm)
@@ -79,7 +79,7 @@ static size_t GetMenuItemCount(TMenuLevel Level, const CSynthBase* pCurrent,
 	case TMenuLevel::Network: return 5;
 	case TMenuLevel::System:  return 7;
 	case TMenuLevel::Synth:
-		if (pCurrent == pSF && pSF)    return 14;
+		if (pCurrent == pSF && pSF)    return 15;
 		if (pCurrent == pMT32 && pMT32) return 12;
 		if (pCurrent && pCurrent->GetType() == TSynth::Ymfm) return 3;
 		return 0;
@@ -103,11 +103,11 @@ static const char* GetMenuItemLabel(TMenuLevel Level, const CSynthBase* pCurrent
 		if (pCurrent == pSF && pSF)
 	{
 		static const char* sfLabels[] =
-			{ "SoundFont", "Gain",
+			{ "SoundFont", "Program", "Gain",
 			  "Reverb", "Rev.Room", "Rev.Level", "Rev.Damp", "Rev.Width",
 			  "Chorus", "Cho.Depth", "Cho.Level", "Cho.Voices", "Cho.Speed",
 			  "Tuning", "Polyphony" };
-		return (nItem < 14) ? sfLabels[nItem] : nullptr;
+		return (nItem < 15) ? sfLabels[nItem] : nullptr;
 	}
 		if (pCurrent == pMT32 && pMT32)
 	{
@@ -187,6 +187,7 @@ static void FormatMenuValue(char* pBuf, size_t nBufSize,
 							float fChorusLevel, int nChorusVoices,
 							float fChorusSpeed,
 							int nROMSet, int /*nSoundFont*/,
+							int nSFProgram,
 							float fMT32Gain, float fMT32ReverbGain,
 							bool bMT32ReverbEnabled,
 							bool bMT32NiceAmp, bool bMT32NicePan, bool bMT32NiceMix,
@@ -200,7 +201,7 @@ static void FormatMenuValue(char* pBuf, size_t nBufSize,
 	// Logic remains valid but shared across submenu renders
 	if (pCurrent == pSF && pSF)
 	{
-		if (nItem >= 12) return;
+		if (nItem >= 13) return;
 		switch (nItem)
 		{
 		case 0:
@@ -210,17 +211,24 @@ static void FormatMenuValue(char* pBuf, size_t nBufSize,
 			snprintf(pBuf, nBufSize, "%zu/%zu", nIdx + 1, nTotal);
 			break;
 		}
-		case 1:  snprintf(pBuf, nBufSize, "%.2f", static_cast<double>(fGain));            break;
-		case 2:  snprintf(pBuf, nBufSize, "%s",   bReverbActive   ? "ON" : "OFF");      break;
-		case 3:  snprintf(pBuf, nBufSize, "%.1f", static_cast<double>(fReverbRoomSize));  break;
-		case 4:  snprintf(pBuf, nBufSize, "%.1f", static_cast<double>(fReverbLevel));     break;
-		case 5:  snprintf(pBuf, nBufSize, "%.1f", static_cast<double>(fReverbDamping));   break;
-		case 6:  snprintf(pBuf, nBufSize, "%.1f", static_cast<double>(fReverbWidth));     break;
-		case 7:  snprintf(pBuf, nBufSize, "%s",   bChorusActive   ? "ON" : "OFF");      break;
-		case 8:  snprintf(pBuf, nBufSize, "%.1f", static_cast<double>(fChorusDepth));     break;
-		case 9:  snprintf(pBuf, nBufSize, "%.1f", static_cast<double>(fChorusLevel));     break;
-		case 10: snprintf(pBuf, nBufSize, "%d",   nChorusVoices);                         break;
-		case 11: snprintf(pBuf, nBufSize, "%.2f", static_cast<double>(fChorusSpeed));     break;
+		case 1:
+		{
+			const char* pName = pSF->GetChannelInstrumentName(0);
+			if (pName) snprintf(pBuf, nBufSize, "%.6s", pName);
+			else snprintf(pBuf, nBufSize, "%d", nSFProgram);
+			break;
+		}
+		case 2:  snprintf(pBuf, nBufSize, "%.2f", static_cast<double>(fGain));            break;
+		case 3:  snprintf(pBuf, nBufSize, "%s",   bReverbActive   ? "ON" : "OFF");      break;
+		case 4:  snprintf(pBuf, nBufSize, "%.1f", static_cast<double>(fReverbRoomSize));  break;
+		case 5:  snprintf(pBuf, nBufSize, "%.1f", static_cast<double>(fReverbLevel));     break;
+		case 6:  snprintf(pBuf, nBufSize, "%.1f", static_cast<double>(fReverbDamping));   break;
+		case 7:  snprintf(pBuf, nBufSize, "%.1f", static_cast<double>(fReverbWidth));     break;
+		case 8:  snprintf(pBuf, nBufSize, "%s",   bChorusActive   ? "ON" : "OFF");      break;
+		case 9:  snprintf(pBuf, nBufSize, "%.1f", static_cast<double>(fChorusDepth));     break;
+		case 10: snprintf(pBuf, nBufSize, "%.1f", static_cast<double>(fChorusLevel));     break;
+		case 11: snprintf(pBuf, nBufSize, "%d",   nChorusVoices);                         break;
+		case 12: snprintf(pBuf, nBufSize, "%.2f", static_cast<double>(fChorusSpeed));     break;
 		default: break;
 		}
 	}
@@ -308,6 +316,7 @@ void CUserInterface::EnterMenu(CSoundFontSynth* pSF, CMT32Synth* pMT32,
 		m_fMenuChorusSpeed    = pSF->GetChorusSpeed();
 		m_bMenuReverbActive   = pSF->GetReverbActive();
 		m_nMenuSoundFont      = static_cast<int>(pSF->GetSoundFontIndex());
+		m_nMenuSFProgram      = static_cast<int>(pSF->GetProgram());
 		m_nMenuROMSet         = 0;
 	}
 	else if (pCurrent == pMT32 && pMT32)
@@ -460,61 +469,65 @@ bool CUserInterface::MenuEncoderEvent(s8 nDelta)
 				}
 				break;
 			}
-			case 1: // Gain [0.0 – 5.0]
+			case 1: // Program [0 – 127]
+				m_nMenuSFProgram = Utility::Clamp(m_nMenuSFProgram + nDelta, 0, 127);
+				m_pMenuSF->SetProgram(static_cast<u8>(m_nMenuSFProgram));
+				break;
+			case 2: // Gain [0.0 – 5.0]
 				m_fMenuGain = Utility::Clamp(m_fMenuGain + nDelta * 0.05f, 0.0f, 5.0f);
 				m_pMenuSF->SetGain(m_fMenuGain);
 				break;
-			case 2: // Reverb ON/OFF
+			case 3: // Reverb ON/OFF
 				m_bMenuReverbActive = !m_bMenuReverbActive;
 				m_pMenuSF->SetReverbActive(m_bMenuReverbActive);
 				break;
-			case 3: // Reverb room size  [0.0 – 1.0]
+			case 4: // Reverb room size  [0.0 – 1.0]
 				m_fMenuReverbRoomSize = Utility::Clamp(
 					m_fMenuReverbRoomSize + nDelta * 0.1f, 0.0f, 1.0f);
 				m_pMenuSF->SetReverbRoomSize(m_fMenuReverbRoomSize);
 				break;
-			case 4: // Reverb level      [0.0 – 1.0]
+			case 5: // Reverb level      [0.0 – 1.0]
 				m_fMenuReverbLevel = Utility::Clamp(
 					m_fMenuReverbLevel + nDelta * 0.1f, 0.0f, 1.0f);
 				m_pMenuSF->SetReverbLevel(m_fMenuReverbLevel);
 				break;
-			case 5: // Reverb damping    [0.0 – 1.0]
+			case 6: // Reverb damping    [0.0 – 1.0]
 				m_fMenuReverbDamping = Utility::Clamp(
 					m_fMenuReverbDamping + nDelta * 0.1f, 0.0f, 1.0f);
 				m_pMenuSF->SetReverbDamping(m_fMenuReverbDamping);
 				break;
-			case 6: // Reverb width      [0.0 – 100.0]
+			case 7: // Reverb width      [0.0 – 100.0]
 				m_fMenuReverbWidth = Utility::Clamp(
 					m_fMenuReverbWidth + nDelta * 1.0f, 0.0f, 100.0f);
 				m_pMenuSF->SetReverbWidth(m_fMenuReverbWidth);
 				break;
-			case 7: // Chorus ON/OFF
+			case 8: // Chorus ON/OFF
 				m_bMenuChorusActive = !m_bMenuChorusActive;
 				m_pMenuSF->SetChorusActive(m_bMenuChorusActive);
 				break;
-			case 8: // Chorus depth      [0.0 – 20.0]
+			case 9: // Chorus depth      [0.0 – 20.0]
 				m_fMenuChorusDepth = Utility::Clamp(
 					m_fMenuChorusDepth + nDelta * 0.5f, 0.0f, 20.0f);
 				m_pMenuSF->SetChorusDepth(m_fMenuChorusDepth);
 				break;
-			case 9: // Chorus level      [0.0 – 10.0]
+			case 10: // Chorus level      [0.0 – 10.0]
 				m_fMenuChorusLevel = Utility::Clamp(
 					m_fMenuChorusLevel + nDelta * 0.1f, 0.0f, 10.0f);
 				m_pMenuSF->SetChorusLevel(m_fMenuChorusLevel);
 				break;
-			case 10: // Chorus voices     [0 – 99]
+			case 11: // Chorus voices     [0 – 99]
 				m_nMenuChorusVoices = Utility::Clamp(m_nMenuChorusVoices + nDelta, 0, 99);
 				m_pMenuSF->SetChorusVoices(m_nMenuChorusVoices);
 				break;
-			case 11: // Chorus speed      [0.01 – 5.0]
+			case 12: // Chorus speed      [0.01 – 5.0]
 				m_fMenuChorusSpeed = Utility::Clamp(
 					m_fMenuChorusSpeed + nDelta * 0.05f, 0.01f, 5.0f);
 				m_pMenuSF->SetChorusSpeed(m_fMenuChorusSpeed);
 				break;
-			case 12: // Tuning
+			case 13: // Tuning
 				m_pMenuSF->SetTuning((m_pMenuSF->GetTuning() + nDelta + 7) % 7);
 				break;
-			case 13: // Polyphony
+			case 14: // Polyphony
 				m_pMenuSF->SetPolyphony(Utility::Clamp(m_pMenuSF->GetPolyphony() + nDelta * 10, 1, 512));
 				break;
 			default:
@@ -1100,7 +1113,28 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 		else if (s_nMenuLevel == TMenuLevel::Synth)
 		{
 			pLabel = GetMenuItemLabel(s_nMenuLevel, m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32, m_pMenuYmfm, nItemIdx);
-			if (nItemIdx == 12) snprintf(valBuf, sizeof(valBuf), "%.4s", m_pMenuSF->GetTuningName(m_pMenuSF->GetTuning()));
+			if (m_pMenuCurrentSynth == m_pMenuSF)
+			{
+				if (nItemIdx == 13) snprintf(valBuf, sizeof(valBuf), "%.4s", m_pMenuSF->GetTuningName(m_pMenuSF->GetTuning()));
+				else if (nItemIdx == 14) snprintf(valBuf, sizeof(valBuf), "%d", m_pMenuSF->GetPolyphony());
+				else FormatMenuValue(valBuf, sizeof(valBuf),
+			                m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32,
+			                nItemIdx,
+			                m_fMenuGain,
+			                m_bMenuReverbActive, m_fMenuReverbRoomSize, m_fMenuReverbLevel,
+			                m_fMenuReverbDamping, m_fMenuReverbWidth,
+			                m_bMenuChorusActive, m_fMenuChorusDepth,
+			                m_fMenuChorusLevel, m_nMenuChorusVoices, m_fMenuChorusSpeed,
+			                m_nMenuROMSet, m_nMenuSoundFont,
+			                m_nMenuSFProgram,
+			                m_fMenuMT32Gain, m_fMenuMT32ReverbGain,
+			                m_bMenuMT32ReverbEnabled,
+			                m_bMenuMT32NiceAmpRamp, m_bMenuMT32NicePanning, m_bMenuMT32NicePartMix,
+			                m_nMenuMT32DACMode, m_nMenuMT32MIDIDelay,
+			                m_nMenuMT32AnalogMode, m_nMenuMT32RendererType,
+			                m_nMenuMT32PartialCount);
+			}
+			else if (nItemIdx == 12) snprintf(valBuf, sizeof(valBuf), "%.4s", m_pMenuSF->GetTuningName(m_pMenuSF->GetTuning()));
 			else if (nItemIdx == 13) snprintf(valBuf, sizeof(valBuf), "%d", m_pMenuSF->GetPolyphony());
 			else FormatMenuValue(valBuf, sizeof(valBuf),
 			                m_pMenuCurrentSynth, m_pMenuSF, m_pMenuMT32,
@@ -1111,6 +1145,7 @@ void CUserInterface::DrawMenu(CLCD& LCD) const
 			                m_bMenuChorusActive, m_fMenuChorusDepth,
 			                m_fMenuChorusLevel, m_nMenuChorusVoices, m_fMenuChorusSpeed,
 			                m_nMenuROMSet, m_nMenuSoundFont,
+			                m_nMenuSFProgram,
 			                m_fMenuMT32Gain, m_fMenuMT32ReverbGain,
 			                m_bMenuMT32ReverbEnabled,
 			                m_bMenuMT32NiceAmpRamp, m_bMenuMT32NicePanning, m_bMenuMT32NicePartMix,

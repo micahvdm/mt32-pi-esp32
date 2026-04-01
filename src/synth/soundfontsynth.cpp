@@ -177,7 +177,8 @@ CSoundFontSynth::CSoundFontSynth(unsigned nSampleRate)
 	  m_nPolyphony(0),
 	  m_nPercussionMask(1 << 9),
 	  m_nCurrentSoundFontIndex(0),
-	  m_nTuningPreset(TuningEqual)
+	  m_nTuningPreset(TuningEqual),
+	  m_nProgram(0)
 {
 }
 
@@ -284,6 +285,10 @@ void CSoundFontSynth::HandleMIDIShortMessage(u32 nMessage)
 
 		// Program change
 		case 0xC0:
+			if (nChannel == 0)
+			{
+				m_nProgram = nData1;
+			}
 			fluid_synth_program_change(m_pSynth, nChannel, nData1);
 			break;
 
@@ -450,6 +455,7 @@ bool CSoundFontSynth::Reinitialize(const char* pSoundFontPath, const TFXProfile*
 
 	fluid_synth_set_polyphony(m_pSynth, pConfig->FluidSynthPolyphony);
 	m_nPolyphony = pConfig->FluidSynthPolyphony;
+	m_nProgram = 0;
 
 	m_nInitialGain = pFXProfile->nGain.ValueOr(pConfig->FluidSynthDefaultGain);
 	fluid_synth_set_gain(m_pSynth, m_nVolume / 100.0f * m_nInitialGain);
@@ -817,6 +823,22 @@ void CSoundFontSynth::SetTuning(int nPreset)
 		}
 	}
 	m_Lock.Release();
+}
+
+void CSoundFontSynth::SetProgram(u8 nProgram)
+{
+	m_nProgram = nProgram;
+	m_Lock.Acquire();
+	if (m_pSynth)
+	{
+		fluid_synth_program_change(m_pSynth, 0, nProgram);
+	}
+	m_Lock.Release();
+}
+
+u8 CSoundFontSynth::GetProgram() const
+{
+	return m_nProgram;
 }
 
 void CSoundFontSynth::SetPolyphony(int nPolyphony)

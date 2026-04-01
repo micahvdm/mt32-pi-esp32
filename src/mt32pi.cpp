@@ -811,6 +811,23 @@ int CMT32Pi::GetSoundFontPolyphony() const
 	return m_pSoundFontSynth->GetPolyphony();
 }
 
+bool CMT32Pi::SetSoundFontProgram(u8 nProgram)
+{
+	if (!m_pSoundFontSynth)
+		return false;
+
+	m_pSoundFontSynth->SetProgram(nProgram);
+	return true;
+}
+
+u8 CMT32Pi::GetSoundFontProgram() const
+{
+	if (!m_pSoundFontSynth)
+		return 0;
+
+	return m_pSoundFontSynth->GetProgram();
+}
+
 bool CMT32Pi::SetSoundFontChannelType(int nChannel, int nType)
 {
 	if (!m_pSoundFontSynth)
