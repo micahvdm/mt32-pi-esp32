@@ -132,6 +132,8 @@ public:
 	const char* GetSoundFontTuningName() const;
 	bool SetSoundFontPolyphony(int nPolyphony);
 	int GetSoundFontPolyphony() const;
+	bool SetSoundFontProgram(u8 nProgram);
+	u8 GetSoundFontProgram() const;
 	bool SetSoundFontChannelType(int nChannel, int nType);
 	bool HandleMappedControlChange(u8 nChannel, u8 nCC, u8 nValue);
 	// bool ForwardMappedCCAsNormalCC(u8 nChannel, u8 nCC, u8 nValue);

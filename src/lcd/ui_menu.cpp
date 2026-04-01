@@ -704,6 +704,7 @@ bool CUserInterface::MenuEncoderEvent(s8 nDelta)
 			{
 				m_fMenuGain = m_pMenuSF->GetGain();
 				m_bMenuReverbActive = m_pMenuSF->GetReverbActive();
+				m_nMenuSFProgram = static_cast<int>(m_pMenuSF->GetProgram());
 			}
 			else if (m_pMenuCurrentSynth == m_pMenuMT32 && m_pMenuMT32)
 			{

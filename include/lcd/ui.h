@@ -136,6 +136,7 @@ float m_fMenuChorusSpeed;
 float m_fMenuGain;
 int   m_nMenuROMSet;     // MT-32 only
 int   m_nMenuSoundFont;  // SF only
+int   m_nMenuSFProgram;
 float m_fMenuMT32Gain;
 float m_fMenuMT32ReverbGain;
 bool  m_bMenuMT32ReverbEnabled;

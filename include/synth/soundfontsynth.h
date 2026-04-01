@@ -100,6 +100,9 @@ public:
 	void SetPolyphony(int nPolyphony);
 	int GetPolyphony() const { return m_nPolyphony; }
 
+	void SetProgram(u8 nProgram);
+	u8 GetProgram() const;
+
 	void SetChannelType(int nChannel, int nType);
 	u16 GetPercussionMask() const { return m_nPercussionMask; }
 
@@ -135,6 +138,7 @@ private:
 	u16 m_nPercussionMask;
 	size_t m_nCurrentSoundFontIndex;
 	int   m_nTuningPreset;
+	u8    m_nProgram;
 
 	CSoundFontManager m_SoundFontManager;
 
