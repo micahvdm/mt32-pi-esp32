@@ -272,7 +272,7 @@ u8 CUserInterface::CenterMessageOffset(CLCD& LCD, const char* pMessage)
 	return nMessageLength >= nCharWidth ? 0 : (nCharWidth - nMessageLength) / 2;
 }
 
-void CUserInterface::DrawChannelLevels(CLCD& LCD, u8 nBarHeight, float* pChannelLevels, float* pPeakLevels, u8 nChannels, bool bDrawBarBases)
+void CUserInterface::DrawChannelLevels(CLCD& LCD, u8 nBarYOffset, u8 nBarHeight, float* pChannelLevels, float* pPeakLevels, u8 nChannels, bool bDrawBarBases)
 {
 	// Initialize visualizer from config on first draw
 	static bool bVisualizerInited = false;
@@ -308,7 +308,6 @@ void CUserInterface::DrawChannelLevels(CLCD& LCD, u8 nBarHeight, float* pChannel
 					}
 				}
 			}
-			return;
 		}
 
 		// Graphical Reactive Face
@@ -332,15 +331,15 @@ void CUserInterface::DrawChannelLevels(CLCD& LCD, u8 nBarHeight, float* pChannel
 			u8 mouthW = static_cast<u8>(20 * (LCD.Width() / 128.0f) + totalLevel * 40);
 			u8 mouthY = static_cast<u8>(LCD.Height() * 2 / 3.0f);
 			LCD.DrawFilledRect(static_cast<u8>(LCD.Width() / 2.0f - mouthW/2), mouthY, static_cast<u8>(LCD.Width() / 2.0f + mouthW/2), mouthY + static_cast<u8>(2 * (LCD.Height() / 64.0f)));
-			return;
 		}
 
 		// Enhanced Oscilloscope
 		if (s_nVisualizer == 3)
 		{
 			LCD.Clear(false); // Clear the screen for a fresh waveform
+			const u8 nCanvasHeight = LCD.Height();
 
-			const u8 nMidY = nBarHeight / 2;
+			const u8 nMidY = nCanvasHeight / 2;
 			static float fPhaseBase = 0;
 			fPhaseBase += 0.15f; // Constant phase shift for movement
 
@@ -353,17 +352,16 @@ void CUserInterface::DrawChannelLevels(CLCD& LCD, u8 nBarHeight, float* pChannel
 					{
 						// Vary frequency and amplitude based on channel and level
 						float freq = 0.1f + (ch * 0.02f) + (pChannelLevels[ch] * 0.5f); // Base freq + channel offset + level-dependent freq
-						float amplitude = pChannelLevels[ch] * (nBarHeight / 2.5f); // Amplitude based on level
+						float amplitude = pChannelLevels[ch] * (nCanvasHeight / 2.5f); // Amplitude based on level
 						fSample += sinf(fPhaseBase + (x * freq)) * amplitude;
 					}
 				}
 				
 				int y = nMidY + static_cast<int>(fSample);
 				// Clamp y to screen bounds
-				y = Utility::Clamp(y, 0, nBarHeight - 1);
+				y = Utility::Clamp(y, 0, nCanvasHeight - 1);
 				LCD.DrawFilledRect(x, y, x, y); // Draw wave pixel
 			}
-			return;
 		}
 
 		// Starfield (Asteroids style)
@@ -392,7 +390,6 @@ void CUserInterface::DrawChannelLevels(CLCD& LCD, u8 nBarHeight, float* pChannel
 				else
 					s_StarZ[i] = 0; // Recycle
 			}
-			return;
 		}
 	}
 
@@ -400,7 +397,7 @@ void CUserInterface::DrawChannelLevels(CLCD& LCD, u8 nBarHeight, float* pChannel
 	{
 		const u8 nBarSpacing = LCD.Width() / nChannels / 2;
 		const u8 nBarOffsetX = (LCD.Width() - nChannels - nChannels * nBarSpacing) / 2;
-		DrawChannelLevelsCharacter(LCD, nBarHeight, nBarOffsetX, 0, nBarSpacing, pChannelLevels, nChannels, bDrawBarBases);
+		DrawChannelLevelsCharacter(LCD, nBarHeight, nBarOffsetX, nBarYOffset, nBarSpacing, pChannelLevels, nChannels, bDrawBarBases);
 	}
 	else
 	{
@@ -408,7 +405,7 @@ void CUserInterface::DrawChannelLevels(CLCD& LCD, u8 nBarHeight, float* pChannel
 		const u8 nBarWidth = (LCD.Width() - nTotalBarSpacing) / nChannels;
 		const u8 nTotalBarWidth = nBarWidth * nChannels;
 		const u8 nBarOffsetX = (LCD.Width() - nTotalBarWidth - nTotalBarSpacing) / 2;
-		DrawChannelLevelsGraphical(LCD, nBarOffsetX, 0, nBarWidth, nBarHeight, BarSpacingPixels, pChannelLevels, pPeakLevels, nChannels, bDrawBarBases);
+		DrawChannelLevelsGraphical(LCD, nBarOffsetX, nBarYOffset, nBarWidth, nBarHeight, BarSpacingPixels, pChannelLevels, pPeakLevels, nChannels, bDrawBarBases);
 	}
 }
 
