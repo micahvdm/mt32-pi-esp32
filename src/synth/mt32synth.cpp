@@ -203,12 +203,14 @@ void CMT32Synth::UpdateLCD(CLCD& LCD, unsigned int nTicks)
 
 	const u8 nWidth = LCD.Width();
 	const u8 nHeight = LCD.Height();
-	u8 nStatusRow, nBarHeight;
+	u8 nStatusRow, nBarHeight, nBarYOffset;
 
 	if (LCD.GetType() == CLCD::TType::Character)
 	{
-		nStatusRow = nHeight - 1;
+		// Status text on top row, bars on remaining rows at the bottom
+		nStatusRow = 0;
 		nBarHeight = nHeight - 1;
+		nBarYOffset = 1;
 
 		// For 16-character wide LCDs
 		if (nWidth < 20)
@@ -216,13 +218,15 @@ void CMT32Synth::UpdateLCD(CLCD& LCD, unsigned int nTicks)
 	}
 	else
 	{
-		nStatusRow = nHeight / 16 - 1;
-		nBarHeight = nHeight - 16;
+		// Status text on top, bars at the bottom
+		nStatusRow = 0;
+		nBarHeight = 12;
+		nBarYOffset = nHeight - nBarHeight;
 	}
 
 	float PartLevels[9], PartPeaks[9];
 	GetPartLevels(nTicks, PartLevels, PartPeaks);
-	CUserInterface::DrawChannelLevels(LCD, nBarHeight, PartLevels, PartPeaks, 9, false);
+	CUserInterface::DrawChannelLevels(LCD, nBarYOffset, nBarHeight, PartLevels, PartPeaks, 9, false);
 
 	m_pSynth->getDisplayState(m_LCDTextBuffer, bNarrowPartStateText);
 
