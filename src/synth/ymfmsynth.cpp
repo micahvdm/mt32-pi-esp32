@@ -1286,10 +1286,23 @@ void CYmfmSynth::ReportStatus() const
 
 void CYmfmSynth::UpdateLCD(CLCD& LCD, unsigned int nTicks)
 {
-    const u8 nBarHeight = LCD.Height();
+    const u8 nHeight = LCD.Height();
+    u8 nBarHeight, nBarYOffset;
+
+    if (LCD.GetType() == CLCD::TType::Graphical)
+    {
+        nBarHeight = 12;
+        nBarYOffset = nHeight - nBarHeight;
+    }
+    else
+    {
+        nBarHeight = nHeight > 1 ? nHeight - 1 : 1;
+        nBarYOffset = nHeight > 1 ? 1 : 0;
+    }
+
     float ChannelLevels[16], PeakLevels[16];
     m_MIDIMonitor.GetChannelLevels(nTicks, ChannelLevels, PeakLevels, 1 << PERCUSSION_CHANNEL);
-    CUserInterface::DrawChannelLevels(LCD, nBarHeight, ChannelLevels, PeakLevels, 16, true);
+    CUserInterface::DrawChannelLevels(LCD, nBarYOffset, nBarHeight, ChannelLevels, PeakLevels, 16, true);
 }
 
 const char* CYmfmSynth::GetChannelInstrumentName(u8 nChannel)
