@@ -158,26 +158,32 @@ bool CConfig::Initialize(const char* pPath)
 
 	// +1 byte for null terminator
 	const UINT nSize = f_size(&File);
-	char Buffer[nSize + 1];
-	UINT nRead;
-
-	if (f_read(&File, Buffer, nSize, &nRead) != FR_OK)
+	char* pBuffer = new char[nSize + 1];
+	if (!pBuffer)
 	{
-		LOGERR("Error reading config file", pPath);
 		f_close(&File);
 		return false;
 	}
 
-	// Ensure null-terminated
-	Buffer[nRead] = '\0';
+	UINT nRead;
+	if (f_read(&File, pBuffer, nSize, &nRead) != FR_OK)
+	{
+		LOGERR("Error reading config file: %s", pPath);
+		f_close(&File);
+		delete[] pBuffer;
+		return false;
+	}
 
-	const int nResult = ini_parse_string(Buffer, INIHandler, this);
+	// Ensure null-terminated
+	pBuffer[nRead] = '\0';
+
+	const int nResult = ini_parse_string(pBuffer, INIHandler, this);
 	if (nResult > 0)
 		LOGWARN("Config parse error on line %d", nResult);
 
 	f_close(&File);
+	delete[] pBuffer;
 	return nResult >= 0;
-
 }
 
 // Helper functions for CConfig::Write overloads
@@ -321,12 +327,12 @@ int CConfig::INIHandler(void* pUser, const char* pSection, const char* pName, co
 			return ParseOption(pValue, &pConfig->MEMBER_NAME __VA_OPT__(, ) __VA_ARGS__);
 
 	#define END_SECTION \
-		return 0;       \
+		return 1;       \
 		}
 
 	#include "config.def"
 
-	return 0;
+	return 1;
 }
 
 bool CConfig::ParseOption(const char* pString, bool* pOutBool)
