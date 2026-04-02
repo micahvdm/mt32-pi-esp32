@@ -257,18 +257,6 @@ bool CConfig::Write(const char* pPath)
 			f_printf(&fp, "%s = %d\n", BindingKeys[i], MIDICCBindingCC[i]);
 	}
 
-	f_printf(&fp, "\n[rhythm_looper]\n");
-	WriteCfg(&fp, "enabled", RhythmLooperEnabled);
-	WriteCfg(&fp, "channel", RhythmLooperChannel);
-	WriteCfg(&fp, "bpm", RhythmLooperBPM);
-	WriteCfg(&fp, "quantize", RhythmLooperQuantize);
-	WriteCfg(&fp, "max_bars", RhythmLooperMaxBars);
-	WriteCfg(&fp, "playback_gain", RhythmLooperPlaybackGain);
-	WriteCfg(&fp, "metronome_enabled", RhythmLooperMetronomeEnabled);
-
-	f_printf(&fp, "\n[lcd]\n");
-	WriteCfg(&fp, "visualizer", LCDVisualizer);
-
 	f_close(&fp);
 	return true;
 }
@@ -281,38 +269,11 @@ int CConfig::INIHandler(void* pUser, const char* pSection, const char* pName, co
 	{
 		TMIDICCBindingID BindingID;
 		int nCC;
-		if (ParseMIDICCBindingKey(pName, &BindingID) && ParseMIDICCNumber(pValue, &nCC))
-		{
-			s_pThis->MIDICCBindingCC[static_cast<unsigned>(BindingID)] = nCC;
-			s_pThis->RebuildMIDICCMap();
-			return 1;
-		}
-		return 1;
-	}
+		if (pConfig->ParseMIDICCBindingKey(pName, &BindingID) && pConfig->ParseMIDICCNumber(pValue, &nCC))
+			pConfig->MIDICCBindingCC[static_cast<unsigned>(BindingID)] = nCC;
 
-	if (strcasecmp(pSection, "rhythm_looper") == 0)
-	{
-		if (strcasecmp(pName, "enabled") == 0)
-			return ParseOption(pValue, &pConfig->RhythmLooperEnabled);
-		if (strcasecmp(pName, "channel") == 0)
-			return ParseOption(pValue, &pConfig->RhythmLooperChannel);
-		if (strcasecmp(pName, "bpm") == 0)
-			return ParseOption(pValue, &pConfig->RhythmLooperBPM);
-		if (strcasecmp(pName, "quantize") == 0)
-			return ParseOption(pValue, &pConfig->RhythmLooperQuantize);
-		if (strcasecmp(pName, "max_bars") == 0)
-			return ParseOption(pValue, &pConfig->RhythmLooperMaxBars);
-		if (strcasecmp(pName, "playback_gain") == 0)
-			return ParseOption(pValue, &pConfig->RhythmLooperPlaybackGain);
-		if (strcasecmp(pName, "metronome_enabled") == 0)
-			return ParseOption(pValue, &pConfig->RhythmLooperMetronomeEnabled);
+		pConfig->RebuildMIDICCMap();
 		return 1;
-	}
-
-	if (strcasecmp(pSection, "lcd") == 0)
-	{
-		if (strcasecmp(pName, "visualizer") == 0)
-			return ParseOption(pValue, &pConfig->LCDVisualizer);
 	}
 
 	//LOGDBG("'%s', '%s', '%s'", pSection, pName,  pValue);
@@ -324,7 +285,11 @@ int CConfig::INIHandler(void* pUser, const char* pSection, const char* pName, co
 
 	#define CFG(INI_NAME, TYPE, MEMBER_NAME, _2, ...) \
 		if (!strcmp(#INI_NAME, pName))                \
-			return ParseOption(pValue, &pConfig->MEMBER_NAME __VA_OPT__(, ) __VA_ARGS__);
+		{                                             \
+			if (!ParseOption(pValue, &pConfig->MEMBER_NAME __VA_OPT__(, ) __VA_ARGS__)) \
+				LOGWARN("Failed to parse config option '%s' in section '%s'", pName, pSection); \
+			return 1;                                 \
+		}
 
 	#define END_SECTION \
 		return 1;       \
