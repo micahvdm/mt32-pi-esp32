@@ -191,6 +191,15 @@ static void WriteCfg(FIL* fp, const char* pName, const CIPAddress& ipVal)
 	f_printf(fp, "%s = %s\n", pName, static_cast<const char*>(sIP));
 }
 
+static void WriteCfg(FIL* fp, const char* pName, int nVal, bool bHex)
+{
+	if (bHex)
+	{
+		f_printf(fp, "%s = 0x%x\n", pName, nVal);
+	}
+	else { WriteCfg(fp, pName, nVal); }
+}
+
 // Enum overloads for CConfig::Write
 static void WriteCfg(FIL *fp, const char *pName, CConfig::TSystemDefaultSynth v) { f_printf(fp, "%s = %s\n", pName, TSystemDefaultSynthStrings[static_cast<int>(v)]); }
 static void WriteCfg(FIL *fp, const char *pName, CConfig::TAudioOutputDevice v)  { f_printf(fp, "%s = %s\n", pName, TAudioOutputDeviceStrings[static_cast<int>(v)]); }
@@ -220,7 +229,7 @@ bool CConfig::Write(const char* pPath)
 	#define BEGIN_SECTION(SECTION) f_printf(&fp, "[" #SECTION "]\n");
 	
 	// Call the overloaded WriteCfg based on the member's type
-	#define CFG(INI_NAME, TYPE, MEMBER_NAME, ...) WriteCfg(&fp, #INI_NAME, MEMBER_NAME);
+	#define CFG(INI_NAME, TYPE, MEMBER_NAME, DEFAULT, ...) WriteCfg(&fp, #INI_NAME, MEMBER_NAME __VA_OPT__(, ) __VA_ARGS__);
 
 	#define END_SECTION f_printf(&fp, "\n");
 	
