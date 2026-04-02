@@ -137,6 +137,7 @@ public:
 	bool SetSoundFontChannelType(int nChannel, int nType);
 	bool HandleMappedControlChange(u8 nChannel, u8 nCC, u8 nValue);
 	// bool ForwardMappedCCAsNormalCC(u8 nChannel, u8 nCC, u8 nValue);
+	void QueuePendingSFProgram(u8 nProgram);
 	u16 GetSoundFontPercussionMask() const;
 
 	// MT-32 Sound Parameters
@@ -610,6 +611,7 @@ private:
 	volatile bool  m_bPendingSFChorusLevel;
 	volatile bool  m_bPendingSFChorusDepth;
 	volatile bool  m_bPendingSFChorusSpeed;
+	volatile bool  m_bPendingSFProgram;
 
 	volatile float m_nPendingSoundFontGain;
 	volatile float m_nPendingSFReverbRoomSize;
@@ -619,6 +621,7 @@ private:
 	volatile float m_nPendingSFChorusLevel;
 	volatile float m_nPendingSFChorusDepth;
 	volatile float m_nPendingSFChorusSpeed;
+	volatile u8    m_nPendingSFProgram;
 
 	unsigned m_nLastPendingSoundFontApplyTicks;
 

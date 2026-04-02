@@ -871,12 +871,21 @@ void CSoundFontSynth::SetChannelType(int nChannel, int nType)
 
 const char* CSoundFontSynth::GetChannelInstrumentName(u8 nChannel)
 {
+	m_Lock.Acquire();
 	if (!m_pSynth || nChannel >= 16)
+	{
+		m_Lock.Release();
 		return nullptr;
+	}
 
 	fluid_preset_t* pPreset = fluid_synth_get_channel_preset(m_pSynth, nChannel);
 	if (!pPreset)
+	{
+		m_Lock.Release();
 		return nullptr;
+	}
 
-	return fluid_preset_get_name(pPreset);
+	const char* pName = fluid_preset_get_name(pPreset);
+	m_Lock.Release();
+	return pName;
 }

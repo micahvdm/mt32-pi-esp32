@@ -483,7 +483,10 @@ bool CUserInterface::MenuEncoderEvent(s8 nDelta)
 			}
 			case 1: // Program [0 – 127]
 				m_nMenuSFProgram = Utility::Clamp(m_nMenuSFProgram + nDelta, 0, 127);
-				m_pMenuSF->SetProgram(static_cast<u8>(m_nMenuSFProgram));
+				if (m_pMenuMT32Pi)
+					m_pMenuMT32Pi->QueuePendingSFProgram(static_cast<u8>(m_nMenuSFProgram));
+				else
+					m_pMenuSF->SetProgram(static_cast<u8>(m_nMenuSFProgram));
 				break;
 			case 2: // Gain [0.0 – 5.0]
 				m_fMenuGain = Utility::Clamp(m_fMenuGain + nDelta * 0.05f, 0.0f, 5.0f);

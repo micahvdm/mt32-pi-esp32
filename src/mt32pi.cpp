@@ -845,6 +845,12 @@ u16 CMT32Pi::GetSoundFontPercussionMask() const
 	return m_pSoundFontSynth->GetPercussionMask();
 }
 
+void CMT32Pi::QueuePendingSFProgram(u8 nProgram)
+{
+	m_nPendingSFProgram = nProgram;
+	m_bPendingSFProgram = true;
+}
+
 void CMT32Pi::QueuePendingSoundFontGain(float nValue)
 {
     m_nPendingSoundFontGain = Utility::Clamp(nValue, 0.0f, 5.0f);
@@ -945,6 +951,12 @@ void CMT32Pi::ApplyPendingSoundFontControls()
         m_bPendingSFChorusSpeed = false;
         SetSoundFontChorusSpeed(m_nPendingSFChorusSpeed);
     }
+
+	if (m_bPendingSFProgram)
+	{
+		m_bPendingSFProgram = false;
+		SetSoundFontProgram(m_nPendingSFProgram);
+	}
 }
 
 float CMT32Pi::CCToUnitFloat(u8 nValue)
